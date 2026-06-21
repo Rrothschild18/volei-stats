@@ -1,0 +1,80 @@
+<div class="p-4 max-w-4xl mx-auto">
+  <h1 class="text-2xl font-bold mb-4">Sorteio de Duplas</h1>
+
+  @if (loading()) {
+    <p class="text-gray-500">Gerando propostas...</p>
+  }
+
+  @if (!loading() && proposals().length > 0) {
+    <div class="flex gap-2 mb-4">
+      @for (proposal of proposals(); track proposal.id; let i = $index) {
+        <button mat-raised-button
+                [class]="selectedIndex() === i ? 'bg-blue-100' : ''"
+                (click)="selectProposal(i)">
+          Proposta {{ i + 1 }}
+          @if (i === 0) { (Melhor) }
+        </button>
+      }
+    </div>
+
+    @if (currentProposal()) {
+      <div class="mb-4">
+        <p class="text-sm text-gray-600 mb-2">
+          Pontuação: {{ currentProposal()!.score }} pontos
+        </p>
+
+        @if (currentProposal()!.waitingPlayerId) {
+          <mat-card class="mb-4 border-l-4 border-orange-400">
+            <mat-card-content class="p-3">
+              <div class="flex items-center gap-2">
+                <mat-icon class="text-orange-500">hourglass_empty</mat-icon>
+                <span class="font-medium">Jogador em Espera:</span>
+                <span>{{ getPlayerName(currentProposal()!.waitingPlayerId!) }}</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        }
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          @for (team of currentProposal()!.teams; track team.id; let ti = $index) {
+            <mat-card>
+              <mat-card-content class="p-3">
+                <p class="font-medium mb-2">Dupla {{ ti + 1 }}</p>
+                <div class="flex flex-col gap-1">
+                  @for (pid of team.playerIds; track pid; let pi = $index) {
+                    <div class="flex items-center gap-2">
+                      <mat-form-field appearance="outline" class="flex-1 text-sm">
+                        <mat-select [value]="pid" (selectionChange)="swapPlayer(team.id, pi, $event.value)">
+                          @for (player of availablePlayers(); track player.id) {
+                            <mat-option [value]="player.id">{{ player.name }} ({{ player.gender }})</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                  }
+                </div>
+                @for (badge of getBadgesForTeam(team.id); track badge.type) {
+                  <mat-chip class="mt-2 text-xs"
+                            [class]="badge.type === 'repeated-pair' ? 'bg-red-100 text-red-700' : badge.type === 'same-gender' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'">
+                    {{ badge.description }}
+                  </mat-chip>
+                }
+              </mat-card-content>
+            </mat-card>
+          }
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-4">
+        <button mat-raised-button (click)="confirmDraw()">
+          <mat-icon>check</mat-icon>
+          Confirmar e Criar Campeonato
+        </button>
+        <button mat-button (click)="regenerate()">
+          <mat-icon>refresh</mat-icon>
+          Gerar Novamente
+        </button>
+      </div>
+    }
+  }
+</div>

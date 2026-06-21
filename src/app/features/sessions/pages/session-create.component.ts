@@ -6,37 +6,74 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { Player } from '../../../shared/models';
+import { JsonPipe } from '@angular/common';
 
 @Component({
   selector: 'app-session-create',
-  imports: [MatCheckboxModule, MatButtonModule, MatIconModule, MatCardModule],
+  imports: [MatCheckboxModule, MatButtonModule, MatIconModule, MatCardModule, JsonPipe],
   template: `
     <div class="p-4 max-w-4xl mx-auto">
-      <h1 class="text-2xl font-bold mb-4">Nova Sessão - Seleção de Jogadores</h1>
-      <p class="text-gray-600 mb-4">Selecione os jogadores presentes hoje (mínimo 4, máximo 14).</p>
+      <h2 class="text-2xl font-bold mb-1">Seleção de Jogadores</h2>
+      <p class="text-gray-600 text-sm mb-2">
+        Selecione os jogadores presentes hoje (mínimo 4, máximo 14).
+      </p>
 
-      <div class="mb-4 flex items-center gap-2">
-        <span class="text-sm font-medium"
-              [class]="selectedCount() < 4 ? 'text-red-500' : selectedCount() > 14 ? 'text-red-500' : 'text-green-600'">
-          {{ selectedCount() }} / 14 selecionados
-        </span>
-        @if (selectedCount() > 0 && selectedCount() < 4) {
-          <span class="text-sm text-red-500">(mínimo 4 jogadores)</span>
+      <!-- Selection Status Counter -->
+      <div
+        class="bg-white rounded-m3-md p-4 mb-6 shadow-sm border border-gray-300 flex items-center justify-between transition-all rounded-lg"
+      >
+        <div>
+          <span
+            class="text-xl font-bold transition-colors"
+            [class]="
+              selectedCount() < 4
+                ? 'text-red-500'
+                : selectedCount() > 14
+                  ? 'text-red-500'
+                  : 'text-green-500'
+            "
+          >
+            {{ selectedCount() }} / 14 selecionados</span
+          >
+        </div>
+        @if (selectedCount() >= 4) {
+          <mat-icon class="text-green-500!">check_small_outline</mat-icon>
+        } @else {
+          <mat-icon class="text-red-500!">error_outline</mat-icon>
         }
       </div>
 
+      <!-- END: Player List -->
+
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-6">
         @for (player of players(); track player.id) {
-          <mat-card class="cursor-pointer" [class]="isSelected(player.id) ? 'border-2 border-blue-500' : ''">
-            <mat-card-content class="p-3">
+          <mat-card
+            class="cursor-pointer bg-beach-card! border-0! shadow-none!"
+            [class]="isSelected(player.id) ? 'outline-2! outline-primary/50! bg-primary/10!' : ''"
+          >
+            <mat-card-content class="p-3 flex! justify-between! items-center! gap-2 w-full!">
               <mat-checkbox
                 [checked]="isSelected(player.id)"
                 [disabled]="!isSelected(player.id) && selectedCount() >= 14"
                 (change)="togglePlayer(player.id)"
-                [attr.aria-label]="'Selecionar ' + player.name">
-                <span class="font-medium">{{ player.name }}</span>
-                <span class="text-sm text-gray-500 ml-2">({{ player.gender === 'M' ? 'M' : 'F' }})</span>
+                [attr.aria-label]="'Selecionar ' + player.name"
+              >
+                <div class="flex items-center justify-between w-full">
+                  <span class="font-medium">{{ player.name }}</span>
+                </div>
               </mat-checkbox>
+
+              @if (player.gender === 'F') {
+                <span class="px-3 py-1 bg-pink-100 text-pink-700 text-xs font-bold rounded-full"
+                  >F</span
+                >
+              }
+
+              @if (player.gender === 'M') {
+                <span class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full"
+                  >M</span
+                >
+              }
             </mat-card-content>
           </mat-card>
         }
@@ -47,14 +84,39 @@ import { Player } from '../../../shared/models';
       }
 
       <div class="flex gap-2">
-        <button mat-raised-button
-                (click)="createSession()"
-                [disabled]="selectedCount() < 4">
+        <button mat-raised-button (click)="createSession()" [disabled]="selectedCount() < 4">
           Criar Sessão
         </button>
         <button mat-button (click)="cancel()">Cancelar</button>
       </div>
+
+      <button
+        matFab
+        class="w-11/12! bg-secondary-container! text-on-secondary-container!
+         fixed! bottom-26 left-1/2 -translate-x-1/2
+         shadow-lg hover:shadow-xl hover:scale-105
+         transition-all duration-300 active:scale-95
+         z-40 group"
+        extended
+        [disabled]="selectedCount() < 4"
+        (click)="createSession()"
+      >
+        <mat-icon>shuffle</mat-icon>
+        Sortear equipes
+      </button>
     </div>
+  `,
+  styles: `
+    /* Custom styles for the component */
+    ::ng-deep {
+      .mdc-label {
+        width: 100% !important;
+      }
+
+      .mdc-form-field.mat-internal-form-field {
+        background: red !important;
+      }
+    }
   `,
 })
 export class SessionCreateComponent implements OnInit {

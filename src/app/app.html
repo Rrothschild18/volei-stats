@@ -1,3 +1,76 @@
 <app-shell>
   <router-outlet />
 </app-shell>
+<nav
+  class="fixed bottom-0 left-0 w-full z-50 rounded-t-xl dark:bg-inverse-surface border-t border-outline-variant shadow-[0_-2px_10px_rgba(0,0,0,0.05)] max-h-16! h-16!"
+>
+  <div
+    class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-4 pt-2 max-w-container-max mx-auto left-1/2 -translate-x-1/2 bg-white! border-t border-t-on-surface-variant/10 max-h-16! h-16!"
+  >
+    <!-- Dashboard (Active) -->
+    <a
+      class="flex flex-col items-center justify-cente px-5 py-1 transition-all"
+      routerLink="/dashboard"
+      routerLinkActive="bg-secondary-container text-on-secondary-container rounded-full px-5 py-1 transition-all"
+    >
+      <mat-icon
+        class="text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-200"
+        >dashboard_outlined</mat-icon
+      >
+      <span
+        routerLinkActive="text-on-secondary-container"
+        class="font-label-md text-label-md mt-0.5"
+        >Dashboard</span
+      >
+    </a>
+    <!-- <a
+      class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-200"
+      routerLink="/historico"
+       routerLinkActive="bg-secondary-container text-on-secondary-container rounded-full px-5 py-1 transition-all"
+    >
+      <mat-icon
+        class="text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-200"
+        >history_outlined</mat-icon
+      >
+      <span class="font-label-md text-label-md mt-0.5">Histórico</span>
+    </a> -->
+    <!-- Rankings -->
+    <a
+      class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-200"
+      routerLink="/rankings"
+      routerLinkActive="bg-secondary-container text-on-secondary-container rounded-full px-5 py-1 transition-all"
+    >
+      <mat-icon
+        class="text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-200"
+        >leaderboard_outlined</mat-icon
+      >
+      <span class="font-label-md text-label-md mt-0.5">Rankings</span>
+    </a>
+
+    <!-- Campeonatos -->
+    <a
+      class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-200"
+      routerLink="/campeonatos"
+      routerLinkActive="bg-secondary-container text-on-secondary-container rounded-full px-5 py-1 transition-all"
+    >
+      <mat-icon
+        class="text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-200"
+        >emoji_events_outlined</mat-icon
+      >
+      <span class="font-label-md text-label-md mt-0.5">Campeonatos</span>
+    </a>
+
+    <!-- Jogadores -->
+    <a
+      class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-200"
+      routerLink="/jogadores"
+      routerLinkActive="bg-secondary-container text-on-secondary-container rounded-full px-5 py-1 transition-all"
+    >
+      <mat-icon
+        class="text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-200"
+        >group_outlined</mat-icon
+      >
+      <span class="font-label-md text-label-md mt-0.5">Jogadores</span>
+    </a>
+  </div>
+</nav>

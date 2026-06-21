@@ -25,10 +25,16 @@ import { Tournament } from '../../../shared/models';
               <div class="flex justify-between items-center">
                 <div>
                   <p class="font-medium">{{ t.teams.length }} duplas • {{ t.pointLimit }} pontos</p>
-                  <p class="text-sm text-gray-500">{{ t.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
+                  <p class="text-sm text-gray-500">{{ t.createdAt | date: 'dd/MM/yyyy HH:mm' }}</p>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span [class]="t.status === 'completed' ? 'text-green-600 text-sm font-medium' : 'text-blue-600 text-sm font-medium'">
+                  <span
+                    [class]="
+                      t.status === 'completed'
+                        ? 'text-green-600 text-sm font-medium'
+                        : 'text-blue-600 text-sm font-medium'
+                    "
+                  >
                     {{ t.status === 'completed' ? 'Finalizado' : 'Em andamento' }}
                   </span>
                   <a mat-icon-button [routerLink]="[t.id]" aria-label="Ver campeonato">
@@ -44,11 +50,11 @@ import { Tournament } from '../../../shared/models';
   `,
 })
 export class TournamentListComponent implements OnInit {
-  private facade = inject(AppFacade);
+  readonly #appFacade = inject(AppFacade);
   tournaments = signal<Tournament[]>([]);
 
   async ngOnInit() {
-    const all = await this.facade.getTournaments();
+    const all = await this.#appFacade.getTournaments();
     this.tournaments.set(all.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
   }
 }

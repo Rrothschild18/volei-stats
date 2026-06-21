@@ -33,11 +33,15 @@ import { Player, DrawProposal, Team } from '../../../shared/models';
       @if (!loading() && proposals().length > 0) {
         <div class="flex gap-2 mb-4">
           @for (proposal of proposals(); track proposal.id; let i = $index) {
-            <button mat-raised-button
-                    [class]="selectedIndex() === i ? 'bg-blue-100' : ''"
-                    (click)="selectProposal(i)">
+            <button
+              mat-raised-button
+              [class]="selectedIndex() === i ? 'bg-blue-100' : ''"
+              (click)="selectProposal(i)"
+            >
               Proposta {{ i + 1 }}
-              @if (i === 0) { (Melhor) }
+              @if (i === 0) {
+                (Melhor)
+              }
             </button>
           }
         </div>
@@ -69,9 +73,14 @@ import { Player, DrawProposal, Team } from '../../../shared/models';
                       @for (pid of team.playerIds; track pid; let pi = $index) {
                         <div class="flex items-center gap-2">
                           <mat-form-field appearance="outline" class="flex-1 text-sm">
-                            <mat-select [value]="pid" (selectionChange)="swapPlayer(team.id, pi, $event.value)">
+                            <mat-select
+                              [value]="pid"
+                              (selectionChange)="swapPlayer(team.id, pi, $event.value)"
+                            >
                               @for (player of availablePlayers(); track player.id) {
-                                <mat-option [value]="player.id">{{ player.name }} ({{ player.gender }})</mat-option>
+                                <mat-option [value]="player.id"
+                                  >{{ player.name }} ({{ player.gender }})</mat-option
+                                >
                               }
                             </mat-select>
                           </mat-form-field>
@@ -79,8 +88,16 @@ import { Player, DrawProposal, Team } from '../../../shared/models';
                       }
                     </div>
                     @for (badge of getBadgesForTeam(team.id); track badge.type) {
-                      <mat-chip class="mt-2 text-xs"
-                                [class]="badge.type === 'repeated-pair' ? 'bg-red-100 text-red-700' : badge.type === 'same-gender' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'">
+                      <mat-chip
+                        class="mt-2 text-xs"
+                        [class]="
+                          badge.type === 'repeated-pair'
+                            ? 'bg-red-100 text-red-700'
+                            : badge.type === 'same-gender'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-blue-100 text-blue-700'
+                        "
+                      >
                         {{ badge.description }}
                       </mat-chip>
                     }
@@ -153,7 +170,7 @@ export class DrawGenerateComponent implements OnInit {
       this.sessionId,
       this.players(),
       existingPairs,
-      priorityIds
+      priorityIds,
     );
 
     this.proposals.set(proposals);
@@ -168,11 +185,11 @@ export class DrawGenerateComponent implements OnInit {
   }
 
   getPlayerName(id: string): string {
-    return this.players().find(p => p.id === id)?.name || 'Desconhecido';
+    return this.players().find((p) => p.id === id)?.name || 'Desconhecido';
   }
 
   getBadgesForTeam(teamId: string) {
-    return this.currentProposal()?.badges.filter(b => b.teamId === teamId) || [];
+    return this.currentProposal()?.badges.filter((b) => b.teamId === teamId) || [];
   }
 
   swapPlayer(teamId: string, playerIndex: number, newPlayerId: string) {
@@ -180,7 +197,7 @@ export class DrawGenerateComponent implements OnInit {
     if (!proposal) return;
 
     const teams = [...proposal.teams];
-    const teamIdx = teams.findIndex(t => t.id === teamId);
+    const teamIdx = teams.findIndex((t) => t.id === teamId);
     if (teamIdx === -1) return;
 
     const oldPlayerId = teams[teamIdx].playerIds[playerIndex];
@@ -214,6 +231,7 @@ export class DrawGenerateComponent implements OnInit {
   }
 
   async confirmDraw() {
+    debugger;
     const proposal = this.currentProposal();
     if (!proposal) return;
 
@@ -226,13 +244,13 @@ export class DrawGenerateComponent implements OnInit {
     // Update session
     const session = await this.facade.getSessionById(this.sessionId);
     if (session) {
-      session.drawIds.push(...this.proposals().map(p => p.id));
+      session.drawIds.push(...this.proposals().map((p) => p.id));
       await this.facade.updateSession(session);
     }
 
     // Navigate to tournament creation
     this.router.navigate(['/campeonatos', 'novo'], {
-      queryParams: { drawId: proposal.id, sessionId: this.sessionId }
+      queryParams: { drawId: proposal.id, sessionId: this.sessionId },
     });
   }
 
