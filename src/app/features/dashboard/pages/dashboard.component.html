@@ -1,0 +1,134 @@
+<div class="p-4 max-w-4xl mx-auto h-screen">
+  <div class="mb-4">
+    <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Dashboard</h2>
+    <p class="font-body-md text-body-md text-on-surface-variant">
+      Confira o resumo da sua temporada de vôlei de areia.
+    </p>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <mat-card
+      class="border! border-outline-variant! bg-surface-container-low! shadow-none! border-outline-variant!"
+    >
+      <mat-card-content class="p-4 text-center">
+        <mat-icon
+          class="text-primary! bg-on-primary-container! text-4xl mb-2 !size-10 !inline-flex !items-center !justify-center !rounded-xl m-icon"
+          >sports_volleyball</mat-icon
+        >
+        <p class="text-3xl font-bold text-primary">{{ data()?.totalMatches || 0 }}</p>
+        <p class="text-sm text-on-surface-variant">Partidas Realizadas</p>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card
+      class="border! border-outline-variant! bg-surface-container-low! shadow-none! border-outline-variant!"
+    >
+      <mat-card-content class="p-4 text-center">
+        <mat-icon
+          class="text-tertiary! bg-tertiary-container/10! text-4xl mb-2 !size-10 !inline-flex !items-center !justify-center !rounded-xl m-icon"
+          >people</mat-icon
+        >
+        <p class="text-3xl font-bold text-tertiary">{{ data()?.totalActivePlayers || 0 }}</p>
+        <p class="text-sm text-on-surface-variant">Jogadores Ativos</p>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card
+      class="border! border-outline-variant! bg-surface-container-low! shadow-none! border-outline-variant!"
+    >
+      <mat-card-content class="p-4 text-center">
+        <mat-icon
+          class="text-secondary! bg-secondary-container/10! text-4xl mb-2 !size-10 !inline-flex !items-center !justify-center !rounded-xl m-icon"
+          >casino</mat-icon
+        >
+        <p class="text-3xl font-bold text-secondary">{{ data()?.totalDraws || 0 }}</p>
+        <p class="text-sm text-on-surface-variant">Sorteios Realizados</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- <div class="mt-8 flex flex-wrap gap-3">
+    <a mat-raised-button routerLink="/sessoes/nova">
+      <mat-icon>add</mat-icon>
+      Nova Sessão
+    </a>
+    <a mat-button routerLink="/jogadores">Jogadores</a>
+    <a mat-button routerLink="/historico">Histórico</a>
+    <a mat-button routerLink="/rankings">Rankings</a>
+    <button mat-button (click)="exportData()">
+      <mat-icon>download</mat-icon>
+      Exportar JSON
+    </button>
+  </div> -->
+
+  <!-- Highlights Section -->
+  <section class="mt-6 mb-16 pb-42">
+    <div class="flex items-center justify-between">
+      <h3 class="font-title-lg text-title-lg text-on-surface mb-4">Estatísticas</h3>
+      <span class="font-label-md text-label-md text-primary uppercase tracking-wider"
+        >Ver Todos</span
+      >
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-gutter">
+      <!-- Mais Vitórias -->
+      <mat-card class="border! border-outline-variant/50! bg-white! shadow-none!">
+        <mat-card-content class="p-4 text-center">
+          <mat-icon
+            class="text-secondary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
+            >emoji_events</mat-icon
+          >
+          <p class="font-title-lg font-bold text-secondary">Eliabe</p>
+          <p class="text-sm text-on-surface-variant">Mais Vitórias</p>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Melhor % -->
+
+      <mat-card class="border! border-outline-variant/50! bg-white! shadow-none!">
+        <mat-card-content class="p-4 text-center">
+          <mat-icon
+            class="text-tertiary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
+            >trending_up</mat-icon
+          >
+          <p class="font-title-lg font-bold text-tertiary">Eliabe</p>
+          <p class="text-sm text-on-surface-variant">Melhor % (100%)</p>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Melhor Dupla -->
+      <mat-card class="border! border-outline-variant/50! bg-white! shadow-none!">
+        <mat-card-content class="p-4 text-center">
+          <mat-icon
+            class="text-primary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
+            >group</mat-icon
+          >
+          <p class="font-title-lg font-bold text-primary">Douglas</p>
+          <p class="text-sm text-on-surface-variant">Melhor % (100%)</p>
+        </mat-card-content>
+      </mat-card>
+      <!-- Mais Esperou -->
+
+      <mat-card class="border! border-outline-variant/50! bg-white! shadow-none!">
+        <mat-card-content class="p-4 text-center">
+          <mat-icon
+            class="text-primary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
+            >hourglass_empty</mat-icon
+          >
+          <p class="font-title-lg font-bold text-primary">Douglas</p>
+          <p class="text-sm text-on-surface-variant">Mais Esperou (0x)</p>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </section>
+</div>
+
+<button
+  matFab
+  class="bg-secondary-container! text-on-secondary-container! fixed! bottom-26 shadow-lg right-0 hover:shadow-xl hover:scale-105 transition-all duration-300 active:scale-95 z-40 group"
+  extended
+  routerLink="/sessoes/nova"
+>
+  <mat-icon>add</mat-icon>
+  Nova Sessão
+</button>
