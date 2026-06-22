@@ -36,7 +36,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm run build -- --base-href="/volei-stats/"
+        run: pnpm run build --base-href="/volei-stats/"
 
       - name: Copy index.html to 404.html for client-side routing
         run: cp dist/volei-stats/browser/index.html dist/volei-stats/browser/404.html
