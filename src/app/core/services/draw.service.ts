@@ -6,7 +6,6 @@ import {
   Team,
   TournamentPriorityEntry,
 } from '../../shared/models';
-import { Gender } from '../../shared/enums';
 import { AppFacade } from '../facade/app.facade';
 
 interface ScoredProposal {

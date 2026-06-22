@@ -3,7 +3,7 @@ import { MatchRepository } from '../repositories/match.repository';
 import { PlayerRepository } from '../repositories/player.repository';
 import { TournamentRepository } from '../repositories/tournament.repository';
 import { DrawRepository } from '../repositories/draw.repository';
-import { Player, PlayerStats, TeamStats, Match, Tournament, DrawProposal } from '../../shared/models';
+import { PlayerStats, TeamStats } from '../../shared/models';
 
 @Injectable({ providedIn: 'root' })
 export class StatisticsService {
@@ -24,11 +24,11 @@ export class StatisticsService {
 
     for (const match of matches) {
       if (!match.winnerId) continue;
-      const tournament = tournaments.find(t => t.id === match.tournamentId);
+      const tournament = tournaments.find((t) => t.id === match.tournamentId);
       if (!tournament) continue;
 
-      const teamA = tournament.teams.find(t => t.id === match.teamAId);
-      const teamB = tournament.teams.find(t => t.id === match.teamBId);
+      const teamA = tournament.teams.find((t) => t.id === match.teamAId);
+      const teamB = tournament.teams.find((t) => t.id === match.teamBId);
 
       const isInTeamA = teamA?.playerIds.includes(playerId);
       const isInTeamB = teamB?.playerIds.includes(playerId);
@@ -76,15 +76,18 @@ export class StatisticsService {
     const matches = await this.matchRepo.getAll();
     const tournaments = await this.tournamentRepo.getAll();
     const players = await this.playerRepo.getAll();
-    const teamMap = new Map<string, { playerIds: [string, string]; wins: number; losses: number }>();
+    const teamMap = new Map<
+      string,
+      { playerIds: [string, string]; wins: number; losses: number }
+    >();
 
     for (const match of matches) {
       if (!match.winnerId) continue;
-      const tournament = tournaments.find(t => t.id === match.tournamentId);
+      const tournament = tournaments.find((t) => t.id === match.tournamentId);
       if (!tournament) continue;
 
-      const teamA = tournament.teams.find(t => t.id === match.teamAId);
-      const teamB = tournament.teams.find(t => t.id === match.teamBId);
+      const teamA = tournament.teams.find((t) => t.id === match.teamAId);
+      const teamB = tournament.teams.find((t) => t.id === match.teamBId);
 
       if (teamA && teamB) {
         const keyA = this.getTeamKey(teamA.playerIds);
@@ -113,8 +116,8 @@ export class StatisticsService {
     const stats: TeamStats[] = [];
     for (const [, entry] of teamMap) {
       const gamesPlayed = entry.wins + entry.losses;
-      const player1 = players.find(p => p.id === entry.playerIds[0]);
-      const player2 = players.find(p => p.id === entry.playerIds[1]);
+      const player1 = players.find((p) => p.id === entry.playerIds[0]);
+      const player2 = players.find((p) => p.id === entry.playerIds[1]);
       stats.push({
         playerIds: entry.playerIds,
         playerNames: [player1?.name || 'Desconhecido', player2?.name || 'Desconhecido'],
@@ -130,34 +133,45 @@ export class StatisticsService {
 
   async getDashboardData() {
     const players = await this.playerRepo.getAll();
-    const activePlayers = players.filter(p => p.active);
+    const activePlayers = players.filter((p) => p.active);
     const matches = await this.matchRepo.getAll();
     const draws = await this.drawRepo.getAll();
     const allPlayerStats = await this.getAllPlayerStats();
     const teamStats = await this.getTeamStats();
 
-    const topWins = allPlayerStats.length > 0
-      ? allPlayerStats.reduce((a, b) => a.wins > b.wins ? a : b)
-      : null;
-    const topWinPct = allPlayerStats.length > 0
-      ? allPlayerStats.filter(s => s.gamesPlayed >= 1).reduce((a, b) => a.winPercentage > b.winPercentage ? a : b, allPlayerStats[0])
-      : null;
-    const topTeam = teamStats.filter(t => t.gamesPlayed >= 3).length > 0
-      ? teamStats.filter(t => t.gamesPlayed >= 3).reduce((a, b) => a.winPercentage > b.winPercentage ? a : b)
-      : null;
-    const mostWaited = allPlayerStats.length > 0
-      ? allPlayerStats.reduce((a, b) => a.timesWaited > b.timesWaited ? a : b)
-      : null;
+    const topWins =
+      allPlayerStats.length > 0 ? allPlayerStats.reduce((a, b) => (a.wins > b.wins ? a : b)) : null;
+    const topWinPct =
+      allPlayerStats.length > 0
+        ? allPlayerStats
+            .filter((s) => s.gamesPlayed >= 1)
+            .reduce((a, b) => (a.winPercentage > b.winPercentage ? a : b), allPlayerStats[0])
+        : null;
+    const topTeam =
+      teamStats.filter((t) => t.gamesPlayed >= 3).length > 0
+        ? teamStats
+            .filter((t) => t.gamesPlayed >= 3)
+            .reduce((a, b) => (a.winPercentage > b.winPercentage ? a : b))
+        : null;
+    const mostWaited =
+      allPlayerStats.length > 0
+        ? allPlayerStats.reduce((a, b) => (a.timesWaited > b.timesWaited ? a : b))
+        : null;
 
     return {
-      totalMatches: matches.filter(m => m.winnerId).length,
+      totalMatches: matches.filter((m) => m.winnerId).length,
       totalActivePlayers: activePlayers.length,
-      topWinsPlayer: topWins ? players.find(p => p.id === topWins.playerId)?.name || null : null,
-      topWinPctPlayer: topWinPct ? players.find(p => p.id === topWinPct.playerId)?.name || null : null,
+      topWinsPlayer: topWins ? players.find((p) => p.id === topWins.playerId)?.name || null : null,
+      topWinPctPlayer: topWinPct
+        ? players.find((p) => p.id === topWinPct.playerId)?.name || null
+        : null,
       topWinPctValue: topWinPct?.winPercentage || 0,
       topTeam: topTeam ? topTeam.playerNames.join(' + ') : null,
       topTeamWinPct: topTeam?.winPercentage || 0,
-      mostWaitedPlayer: mostWaited && mostWaited.timesWaited > 0 ? players.find(p => p.id === mostWaited.playerId)?.name || null : null,
+      mostWaitedPlayer:
+        mostWaited && mostWaited.timesWaited > 0
+          ? players.find((p) => p.id === mostWaited.playerId)?.name || null
+          : null,
       mostWaitedCount: mostWaited?.timesWaited || 0,
       totalDraws: draws.length,
     };

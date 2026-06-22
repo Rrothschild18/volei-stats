@@ -8,7 +8,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { Gender } from '../../../shared/enums';
-import { Player } from '../../../shared/models';
 
 @Component({
   selector: 'app-player-form',

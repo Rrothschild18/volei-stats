@@ -1,11 +1,10 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import 'tailwindcss';
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined');
 
 /* Dark mode via .dark class (replaces darkMode: "class" from v3) */
 @variant dark (&:where(.dark, .dark *));
-
-@import url('https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined');
 
 @theme {
   /* Colors */
