@@ -1,0 +1,1 @@
+var t=[{path:"",loadComponent:()=>import('./chunk-By7hHSgD.js').then(o=>o.TournamentListComponent)},{path:"novo",loadComponent:()=>import('./chunk-BjwFtyoe.js').then(o=>o.TournamentCreateComponent)},{path:":id",loadComponent:()=>import('./chunk-Dt-ktPqb.js').then(o=>o.TournamentDetailComponent)}];export{t as TOURNAMENT_ROUTES};

@@ -1,0 +1,1 @@
+var t=[{path:"novo",loadComponent:()=>import('./chunk-sn258AgF.js').then(o=>o.DrawGenerateComponent)}];export{t as DRAW_ROUTES};

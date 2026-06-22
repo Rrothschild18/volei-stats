@@ -1,0 +1,1 @@
+var n=[{path:"",loadComponent:()=>import('./chunk-DMfOfvPf.js').then(o=>o.RankingIndividualComponent)},{path:"duplas",loadComponent:()=>import('./chunk-C0CMg5Fw.js').then(o=>o.RankingTeamsComponent)}];export{n as RANKING_ROUTES};

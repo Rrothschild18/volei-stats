@@ -1,0 +1,1 @@
+var t=[{path:"",loadComponent:()=>import('./chunk-C804Fi1o.js').then(o=>o.SessionListComponent)},{path:"nova",loadComponent:()=>import('./chunk-CnqcNV_l.js').then(o=>o.SessionCreateComponent)},{path:":id",loadComponent:()=>import('./chunk-QQXRQxDg.js').then(o=>o.SessionDetailComponent)}];export{t as SESSION_ROUTES};

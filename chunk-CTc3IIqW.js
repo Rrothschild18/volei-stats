@@ -1,0 +1,1 @@
+var t=[{path:"",loadComponent:()=>import('./chunk-D883fwz1.js').then(o=>o.HistoryListComponent)}];export{t as HISTORY_ROUTES};

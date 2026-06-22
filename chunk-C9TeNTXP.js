@@ -1,0 +1,1 @@
+import {O as Ot}from'./chunk-DblPtv6h.js';import {$ as LI,a0 as kl,bD as ii,a1 as Gr}from'./main-XYTVU2RL.js';var E=(()=>{class r{static \u0275fac=function(M){return new(M||r)};static \u0275mod=LI({type:r});static \u0275inj=kl({imports:[ii,Ot,Gr]})}return r})();export{E};
