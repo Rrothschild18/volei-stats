@@ -1,3 +1,6 @@
+Aqui está o arquivo completo `.github/workflows/deploy.yml` com a correção sugerida:
+
+```yaml name=.github/workflows/deploy.yml url=https://github.com/Rrothschild18/volei-stats/blob/ea2a87c1548ff03b1f901f80c007842bb3b662d6/.github/workflows/deploy.yml
 name: Deploy to GitHub Pages
 
 on:
@@ -56,3 +59,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+```
