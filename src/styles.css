@@ -5,6 +5,8 @@
 /* Dark mode via .dark class (replaces darkMode: "class" from v3) */
 @variant dark (&:where(.dark, .dark *));
 
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined');
+
 @theme {
   /* Colors */
   --color-primary: #00478d;

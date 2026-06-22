@@ -31,8 +31,11 @@ import { Session } from '../../../shared/models';
             <mat-card-content class="p-4">
               <div class="flex justify-between items-center">
                 <div>
-                  <p class="font-medium">{{ session.date | date:'dd/MM/yyyy HH:mm' }}</p>
-                  <p class="text-sm text-gray-500">{{ session.playerIds.length }} jogadores • {{ session.tournamentIds.length }} campeonatos</p>
+                  <p class="font-medium">{{ session.date | date: 'dd/MM/yyyy' }}</p>
+                  <p class="text-sm text-gray-500">
+                    {{ session.playerIds.length }} jogadores •
+                    {{ session.tournamentIds.length }} campeonatos
+                  </p>
                 </div>
                 <a mat-icon-button [routerLink]="[session.id]" aria-label="Ver sessão">
                   <mat-icon>chevron_right</mat-icon>
