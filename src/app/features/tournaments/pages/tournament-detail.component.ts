@@ -177,8 +177,6 @@ export class TournamentDetailComponent implements OnInit {
     const tournament = await this.#facade.getTournamentById(id);
     if (!tournament) return;
 
-    this.tournament.set(tournament);
-
     // Load players
     const playerMap = new Map<string, Player>();
     for (const team of tournament.teams) {
@@ -193,12 +191,14 @@ export class TournamentDetailComponent implements OnInit {
 
     // Load completed matches
     const matches = await this.#facade.getMatchesByTournamentId(id);
+    const syncedTournament = await this.#tournamentService.syncTournamentState(tournament, matches);
+    this.tournament.set(syncedTournament);
     this.completedMatches.set(matches.filter((m) => m.winnerId !== null));
 
     // Generate pending matches
-    if (tournament.status !== 'completed') {
+    if (syncedTournament.status !== 'completed') {
       let pending: BracketMatch[];
-      const initialMatches = this.#tournamentService.generateInitialMatches(tournament.teams);
+      const initialMatches = this.#tournamentService.generateInitialMatches(syncedTournament);
       const completedPairs = new Set(
         matches.filter((m) => m.winnerId).map((m) => `${m.teamAId}|${m.teamBId}`),
       );
@@ -212,7 +212,7 @@ export class TournamentDetailComponent implements OnInit {
       } else if (matches.filter((m) => m.winnerId).length === 0) {
         pending = initialMatches;
       } else {
-        pending = await this.#tournamentService.getNextMatches(tournament);
+        pending = await this.#tournamentService.getNextMatches(syncedTournament);
       }
       this.pendingMatches.set(pending);
       this.scoreInputs = pending.map(() => ({ scoreA: 0, scoreB: 0 }));
@@ -292,6 +292,7 @@ export class TournamentDetailComponent implements OnInit {
 
     // Check if tournament is complete
     const allMatches = await this.#facade.getMatchesByTournamentId(tournament.id);
+    await this.#tournamentService.syncTournamentState(tournament, allMatches);
     if (this.#tournamentService.isTournamentComplete(tournament, allMatches)) {
       tournament.status = 'completed';
       tournament.finalStandings = this.#tournamentService.computeFinalStandings(

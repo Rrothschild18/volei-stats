@@ -52,6 +52,15 @@ import { DrawProposal, TournamentTeam } from '../../../shared/models';
             </mat-slide-toggle>
           }
 
+          @if (draw()!.waitingPlayerId) {
+            <mat-slide-toggle formControlName="oddPlayerPlacementEnabled">
+              Encaixe do jogador avulso
+            </mat-slide-toggle>
+            <p class="text-sm text-gray-600 -mt-2">
+              Quando ativado, o avulso pode entrar no campeonato pelo encaixe oficial.
+            </p>
+          }
+
           <div class="flex gap-2">
             <button mat-raised-button type="submit" [disabled]="form.invalid">
               Iniciar Campeonato
@@ -76,6 +85,7 @@ export class TournamentCreateComponent implements OnInit {
   form = this.fb.nonNullable.group({
     pointLimit: [15, [Validators.required, Validators.min(1)]],
     thirdPlaceEnabled: [true],
+    oddPlayerPlacementEnabled: [true],
   });
 
   async ngOnInit() {
@@ -90,20 +100,31 @@ export class TournamentCreateComponent implements OnInit {
     const draw = await this.facade.getDrawById(drawId);
     if (draw) {
       this.draw.set(draw);
+
+      if (!draw.waitingPlayerId) {
+        this.form.controls.oddPlayerPlacementEnabled.setValue(false);
+        this.form.controls.oddPlayerPlacementEnabled.disable();
+      }
+
+      if (draw.waitingPlayerId && draw.teams.length === 4) {
+        this.form.controls.thirdPlaceEnabled.setValue(false);
+      }
     }
   }
 
   async onSubmit() {
     if (this.form.invalid || !this.draw()) return;
 
-    const { pointLimit, thirdPlaceEnabled } = this.form.getRawValue();
+    const { pointLimit, thirdPlaceEnabled, oddPlayerPlacementEnabled } = this.form.getRawValue();
     const drawData = this.draw()!;
 
-    const teams: TournamentTeam[] = drawData.teams.map(t => ({
+    const teams: TournamentTeam[] = drawData.teams.map((t) => ({
       id: t.id,
       playerIds: t.playerIds,
       eliminated: false,
       eliminatedDirectly: false,
+      synthetic: false,
+      originalPlayerIds: null,
     }));
 
     const tournament = await this.tournamentService.createTournament(
@@ -111,7 +132,11 @@ export class TournamentCreateComponent implements OnInit {
       drawData.id,
       teams,
       pointLimit,
-      thirdPlaceEnabled
+      drawData.waitingPlayerId && oddPlayerPlacementEnabled && drawData.teams.length === 4
+        ? false
+        : thirdPlaceEnabled,
+      drawData.waitingPlayerId,
+      oddPlayerPlacementEnabled,
     );
 
     // Update session

@@ -9,7 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { DrawService } from '../../../core/services/draw.service';
-import { Player, DrawProposal, Team } from '../../../shared/models';
+import { Player, DrawProposal, TournamentPriorityEntry } from '../../../shared/models';
 
 @Component({
   selector: 'app-draw-generate',
@@ -25,6 +25,21 @@ import { Player, DrawProposal, Team } from '../../../shared/models';
   template: `
     <div class="p-4 max-w-4xl mx-auto">
       <h1 class="text-2xl font-bold mb-4">Sorteio de Duplas</h1>
+
+      @if (priorityEntries().length > 0) {
+        <mat-card class="mb-4 border-l-4 border-blue-400">
+          <mat-card-content class="p-4">
+            <p class="font-medium mb-2">Prioridades para este sorteio</p>
+            <div class="flex flex-col gap-1">
+              @for (entry of priorityEntries(); track entry.playerId + entry.reason) {
+                <p class="text-sm text-gray-700">
+                  {{ getPlayerName(entry.playerId) }}: {{ getPriorityReasonLabel(entry.reason) }}
+                </p>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
 
       @if (loading()) {
         <p class="text-gray-500">Gerando propostas...</p>
@@ -107,7 +122,7 @@ import { Player, DrawProposal, Team } from '../../../shared/models';
             </div>
           </div>
 
-          <div class="flex gap-2 mt-4">
+          <div class="flex gap-2 mt-4 mb-20">
             <button mat-raised-button (click)="confirmDraw()">
               <mat-icon>check</mat-icon>
               Confirmar e Criar Campeonato
@@ -133,6 +148,7 @@ export class DrawGenerateComponent implements OnInit {
   loading = signal(true);
   players = signal<Player[]>([]);
   availablePlayers = signal<Player[]>([]);
+  priorityEntries = signal<TournamentPriorityEntry[]>([]);
   private sessionId = '';
 
   currentProposal = signal<DrawProposal | null>(null);
@@ -164,13 +180,14 @@ export class DrawGenerateComponent implements OnInit {
   async generate() {
     this.loading.set(true);
     const existingPairs = await this.drawService.getExistingPairsInSession(this.sessionId);
-    const priorityIds = await this.drawService.getPriorityPlayerIds(this.sessionId);
+    const priorityEntries = await this.drawService.getPriorityEntries(this.sessionId);
+    this.priorityEntries.set(priorityEntries);
 
     const proposals = await this.drawService.generateProposals(
       this.sessionId,
       this.players(),
       existingPairs,
-      priorityIds,
+      priorityEntries,
     );
 
     this.proposals.set(proposals);
@@ -190,6 +207,21 @@ export class DrawGenerateComponent implements OnInit {
 
   getBadgesForTeam(teamId: string) {
     return this.currentProposal()?.badges.filter((b) => b.teamId === teamId) || [];
+  }
+
+  getPriorityReasonLabel(reason: TournamentPriorityEntry['reason']): string {
+    switch (reason) {
+      case 'waiting-draw':
+        return 'ficou em espera no sorteio anterior';
+      case 'direct-elimination':
+        return 'eliminação por maior diferença no campeonato passado';
+      case 'coin-flip-loss':
+        return 'perdeu o par ou ímpar do encaixe';
+      case 'waiting-player-not-used':
+        return 'foi avulso e não entrou no campeonato passado';
+      default:
+        return 'prioridade herdada do campeonato anterior';
+    }
   }
 
   swapPlayer(teamId: string, playerIndex: number, newPlayerId: string) {
@@ -231,7 +263,6 @@ export class DrawGenerateComponent implements OnInit {
   }
 
   async confirmDraw() {
-    debugger;
     const proposal = this.currentProposal();
     if (!proposal) return;
 

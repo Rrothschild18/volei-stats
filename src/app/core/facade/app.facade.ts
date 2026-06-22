@@ -76,10 +76,9 @@ export class AppFacade {
   }
 
   async createSession(playerIds: string[]): Promise<Session> {
-    debugger;
     const session: Session = {
       id: crypto.randomUUID(),
-      date: new Date().toISOString(),
+      date: this.getLocalDateString(),
       playerIds,
       drawIds: [],
       tournamentIds: [],
@@ -139,6 +138,14 @@ export class AppFacade {
 
   async getMatchesBySessionId(sessionId: string): Promise<Match[]> {
     return this.#matchRepo.getBySessionId(sessionId);
+  }
+
+  private getLocalDateString(date = new Date()): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
   }
 
   async getMatchById(id: string): Promise<Match | undefined> {
