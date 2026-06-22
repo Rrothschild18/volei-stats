@@ -4,7 +4,6 @@ import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTabsModule } from '@angular/material/tabs';
 import { AppFacade } from '../../../core/facade/app.facade';
-import { PlayerStats, Player } from '../../../shared/models';
 
 interface RankingEntry {
   position: number;
@@ -32,7 +31,12 @@ interface RankingEntry {
 
       @if (rankings().length > 0) {
         <div class="overflow-x-auto">
-          <table mat-table [dataSource]="rankings()" class="w-full" aria-label="Ranking individual de jogadores">
+          <table
+            mat-table
+            [dataSource]="rankings()"
+            class="w-full"
+            aria-label="Ranking individual de jogadores"
+          >
             <ng-container matColumnDef="position">
               <th mat-header-cell *matHeaderCellDef>#</th>
               <td mat-cell *matCellDef="let r">{{ r.position }}</td>
@@ -69,7 +73,7 @@ interface RankingEntry {
             </ng-container>
 
             <tr mat-header-row *matHeaderRowDef="columns"></tr>
-            <tr mat-row *matRowDef="let row; columns: columns;"></tr>
+            <tr mat-row *matRowDef="let row; columns: columns"></tr>
           </table>
         </div>
       }
@@ -87,17 +91,19 @@ export class RankingIndividualComponent implements OnInit {
       this.facade.getPlayers(),
     ]);
 
-    const playerMap = new Map(players.map(p => [p.id, p]));
+    const playerMap = new Map(players.map((p) => [p.id, p]));
     const sorted = stats.sort((a, b) => b.winPercentage - a.winPercentage);
 
-    this.rankings.set(sorted.map((s, i) => ({
-      position: i + 1,
-      name: playerMap.get(s.playerId)?.name || 'Desconhecido',
-      gamesPlayed: s.gamesPlayed,
-      wins: s.wins,
-      losses: s.losses,
-      winPercentage: s.winPercentage,
-      timesWaited: s.timesWaited,
-    })));
+    this.rankings.set(
+      sorted.map((s, i) => ({
+        position: i + 1,
+        name: playerMap.get(s.playerId)?.name || 'Desconhecido',
+        gamesPlayed: s.gamesPlayed,
+        wins: s.wins,
+        losses: s.losses,
+        winPercentage: s.winPercentage,
+        timesWaited: s.timesWaited,
+      })),
+    );
   }
 }

@@ -558,13 +558,13 @@ export class TournamentService {
     return [];
   }
 
-  private getRound1WinnersByDiff(round1: Match[]): Array<{ id: string; diff: number }> {
+  private getRound1WinnersByDiff(round1: Match[]): { id: string; diff: number }[] {
     return round1
       .map((match) => ({ id: match.winnerId!, diff: match.pointDifference }))
       .sort((entryA, entryB) => entryB.diff - entryA.diff);
   }
 
-  private getRound1LosersByDiff(round1: Match[]): Array<{ id: string; diff: number }> {
+  private getRound1LosersByDiff(round1: Match[]): { id: string; diff: number }[] {
     return round1
       .map((match) => ({ id: match.loserId!, diff: match.pointDifference }))
       .sort((entryA, entryB) => entryB.diff - entryA.diff);

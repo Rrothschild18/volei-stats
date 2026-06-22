@@ -3,7 +3,6 @@ import { RouterLink } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { AppFacade } from '../../../core/facade/app.facade';
-import { TeamStats } from '../../../shared/models';
 
 interface TeamRankingEntry {
   position: number;
@@ -64,7 +63,7 @@ interface TeamRankingEntry {
             </ng-container>
 
             <tr mat-header-row *matHeaderRowDef="columns"></tr>
-            <tr mat-row *matRowDef="let row; columns: columns;"></tr>
+            <tr mat-row *matRowDef="let row; columns: columns"></tr>
           </table>
         </div>
       }
@@ -79,16 +78,18 @@ export class RankingTeamsComponent implements OnInit {
   async ngOnInit() {
     const stats = await this.facade.getTeamStats();
     const qualified = stats
-      .filter(s => s.gamesPlayed >= 3)
+      .filter((s) => s.gamesPlayed >= 3)
       .sort((a, b) => b.winPercentage - a.winPercentage);
 
-    this.rankings.set(qualified.map((s, i) => ({
-      position: i + 1,
-      names: s.playerNames.join(' + '),
-      gamesPlayed: s.gamesPlayed,
-      wins: s.wins,
-      losses: s.losses,
-      winPercentage: s.winPercentage,
-    })));
+    this.rankings.set(
+      qualified.map((s, i) => ({
+        position: i + 1,
+        names: s.playerNames.join(' + '),
+        gamesPlayed: s.gamesPlayed,
+        wins: s.wins,
+        losses: s.losses,
+        winPercentage: s.winPercentage,
+      })),
+    );
   }
 }

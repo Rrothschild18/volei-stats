@@ -6,7 +6,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { DatePipe } from '@angular/common';
 import { AppFacade } from '../../../core/facade/app.facade';
-import { Match, Player, Tournament } from '../../../shared/models';
+import { Match, Player } from '../../../shared/models';
 
 interface MatchDisplay {
   match: Match;
@@ -20,7 +20,14 @@ interface MatchDisplay {
 
 @Component({
   selector: 'app-history-list',
-  imports: [MatCardModule, MatChipsModule, MatFormFieldModule, MatSelectModule, MatIconModule, DatePipe],
+  imports: [
+    MatCardModule,
+    MatChipsModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatIconModule,
+    DatePipe,
+  ],
   template: `
     <div class="p-4 max-w-4xl mx-auto">
       <h1 class="text-2xl font-bold mb-4">Histórico de Partidas</h1>
@@ -57,10 +64,15 @@ interface MatchDisplay {
             <mat-card-content class="p-3">
               <div class="flex justify-between items-start">
                 <div>
-                  <span class="text-xs text-gray-500">{{ item.match.playedAt | date:'dd/MM/yyyy HH:mm' }} • {{ item.phaseLabel }}</span>
+                  <span class="text-xs text-gray-500"
+                    >{{ item.match.playedAt | date: 'dd/MM/yyyy HH:mm' }} •
+                    {{ item.phaseLabel }}</span
+                  >
                   <p class="font-medium mt-1">
                     {{ item.teamANames }}
-                    <span class="mx-2 font-bold">{{ item.match.scoreA }} x {{ item.match.scoreB }}</span>
+                    <span class="mx-2 font-bold"
+                      >{{ item.match.scoreA }} x {{ item.match.scoreB }}</span
+                    >
                     {{ item.teamBNames }}
                   </p>
                 </div>
@@ -92,25 +104,33 @@ export class HistoryListComponent implements OnInit {
     ]);
 
     this.allPlayers.set(players);
-    const playerMap = new Map(players.map(p => [p.id, p]));
-    const tournamentMap = new Map(tournaments.map(t => [t.id, t]));
+    const playerMap = new Map(players.map((p) => [p.id, p]));
+    const tournamentMap = new Map(tournaments.map((t) => [t.id, t]));
 
     const displays: MatchDisplay[] = matches
-      .filter(m => m.winnerId)
+      .filter((m) => m.winnerId)
       .sort((a, b) => b.playedAt.localeCompare(a.playedAt))
-      .map(match => {
+      .map((match) => {
         const tournament = tournamentMap.get(match.tournamentId);
-        const teamA = tournament?.teams.find(t => t.id === match.teamAId);
-        const teamB = tournament?.teams.find(t => t.id === match.teamBId);
-        const winner = tournament?.teams.find(t => t.id === match.winnerId);
-        const loser = tournament?.teams.find(t => t.id === match.loserId);
+        const teamA = tournament?.teams.find((t) => t.id === match.teamAId);
+        const teamB = tournament?.teams.find((t) => t.id === match.teamBId);
+        const winner = tournament?.teams.find((t) => t.id === match.winnerId);
+        const loser = tournament?.teams.find((t) => t.id === match.loserId);
 
         return {
           match,
-          teamANames: teamA ? teamA.playerIds.map(id => playerMap.get(id)?.name || '?').join(' + ') : '?',
-          teamBNames: teamB ? teamB.playerIds.map(id => playerMap.get(id)?.name || '?').join(' + ') : '?',
-          winnerNames: winner ? winner.playerIds.map(id => playerMap.get(id)?.name || '?').join(' + ') : '?',
-          loserNames: loser ? loser.playerIds.map(id => playerMap.get(id)?.name || '?').join(' + ') : '?',
+          teamANames: teamA
+            ? teamA.playerIds.map((id) => playerMap.get(id)?.name || '?').join(' + ')
+            : '?',
+          teamBNames: teamB
+            ? teamB.playerIds.map((id) => playerMap.get(id)?.name || '?').join(' + ')
+            : '?',
+          winnerNames: winner
+            ? winner.playerIds.map((id) => playerMap.get(id)?.name || '?').join(' + ')
+            : '?',
+          loserNames: loser
+            ? loser.playerIds.map((id) => playerMap.get(id)?.name || '?').join(' + ')
+            : '?',
           phaseLabel: this.getPhaseLabel(match.phase),
           playerIds: [...(teamA?.playerIds || []), ...(teamB?.playerIds || [])],
         };
@@ -137,18 +157,18 @@ export class HistoryListComponent implements OnInit {
     const period = this.periodFilter();
     if (period === 'today') {
       const todayStr = now.toISOString().split('T')[0];
-      results = results.filter(r => r.match.playedAt.startsWith(todayStr));
+      results = results.filter((r) => r.match.playedAt.startsWith(todayStr));
     } else if (period === '7days') {
       const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      results = results.filter(r => r.match.playedAt >= cutoff);
+      results = results.filter((r) => r.match.playedAt >= cutoff);
     } else if (period === '30days') {
       const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      results = results.filter(r => r.match.playedAt >= cutoff);
+      results = results.filter((r) => r.match.playedAt >= cutoff);
     }
 
     const playerId = this.playerFilter();
     if (playerId) {
-      results = results.filter(r => r.playerIds.includes(playerId));
+      results = results.filter((r) => r.playerIds.includes(playerId));
     }
 
     this.filteredMatches.set(results);
@@ -156,12 +176,18 @@ export class HistoryListComponent implements OnInit {
 
   private getPhaseLabel(phase: string): string {
     switch (phase) {
-      case 'round-1': return 'Rodada 1';
-      case 'semifinal': return 'Semifinal';
-      case 'semifinal-bye': return 'Semifinal (Bye)';
-      case 'final': return 'Final';
-      case 'third-place': return '3º/4º Lugar';
-      default: return phase;
+      case 'round-1':
+        return 'Rodada 1';
+      case 'semifinal':
+        return 'Semifinal';
+      case 'semifinal-bye':
+        return 'Semifinal (Bye)';
+      case 'final':
+        return 'Final';
+      case 'third-place':
+        return '3º/4º Lugar';
+      default:
+        return phase;
     }
   }
 }

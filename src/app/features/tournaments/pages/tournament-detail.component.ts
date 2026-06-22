@@ -1,5 +1,5 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,8 +9,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatChipsModule } from '@angular/material/chips';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { TournamentService, BracketMatch } from '../../../core/services/tournament.service';
-import { Tournament, Match, Player, TournamentTeam } from '../../../shared/models';
-import { JsonPipe } from '@angular/common';
+import { Tournament, Match, Player } from '../../../shared/models';
 
 @Component({
   selector: 'app-tournament-detail',
@@ -23,7 +22,6 @@ import { JsonPipe } from '@angular/common';
     MatInputModule,
     MatFormFieldModule,
     MatChipsModule,
-    JsonPipe,
   ],
   template: `
     <div class="p-4 max-w-4xl mx-auto">
