@@ -36,7 +36,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm run build --base-href="/volei-stats/"
+        # NG_BUILD_BASE_HREF safely configures the path without crashing the Angular CLI
+        env:
+          NG_BUILD_BASE_HREF: /volei-stats/
+        run: pnpm run build
 
       - name: Copy index.html to 404.html for client-side routing
         run: cp dist/volei-stats/browser/index.html dist/volei-stats/browser/404.html
