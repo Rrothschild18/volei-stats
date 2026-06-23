@@ -127,6 +127,10 @@ export class AppFacade {
     return this.#tournamentRepo.save(tournament);
   }
 
+  async deleteTournament(id: string): Promise<void> {
+    return this.#tournamentRepo.delete(id);
+  }
+
   // Matches
   async getMatches(): Promise<Match[]> {
     return this.#matchRepo.getAll();
@@ -154,6 +158,10 @@ export class AppFacade {
 
   async saveMatch(match: Match): Promise<Match> {
     return this.#matchRepo.save(match);
+  }
+
+  async deleteMatch(id: string): Promise<void> {
+    return this.#matchRepo.delete(id);
   }
 
   // Statistics

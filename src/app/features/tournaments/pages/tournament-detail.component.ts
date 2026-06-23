@@ -1,5 +1,5 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,9 +7,11 @@ import { MatCardModule } from '@angular/material/card';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatDividerModule } from '@angular/material/divider';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { TournamentService, BracketMatch } from '../../../core/services/tournament.service';
 import { Tournament, Match, Player } from '../../../shared/models';
+import { TournamentTeamsComponent } from '../../../shared/components/tournament-teams.component';
 
 @Component({
   selector: 'app-tournament-detail',
@@ -22,11 +24,13 @@ import { Tournament, Match, Player } from '../../../shared/models';
     MatInputModule,
     MatFormFieldModule,
     MatChipsModule,
+    MatDividerModule,
+    TournamentTeamsComponent,
   ],
   template: `
     <div class="p-4 max-w-4xl mx-auto">
       @if (tournament()) {
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex justify-between items-center mb-2">
           <h1 class="text-2xl font-bold">Campeonato</h1>
           <span
             [class]="
@@ -40,8 +44,41 @@ import { Tournament, Match, Player } from '../../../shared/models';
         </div>
 
         <p class="text-gray-600 mb-4">
-          {{ tournament()!.teams.length }} duplas • Limite: {{ tournament()!.pointLimit }} pontos
+          {{ tournament()!.teams.length }} duplas{{ tournament()!.waitingPlayerId ? ' + 1' : '' }} •
+          Limite: {{ tournament()!.pointLimit }} pontos
         </p>
+
+        <!-- Teams overview -->
+        <mat-card class="mb-4">
+          <mat-card-content class="p-4">
+            <p class="font-semibold mb-2">Duplas</p>
+            <app-tournament-teams
+              [teams]="originalTeams()"
+              [players]="players()"
+              [waitingPlayer]="waitingPlayerObj()"
+            />
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Coin flip decision -->
+        @if (tournament()!.oddPlayerPlacementPending && coinFlipCandidates()) {
+          <mat-card class="mb-4 border-l-4 border-purple-400">
+            <mat-card-content class="p-4">
+              <p class="font-semibold mb-1">Par ou Ímpar</p>
+              <p class="text-sm text-gray-600 mb-3">
+                Quem ganhou o par ou ímpar? O vencedor joga em dupla com
+                <strong>{{ waitingPlayerObj()?.name ?? 'o avulso' }}</strong>.
+              </p>
+              <div class="flex gap-3">
+                @for (pid of coinFlipCandidates()!; track pid) {
+                  <button mat-raised-button color="primary" (click)="applyCoinFlip(pid)">
+                    {{ getPlayerName(pid) }}
+                  </button>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+        }
 
         <!-- Completed matches -->
         @if (completedMatches().length > 0) {
@@ -122,7 +159,7 @@ import { Tournament, Match, Player } from '../../../shared/models';
         <!-- Final standings -->
         @if (tournament()!.status === 'completed' && tournament()!.finalStandings.length > 0) {
           <h2 class="text-lg font-semibold mb-2">Classificação Final</h2>
-          <div class="flex flex-col gap-1">
+          <div class="flex flex-col gap-1 mb-4">
             @for (standing of tournament()!.finalStandings; track standing.teamId) {
               <div
                 class="flex items-center gap-2 p-2 rounded"
@@ -135,17 +172,25 @@ import { Tournament, Match, Player } from '../../../shared/models';
                 "
               >
                 <span class="font-bold text-lg w-8">{{ standing.position }}º</span>
-                <span>{{ getTeamNames(standing.teamId) }}</span>
+                <span>{{ getTeamNamesWithEncaixeFlag(standing.teamId) }}</span>
               </div>
             }
           </div>
         }
 
-        <div class="mt-4">
+        <mat-divider class="mb-4" />
+
+        <div class="flex gap-2 mt-4 flex-wrap">
           <a mat-button routerLink="/campeonatos">
             <mat-icon>arrow_back</mat-icon>
             Voltar
           </a>
+          @if (tournament()!.status !== 'completed') {
+            <button mat-button color="warn" (click)="cancelTournament()">
+              <mat-icon>cancel</mat-icon>
+              Cancelar Campeonato
+            </button>
+          }
         </div>
       }
     </div>
@@ -155,11 +200,16 @@ export class TournamentDetailComponent implements OnInit {
   readonly #facade = inject(AppFacade);
   readonly #tournamentService = inject(TournamentService);
   readonly #route = inject(ActivatedRoute);
+  readonly #router = inject(Router);
 
   tournament = signal<Tournament | null>(null);
   completedMatches = signal<Match[]>([]);
   pendingMatches = signal<BracketMatch[]>([]);
   players = signal<Map<string, Player>>(new Map());
+  coinFlipCandidates = signal<[string, string] | null>(null);
+  /** Original (non-synthetic) teams for the teams overview */
+  originalTeams = signal<{ id: string; playerIds: [string, string] }[]>([]);
+  waitingPlayerObj = signal<Player | null>(null);
   scoreInputs: { scoreA: number; scoreB: number }[] = [];
   matchErrors: string[] = [];
   matchWarnings: string[] = [];
@@ -178,20 +228,47 @@ export class TournamentDetailComponent implements OnInit {
     // Load players
     const playerMap = new Map<string, Player>();
     for (const team of tournament.teams) {
-      for (const pid of team.playerIds) {
+      // Use originalPlayerIds if available so we always load the real players
+      const pids = team.originalPlayerIds ?? team.playerIds;
+      for (const pid of pids) {
         if (!playerMap.has(pid)) {
           const p = await this.#facade.getPlayerById(pid);
           if (p) playerMap.set(pid, p);
         }
       }
     }
+
+    // Load waiting player
+    if (tournament.waitingPlayerId && !playerMap.has(tournament.waitingPlayerId)) {
+      const wp = await this.#facade.getPlayerById(tournament.waitingPlayerId);
+      if (wp) {
+        playerMap.set(wp.id, wp);
+        this.waitingPlayerObj.set(wp);
+      }
+    } else if (tournament.waitingPlayerId) {
+      this.waitingPlayerObj.set(playerMap.get(tournament.waitingPlayerId) ?? null);
+    }
+
     this.players.set(playerMap);
+
+    // Compute original (non-synthetic) teams for the overview
+    this.originalTeams.set(
+      tournament.teams.map((t) => ({
+        id: t.id,
+        playerIds: (t.originalPlayerIds ?? t.playerIds) as [string, string],
+      })),
+    );
 
     // Load completed matches
     const matches = await this.#facade.getMatchesByTournamentId(id);
     const syncedTournament = await this.#tournamentService.syncTournamentState(tournament, matches);
     this.tournament.set(syncedTournament);
     this.completedMatches.set(matches.filter((m) => m.winnerId !== null));
+
+    // Coin-flip candidates
+    this.coinFlipCandidates.set(
+      this.#tournamentService.getOddPlacementCandidates(syncedTournament),
+    );
 
     // Generate pending matches
     if (syncedTournament.status !== 'completed') {
@@ -219,13 +296,36 @@ export class TournamentDetailComponent implements OnInit {
     }
   }
 
+  getPlayerName(playerId: string): string {
+    return this.players().get(playerId)?.name ?? '?';
+  }
+
   getTeamNames(teamId: string): string {
     const tournament = this.tournament();
     if (!tournament) return '';
     const team = tournament.teams.find((t) => t.id === teamId);
     if (!team) return '';
-    const names = team.playerIds.map((pid) => this.players().get(pid)?.name || '?');
+    const names = team.playerIds.map((pid) => this.players().get(pid)?.name ?? '?');
     return names.join(' + ');
+  }
+
+  /** Returns team names with an "🔄 Encaixe" flag on the borrowed (surviving) player. */
+  getTeamNamesWithEncaixeFlag(teamId: string): string {
+    const tournament = this.tournament();
+    if (!tournament) return '';
+    const team = tournament.teams.find((t) => t.id === teamId);
+    if (!team) return '';
+
+    const placement = tournament.oddPlayerPlacement;
+    return team.playerIds
+      .map((pid) => {
+        const name = this.players().get(pid)?.name ?? '?';
+        if (placement && pid === placement.survivingPlayerId && team.synthetic) {
+          return `${name} 🔄`;
+        }
+        return name;
+      })
+      .join(' + ');
   }
 
   getPhaseLabel(phase: string): string {
@@ -243,6 +343,13 @@ export class TournamentDetailComponent implements OnInit {
       default:
         return phase;
     }
+  }
+
+  async applyCoinFlip(survivingPlayerId: string) {
+    const tournament = this.tournament();
+    if (!tournament) return;
+    await this.#tournamentService.applyOddPlayerPlacement(tournament, survivingPlayerId);
+    await this.loadTournament(tournament.id);
   }
 
   async saveMatch(index: number, bracketMatch: BracketMatch) {
@@ -302,4 +409,34 @@ export class TournamentDetailComponent implements OnInit {
     await this.#facade.saveTournament(tournament);
     await this.loadTournament(tournament.id);
   }
+
+  async cancelTournament() {
+    const tournament = this.tournament();
+    if (!tournament) return;
+
+    // Delete all matches for this tournament
+    const matches = await this.#facade.getMatchesByTournamentId(tournament.id);
+    for (const match of matches) {
+      await this.#facade.deleteMatch(match.id);
+    }
+
+    // Un-select the associated draw so pairs are freed
+    const draw = await this.#facade.getDrawById(tournament.drawId);
+    if (draw) {
+      await this.#facade.saveDraw({ ...draw, selected: false });
+    }
+
+    // Remove tournament from session
+    const session = await this.#facade.getSessionById(tournament.sessionId);
+    if (session) {
+      session.tournamentIds = session.tournamentIds.filter((id) => id !== tournament.id);
+      await this.#facade.updateSession(session);
+    }
+
+    // Delete the tournament
+    await this.#facade.deleteTournament(tournament.id);
+
+    this.#router.navigate(['/sessoes', tournament.sessionId]);
+  }
 }
+

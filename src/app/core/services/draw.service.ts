@@ -62,7 +62,6 @@ export class DrawService {
         sessionId,
         teams: proposal.teams,
         waitingPlayerId: proposal.waitingPlayerId,
-        score: proposal.score,
         badges: proposal.badges,
         selected: i === 0,
         createdAt: new Date().toISOString(),
@@ -121,33 +120,39 @@ export class DrawService {
     const entries: TournamentPriorityEntry[] = [];
 
     const draws = await this.facade.getDrawsBySessionId(sessionId);
+    const tournaments = await this.facade.getTournamentsBySessionId(sessionId);
+
     const selectedDraws = draws.filter((d) => d.selected);
     if (selectedDraws.length > 0) {
       const lastDraw = selectedDraws[selectedDraws.length - 1];
       if (lastDraw.waitingPlayerId) {
-        entries.push({
-          playerId: lastDraw.waitingPlayerId,
-          reason: 'waiting-draw',
-        });
+        // Only grant priority if the waiting player truly sat out
+        // (i.e., the draw's tournament did NOT use oddPlayerPlacement)
+        const drawTournament = tournaments.find((t) => t.drawId === lastDraw.id);
+        if (!drawTournament || !drawTournament.oddPlayerPlacementEnabled) {
+          entries.push({
+            playerId: lastDraw.waitingPlayerId,
+            reason: 'waiting-draw',
+          });
+        }
       }
     }
 
-    const tournaments = await this.facade.getTournamentsBySessionId(sessionId);
-    if (tournaments.length > 0) {
-      const lastTournament = tournaments[tournaments.length - 1];
-      if (lastTournament.status === 'completed') {
-        if ((lastTournament.priorityEntries ?? []).length > 0) {
-          entries.push(...lastTournament.priorityEntries);
-        } else {
-          for (const team of lastTournament.teams) {
-            if (team.eliminatedDirectly) {
-              entries.push(
-                ...team.playerIds.map((playerId) => ({
-                  playerId,
-                  reason: 'direct-elimination' as const,
-                })),
-              );
-            }
+    // Only use entries from the most recent COMPLETED tournament
+    const completedTournaments = tournaments.filter((t) => t.status === 'completed');
+    if (completedTournaments.length > 0) {
+      const lastTournament = completedTournaments[completedTournaments.length - 1];
+      if ((lastTournament.priorityEntries ?? []).length > 0) {
+        entries.push(...lastTournament.priorityEntries);
+      } else {
+        for (const team of lastTournament.teams) {
+          if (team.eliminatedDirectly) {
+            entries.push(
+              ...team.playerIds.map((playerId) => ({
+                playerId,
+                reason: 'direct-elimination' as const,
+              })),
+            );
           }
         }
       }
@@ -242,7 +247,7 @@ export class DrawService {
     return { score, badges };
   }
 
-  private getPairKey(id1: string, id2: string): string {
+  getPairKey(id1: string, id2: string): string {
     return [id1, id2].sort().join('|');
   }
 

@@ -8,7 +8,6 @@ export interface DrawProposal {
   sessionId: string;
   teams: Team[];
   waitingPlayerId: string | null;
-  score: number;
   badges: DrawBadge[];
   selected: boolean;
   createdAt: string;

@@ -63,10 +63,6 @@ import { Player, DrawProposal, TournamentPriorityEntry } from '../../../shared/m
 
         @if (currentProposal()) {
           <div class="mb-4">
-            <p class="text-sm text-gray-600 mb-2">
-              Pontuação: {{ currentProposal()!.score }} pontos
-            </p>
-
             @if (currentProposal()!.waitingPlayerId) {
               <mat-card class="mb-4 border-l-4 border-orange-400">
                 <mat-card-content class="p-3">
@@ -102,6 +98,15 @@ import { Player, DrawProposal, TournamentPriorityEntry } from '../../../shared/m
                         </div>
                       }
                     </div>
+                    @if (hasRepeatedPair(team.id)) {
+                      <div
+                        class="flex items-center gap-1 mt-2 text-orange-700 text-xs bg-orange-50 rounded px-2 py-1"
+                        role="alert"
+                      >
+                        <mat-icon class="text-orange-500 text-sm!">warning</mat-icon>
+                        <span>Esta dupla já jogou junta nesta sessão</span>
+                      </div>
+                    }
                     @for (badge of getBadgesForTeam(team.id); track badge.type) {
                       <mat-chip
                         class="mt-2 text-xs"
@@ -149,6 +154,9 @@ export class DrawGenerateComponent implements OnInit {
   players = signal<Player[]>([]);
   availablePlayers = signal<Player[]>([]);
   priorityEntries = signal<TournamentPriorityEntry[]>([]);
+  /** Tracks which teamIds have a pair that already played together in this session */
+  repeatedPairTeamIds = signal<Set<string>>(new Set());
+  private existingPairs = new Set<string>();
   private sessionId = '';
 
   currentProposal = signal<DrawProposal | null>(null);
@@ -179,26 +187,28 @@ export class DrawGenerateComponent implements OnInit {
 
   async generate() {
     this.loading.set(true);
-    const existingPairs = await this.drawService.getExistingPairsInSession(this.sessionId);
+    this.existingPairs = await this.drawService.getExistingPairsInSession(this.sessionId);
     const priorityEntries = await this.drawService.getPriorityEntries(this.sessionId);
     this.priorityEntries.set(priorityEntries);
 
     const proposals = await this.drawService.generateProposals(
       this.sessionId,
       this.players(),
-      existingPairs,
+      this.existingPairs,
       priorityEntries,
     );
 
     this.proposals.set(proposals);
     this.selectedIndex.set(0);
     this.currentProposal.set(proposals[0] || null);
+    this.repeatedPairTeamIds.set(new Set());
     this.loading.set(false);
   }
 
   selectProposal(index: number) {
     this.selectedIndex.set(index);
     this.currentProposal.set(this.proposals()[index]);
+    this.checkRepeatedPairs();
   }
 
   getPlayerName(id: string): string {
@@ -207,6 +217,10 @@ export class DrawGenerateComponent implements OnInit {
 
   getBadgesForTeam(teamId: string) {
     return this.currentProposal()?.badges.filter((b) => b.teamId === teamId) || [];
+  }
+
+  hasRepeatedPair(teamId: string): boolean {
+    return this.repeatedPairTeamIds().has(teamId);
   }
 
   getPriorityReasonLabel(reason: TournamentPriorityEntry['reason']): string {
@@ -260,6 +274,21 @@ export class DrawGenerateComponent implements OnInit {
     const proposals = [...this.proposals()];
     proposals[this.selectedIndex()] = updated;
     this.proposals.set(proposals);
+
+    this.checkRepeatedPairs();
+  }
+
+  private checkRepeatedPairs() {
+    const proposal = this.currentProposal();
+    if (!proposal) return;
+    const repeated = new Set<string>();
+    for (const team of proposal.teams) {
+      const key = this.drawService.getPairKey(team.playerIds[0], team.playerIds[1]);
+      if (this.existingPairs.has(key)) {
+        repeated.add(team.id);
+      }
+    }
+    this.repeatedPairTeamIds.set(repeated);
   }
 
   async confirmDraw() {
@@ -289,3 +318,4 @@ export class DrawGenerateComponent implements OnInit {
     await this.generate();
   }
 }
+

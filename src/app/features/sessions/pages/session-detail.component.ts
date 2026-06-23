@@ -5,7 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 import { MatChipsModule } from '@angular/material/chips';
-import { DatePipe, NgClass } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { Session, Player, Tournament } from '../../../shared/models';
 
@@ -19,7 +19,6 @@ import { Session, Player, Tournament } from '../../../shared/models';
     MatListModule,
     MatChipsModule,
     DatePipe,
-    NgClass,
   ],
   template: `
     <div class="p-4 max-w-4xl mx-auto">
@@ -66,26 +65,43 @@ import { Session, Player, Tournament } from '../../../shared/models';
 
         <mat-card class="border! border-secondary/30! bg-white! border-xl! shadow-none! mb-4">
           <mat-card-content>
-            @for (tournament of tournaments(); track tournament.id) {
+            @for (tournament of tournaments(); track tournament.id; let i = $index) {
               <div class="flex justify-between items-center">
-                <p class="text-lg font-semibold text-on-surface">Torneio 01</p>
+                <p class="text-lg font-semibold text-on-surface">Torneio {{ i + 1 }}</p>
 
-                <small
-                  class="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1"
-                >
-                  <small class="w-2 h-2 bg-green-500 rounded-full mr-1"></small>
-
-                  Finalizado</small
-                >
+                @if (tournament.status === 'completed') {
+                  <small
+                    class="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1"
+                  >
+                    <small class="w-2 h-2 bg-green-500 rounded-full mr-1"></small>
+                    Finalizado
+                  </small>
+                } @else {
+                  <small
+                    class="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1"
+                  >
+                    <small class="w-2 h-2 bg-blue-500 rounded-full mr-1"></small>
+                    Em andamento
+                  </small>
+                }
               </div>
+
               <div class="flex justify-between items-center py-2">
                 <div class="flex">
                   <mat-icon class="mr-1 text-secondary!">group_outlined</mat-icon>
-                  <span>{{ tournament.teams.length }} duplas • </span>
+                  <span>{{ getTeamCountLabel(tournament) }} • </span>
                   <mat-icon class="mr-1 text-secondary!">bolt</mat-icon>
                   <span> {{ tournament.pointLimit }} pontos </span>
                 </div>
               </div>
+
+              @if (tournament.status === 'completed' && getChampionNames(tournament)) {
+                <div class="flex items-center gap-2 py-1">
+                  <span class="text-lg" aria-hidden="true">🏆</span>
+                  <span class="text-sm font-semibold text-yellow-700">Campeões:</span>
+                  <span class="text-sm font-medium">{{ getChampionNames(tournament) }}</span>
+                </div>
+              }
 
               <div class="h-px bg-outline-variant border-0"></div>
 
@@ -128,6 +144,7 @@ export class SessionDetailComponent implements OnInit {
   session = signal<Session | null>(null);
   sessionPlayers = signal<Player[]>([]);
   tournaments = signal<Tournament[]>([]);
+  private playerMap = new Map<string, Player>();
 
   async ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -139,13 +156,43 @@ export class SessionDetailComponent implements OnInit {
         const players: Player[] = [];
         for (const pid of session.playerIds) {
           const p = await this.facade.getPlayerById(pid);
-          if (p) players.push(p);
+          if (p) {
+            players.push(p);
+            this.playerMap.set(p.id, p);
+          }
         }
         this.sessionPlayers.set(players);
 
         const tournaments = await this.facade.getTournamentsBySessionId(id);
         this.tournaments.set(tournaments);
+
+        // Also load players referenced in tournament teams (e.g. waiting players)
+        for (const t of tournaments) {
+          for (const team of t.teams) {
+            const pids = team.originalPlayerIds ?? team.playerIds;
+            for (const pid of pids) {
+              if (!this.playerMap.has(pid)) {
+                const p = await this.facade.getPlayerById(pid);
+                if (p) this.playerMap.set(p.id, p);
+              }
+            }
+          }
+        }
       }
     }
   }
+
+  getTeamCountLabel(tournament: Tournament): string {
+    const base = `${tournament.teams.length} duplas`;
+    return tournament.waitingPlayerId ? `${base} + 1` : base;
+  }
+
+  getChampionNames(tournament: Tournament): string {
+    const standing = tournament.finalStandings.find((s) => s.position === 1);
+    if (!standing) return '';
+    const team = tournament.teams.find((t) => t.id === standing.teamId);
+    if (!team) return '';
+    return team.playerIds.map((pid) => this.playerMap.get(pid)?.name ?? '?').join(' + ');
+  }
 }
+

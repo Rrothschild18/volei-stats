@@ -27,6 +27,7 @@ export class TournamentService {
     thirdPlaceEnabled: boolean,
     waitingPlayerId: string | null,
     oddPlayerPlacementEnabled: boolean,
+    coinFlipLossPriorityEnabled: boolean,
   ): Promise<Tournament> {
     const usesOddPlayerPlacement = oddPlayerPlacementEnabled && !!waitingPlayerId;
     const tournament: Tournament = {
@@ -37,6 +38,8 @@ export class TournamentService {
       waitingPlayerId,
       oddPlayerPlacementEnabled: usesOddPlayerPlacement,
       oddPlayerPlacement: null,
+      oddPlayerPlacementPending: false,
+      coinFlipLossPriorityEnabled,
       priorityEntries:
         waitingPlayerId && !usesOddPlayerPlacement
           ? [{ playerId: waitingPlayerId, reason: 'waiting-player-not-used' }]
@@ -117,8 +120,12 @@ export class TournamentService {
     const completedMatches = matches.filter((match) => match.winnerId !== null);
     let changed = false;
 
-    if (this.usesOddPlayerPlacement(tournament) && !tournament.oddPlayerPlacement) {
-      changed = this.resolveOddPlayerPlacement(tournament, completedMatches) || changed;
+    if (
+      this.usesOddPlayerPlacement(tournament) &&
+      !tournament.oddPlayerPlacement &&
+      !tournament.oddPlayerPlacementPending
+    ) {
+      changed = this.prepareOddPlayerPlacement(tournament, completedMatches) || changed;
     }
 
     if (changed) {
@@ -224,6 +231,8 @@ export class TournamentService {
     tournament.waitingPlayerId ??= null;
     tournament.oddPlayerPlacementEnabled ??= false;
     tournament.oddPlayerPlacement ??= null;
+    tournament.oddPlayerPlacementPending ??= false;
+    tournament.coinFlipLossPriorityEnabled ??= true;
     tournament.priorityEntries ??= [];
 
     for (const team of tournament.teams) {
@@ -232,7 +241,7 @@ export class TournamentService {
     }
   }
 
-  private resolveOddPlayerPlacement(tournament: Tournament, completedMatches: Match[]): boolean {
+  private prepareOddPlayerPlacement(tournament: Tournament, completedMatches: Match[]): boolean {
     const round1 = completedMatches.filter((match) => match.phase === 'round-1');
     const requiredRound1Matches = tournament.teams.length === 3 ? 1 : 2;
 
@@ -267,27 +276,51 @@ export class TournamentService {
       this.markDirectElimination(tournament, directElimination);
     }
 
-    const originalPlayerIds =
+    // Store original playerIds so the coin-flip UI knows the candidates
+    placementSource.originalPlayerIds =
       placementSource.originalPlayerIds ?? ([...placementSource.playerIds] as [string, string]);
-    const survivingIndex = Math.random() < 0.5 ? 0 : 1;
-    const survivingPlayerId = originalPlayerIds[survivingIndex];
-    const eliminatedPlayerId = originalPlayerIds[survivingIndex === 0 ? 1 : 0];
+
+    // Signal that user input is needed
+    tournament.oddPlayerPlacementPending = true;
+
+    return true;
+  }
+
+  /** Called once the user picks the surviving player from the coin-flip. */
+  async applyOddPlayerPlacement(tournament: Tournament, survivingPlayerId: string): Promise<void> {
+    this.normalizeTournament(tournament);
+
+    // Find the source team: has originalPlayerIds set but is not yet synthetic
+    const placementSource = tournament.teams.find((t) => t.originalPlayerIds && !t.synthetic);
+    if (!placementSource || !tournament.waitingPlayerId) return;
+
+    const originalPlayerIds = placementSource.originalPlayerIds!;
+    const eliminatedPlayerId = originalPlayerIds.find((id) => id !== survivingPlayerId) ?? '';
 
     placementSource.playerIds = [survivingPlayerId, tournament.waitingPlayerId];
     placementSource.synthetic = true;
-    placementSource.originalPlayerIds = originalPlayerIds;
 
-    this.addPriorityEntries(tournament, [
-      { playerId: eliminatedPlayerId, reason: 'coin-flip-loss' },
-    ]);
+    if (tournament.coinFlipLossPriorityEnabled && eliminatedPlayerId) {
+      this.addPriorityEntries(tournament, [
+        { playerId: eliminatedPlayerId, reason: 'coin-flip-loss' },
+      ]);
+    }
 
     tournament.oddPlayerPlacement = {
       sourceTeamId: placementSource.id,
       survivingPlayerId,
       eliminatedPlayerId,
     };
+    tournament.oddPlayerPlacementPending = false;
+    tournament.updatedAt = new Date().toISOString();
+    await this.facade.saveTournament(tournament);
+  }
 
-    return true;
+  /** Returns the two candidate player IDs for the coin-flip, or null if not ready. */
+  getOddPlacementCandidates(tournament: Tournament): [string, string] | null {
+    if (!tournament.oddPlayerPlacementPending) return null;
+    const sourceTeam = tournament.teams.find((t) => t.originalPlayerIds && !t.synthetic);
+    return sourceTeam?.originalPlayerIds ?? null;
   }
 
   private getNextOdd3Team(tournament: Tournament, completed: Match[]): BracketMatch[] {

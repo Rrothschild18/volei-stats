@@ -6,6 +6,8 @@ export interface Tournament {
   waitingPlayerId: string | null;
   oddPlayerPlacementEnabled: boolean;
   oddPlayerPlacement: OddPlayerPlacement | null;
+  oddPlayerPlacementPending: boolean;
+  coinFlipLossPriorityEnabled: boolean;
   priorityEntries: TournamentPriorityEntry[];
   pointLimit: number;
   thirdPlaceEnabled: boolean;
