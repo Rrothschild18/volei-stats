@@ -63,9 +63,19 @@ import { Player, DrawProposal, TournamentPriorityEntry } from '../../../shared/m
 
         @if (currentProposal()) {
           <div class="mb-4">
-            <p class="text-sm text-gray-600 mb-2">
-              Pontuação: {{ currentProposal()!.score }} pontos
-            </p>
+            @if (repeatedPairWarning()) {
+              <mat-card class="mb-4 border-l-4 border-red-400">
+                <mat-card-content class="p-3">
+                  <div class="flex items-start gap-2">
+                    <mat-icon class="text-red-500">warning</mat-icon>
+                    <div>
+                      <p class="font-medium text-red-700">Dupla(s) repetida(s) nesta sessão</p>
+                      <p class="text-sm text-red-700">{{ repeatedPairWarning() }}</p>
+                    </div>
+                  </div>
+                </mat-card-content>
+              </mat-card>
+            }
 
             @if (currentProposal()!.waitingPlayerId) {
               <mat-card class="mb-4 border-l-4 border-orange-400">
@@ -149,6 +159,8 @@ export class DrawGenerateComponent implements OnInit {
   players = signal<Player[]>([]);
   availablePlayers = signal<Player[]>([]);
   priorityEntries = signal<TournamentPriorityEntry[]>([]);
+  existingPairs = signal<Set<string>>(new Set());
+  repeatedPairWarning = signal<string>('');
   private sessionId = '';
 
   currentProposal = signal<DrawProposal | null>(null);
@@ -179,7 +191,9 @@ export class DrawGenerateComponent implements OnInit {
 
   async generate() {
     this.loading.set(true);
+    this.repeatedPairWarning.set('');
     const existingPairs = await this.drawService.getExistingPairsInSession(this.sessionId);
+    this.existingPairs.set(existingPairs);
     const priorityEntries = await this.drawService.getPriorityEntries(this.sessionId);
     this.priorityEntries.set(priorityEntries);
 
@@ -193,12 +207,59 @@ export class DrawGenerateComponent implements OnInit {
     this.proposals.set(proposals);
     this.selectedIndex.set(0);
     this.currentProposal.set(proposals[0] || null);
+    this.refreshRepeatedPairState();
     this.loading.set(false);
   }
 
   selectProposal(index: number) {
     this.selectedIndex.set(index);
     this.currentProposal.set(this.proposals()[index]);
+    this.refreshRepeatedPairState();
+  }
+
+  private getPairKey(id1: string, id2: string): string {
+    return [id1, id2].sort().join('|');
+  }
+
+  /**
+   * Recalcula o aviso de duplas repetidas e os selos de "Dupla repetida" da
+   * proposta atual, considerando as duplas já jogadas na mesma sessão.
+   */
+  private refreshRepeatedPairState() {
+    const proposal = this.currentProposal();
+    if (!proposal) {
+      this.repeatedPairWarning.set('');
+      return;
+    }
+
+    const existing = this.existingPairs();
+    const repeatedTeamIds: string[] = [];
+    const repeatedNames: string[] = [];
+
+    for (const team of proposal.teams) {
+      if (existing.has(this.getPairKey(team.playerIds[0], team.playerIds[1]))) {
+        repeatedTeamIds.push(team.id);
+        repeatedNames.push(team.playerIds.map((pid) => this.getPlayerName(pid)).join(' + '));
+      }
+    }
+
+    // Atualiza os selos de dupla repetida sem perder os demais (gênero/prioridade).
+    const badges = proposal.badges.filter((b) => b.type !== 'repeated-pair');
+    for (const teamId of repeatedTeamIds) {
+      badges.push({ teamId, type: 'repeated-pair', description: 'Dupla repetida' });
+    }
+
+    const updated = { ...proposal, badges };
+    this.currentProposal.set(updated);
+    const proposals = [...this.proposals()];
+    proposals[this.selectedIndex()] = updated;
+    this.proposals.set(proposals);
+
+    this.repeatedPairWarning.set(
+      repeatedNames.length > 0
+        ? `Estas duplas já jogaram juntas nesta sessão: ${repeatedNames.join('; ')}.`
+        : '',
+    );
   }
 
   getPlayerName(id: string): string {
@@ -260,6 +321,9 @@ export class DrawGenerateComponent implements OnInit {
     const proposals = [...this.proposals()];
     proposals[this.selectedIndex()] = updated;
     this.proposals.set(proposals);
+
+    // Reavalia duplas repetidas após a troca e avisa o usuário.
+    this.refreshRepeatedPairState();
   }
 
   async confirmDraw() {

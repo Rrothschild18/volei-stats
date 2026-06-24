@@ -5,9 +5,17 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 import { MatChipsModule } from '@angular/material/chips';
-import { DatePipe, NgClass } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { Session, Player, Tournament } from '../../../shared/models';
+import { TeamsDisplayComponent } from '../../../shared/components/display-team/display-team.component';
+
+interface TournamentVm {
+  tournament: Tournament;
+  championTeamId: string | null;
+  championNames: string | null;
+  waitingPlayerId: string | null;
+}
 
 @Component({
   selector: 'app-session-detail',
@@ -19,7 +27,7 @@ import { Session, Player, Tournament } from '../../../shared/models';
     MatListModule,
     MatChipsModule,
     DatePipe,
-    NgClass,
+    TeamsDisplayComponent,
   ],
   template: `
     <div class="p-4 max-w-4xl mx-auto">
@@ -64,43 +72,76 @@ import { Session, Player, Tournament } from '../../../shared/models';
           <h3 class="text-xl font-semibold text-on-surface">Campeonatos</h3>
         </div>
 
-        <mat-card class="border! border-secondary/30! bg-white! border-xl! shadow-none! mb-4">
-          <mat-card-content>
-            @for (tournament of tournaments(); track tournament.id) {
+        @for (vm of tournaments(); track vm.tournament.id) {
+          <mat-card class="border! border-secondary/30! bg-white! border-xl! shadow-none! mb-4">
+            <mat-card-content>
               <div class="flex justify-between items-center">
-                <p class="text-lg font-semibold text-on-surface">Torneio 01</p>
+                <p class="text-lg font-semibold text-on-surface">Torneio {{ $index + 1 }}</p>
 
-                <small
-                  class="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1"
-                >
-                  <small class="w-2 h-2 bg-green-500 rounded-full mr-1"></small>
-
-                  Finalizado</small
-                >
+                @if (vm.tournament.status === 'completed') {
+                  <small
+                    class="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1"
+                  >
+                    <small class="w-2 h-2 bg-green-500 rounded-full mr-1"></small>
+                    Finalizado
+                  </small>
+                } @else {
+                  <small
+                    class="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1"
+                  >
+                    <small class="w-2 h-2 bg-blue-500 rounded-full mr-1"></small>
+                    Em andamento
+                  </small>
+                }
               </div>
               <div class="flex justify-between items-center py-2">
                 <div class="flex">
                   <mat-icon class="mr-1 text-secondary!">group_outlined</mat-icon>
-                  <span>{{ tournament.teams.length }} duplas • </span>
+                  <span
+                    >{{ vm.tournament.teams.length }} duplas{{
+                      vm.tournament.waitingPlayerId ? ' + 1' : ''
+                    }}
+                    •
+                  </span>
                   <mat-icon class="mr-1 text-secondary!">bolt</mat-icon>
-                  <span> {{ tournament.pointLimit }} pontos </span>
+                  <span> {{ vm.tournament.pointLimit }} pontos </span>
                 </div>
               </div>
 
+              @if (vm.championNames) {
+                <div class="flex items-center gap-1 py-1 text-yellow-700 font-medium">
+                  <mat-icon class="text-yellow-500!">emoji_events</mat-icon>
+                  <span>Campeão: {{ vm.championNames }}</span>
+                </div>
+              }
+
+              <app-teams-display
+                class="block my-2"
+                [teams]="vm.tournament.teams"
+                [players]="sessionPlayers()"
+                [waitingPlayerId]="vm.waitingPlayerId"
+                [championTeamId]="vm.championTeamId"
+                [borrowedPlayerId]="vm.tournament.oddPlayerPlacement?.survivingPlayerId ?? null"
+              />
+
               <div class="h-px bg-outline-variant border-0"></div>
 
-              <div
+              <a
                 class="mt-2 flex items-center justify-between"
-                [routerLink]="['/campeonatos', tournament.id]"
+                [routerLink]="['/campeonatos', vm.tournament.id]"
               >
                 <span class="text-secondary">Ver detalhes</span>
                 <mat-icon class="text-secondary!">chevron_right</mat-icon>
-              </div>
-            } @empty {
+              </a>
+            </mat-card-content>
+          </mat-card>
+        } @empty {
+          <mat-card class="border! border-secondary/30! bg-white! border-xl! shadow-none! mb-4">
+            <mat-card-content>
               <p class="text-gray-500">Nenhum campeonato criado ainda.</p>
-            }
-          </mat-card-content>
-        </mat-card>
+            </mat-card-content>
+          </mat-card>
+        }
 
         <div class="flex gap-2 flex-col mb-12">
           <a
@@ -127,7 +168,7 @@ export class SessionDetailComponent implements OnInit {
 
   session = signal<Session | null>(null);
   sessionPlayers = signal<Player[]>([]);
-  tournaments = signal<Tournament[]>([]);
+  tournaments = signal<TournamentVm[]>([]);
 
   async ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -142,10 +183,33 @@ export class SessionDetailComponent implements OnInit {
           if (p) players.push(p);
         }
         this.sessionPlayers.set(players);
+        const nameMap = new Map(players.map((p) => [p.id, p.name]));
 
         const tournaments = await this.facade.getTournamentsBySessionId(id);
-        this.tournaments.set(tournaments);
+        this.tournaments.set(tournaments.map((tournament) => this.toVm(tournament, nameMap)));
       }
     }
+  }
+
+  private toVm(tournament: Tournament, nameMap: Map<string, string>): TournamentVm {
+    let championTeamId: string | null = null;
+    let championNames: string | null = null;
+
+    if (tournament.status === 'completed') {
+      championTeamId = tournament.finalStandings.find((s) => s.position === 1)?.teamId ?? null;
+      const championTeam = tournament.teams.find((t) => t.id === championTeamId);
+      if (championTeam) {
+        championNames = championTeam.playerIds
+          .map((pid) => nameMap.get(pid) ?? 'Desconhecido')
+          .join(' + ');
+      }
+    }
+
+    return {
+      tournament,
+      championTeamId,
+      championNames,
+      waitingPlayerId: tournament.oddPlayerPlacement ? null : tournament.waitingPlayerId,
+    };
   }
 }

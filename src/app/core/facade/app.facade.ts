@@ -127,6 +127,25 @@ export class AppFacade {
     return this.#tournamentRepo.save(tournament);
   }
 
+  async deleteTournament(id: string): Promise<void> {
+    const tournament = await this.#tournamentRepo.getById(id);
+
+    const matches = await this.#matchRepo.getByTournamentId(id);
+    for (const match of matches) {
+      await this.#matchRepo.delete(match.id);
+    }
+
+    if (tournament) {
+      const session = await this.#sessionRepo.getById(tournament.sessionId);
+      if (session) {
+        session.tournamentIds = session.tournamentIds.filter((tid) => tid !== id);
+        await this.updateSession(session);
+      }
+    }
+
+    await this.#tournamentRepo.delete(id);
+  }
+
   // Matches
   async getMatches(): Promise<Match[]> {
     return this.#matchRepo.getAll();

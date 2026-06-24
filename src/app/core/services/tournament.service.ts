@@ -27,6 +27,7 @@ export class TournamentService {
     thirdPlaceEnabled: boolean,
     waitingPlayerId: string | null,
     oddPlayerPlacementEnabled: boolean,
+    oddPlayerLoserPriorityEnabled: boolean,
   ): Promise<Tournament> {
     const usesOddPlayerPlacement = oddPlayerPlacementEnabled && !!waitingPlayerId;
     const tournament: Tournament = {
@@ -36,6 +37,7 @@ export class TournamentService {
       teams,
       waitingPlayerId,
       oddPlayerPlacementEnabled: usesOddPlayerPlacement,
+      oddPlayerLoserPriorityEnabled,
       oddPlayerPlacement: null,
       priorityEntries:
         waitingPlayerId && !usesOddPlayerPlacement
@@ -112,21 +114,107 @@ export class TournamentService {
     }
   }
 
-  async syncTournamentState(tournament: Tournament, matches: Match[]): Promise<Tournament> {
+  async syncTournamentState(tournament: Tournament): Promise<Tournament> {
     this.normalizeTournament(tournament);
-    const completedMatches = matches.filter((match) => match.winnerId !== null);
-    let changed = false;
-
-    if (this.usesOddPlayerPlacement(tournament) && !tournament.oddPlayerPlacement) {
-      changed = this.resolveOddPlayerPlacement(tournament, completedMatches) || changed;
-    }
-
-    if (changed) {
-      tournament.updatedAt = new Date().toISOString();
-      await this.facade.saveTournament(tournament);
-    }
-
     return tournament;
+  }
+
+  /**
+   * Indica se o campeonato está aguardando a decisão do par-ou-ímpar do encaixe
+   * (rodada 1 concluída, encaixe habilitado e ainda sem placement definido).
+   */
+  needsOddPlayerPlacementDecision(tournament: Tournament, matches: Match[]): boolean {
+    this.normalizeTournament(tournament);
+    if (!this.usesOddPlayerPlacement(tournament) || tournament.oddPlayerPlacement) {
+      return false;
+    }
+    return this.getPlacementSource(tournament, matches) !== null;
+  }
+
+  /**
+   * Retorna a dupla que perdeu por menor diferença na rodada 1 (a que disputa o
+   * par-ou-ímpar) com seus dois jogadores originais, além da dupla eliminada
+   * diretamente (maior diferença), quando houver.
+   */
+  getOddPlayerPlacementCandidate(
+    tournament: Tournament,
+    matches: Match[],
+  ): {
+    sourceTeam: TournamentTeam;
+    playerIds: [string, string];
+    directEliminationTeamId: string | null;
+  } | null {
+    this.normalizeTournament(tournament);
+    const completed = matches.filter((match) => match.winnerId !== null);
+    const resolved = this.resolvePlacementTeams(tournament, completed);
+    if (!resolved) {
+      return null;
+    }
+
+    const { placementSource, directElimination } = resolved;
+    const playerIds =
+      placementSource.originalPlayerIds ?? ([...placementSource.playerIds] as [string, string]);
+
+    return {
+      sourceTeam: placementSource,
+      playerIds,
+      directEliminationTeamId: directElimination?.id ?? null,
+    };
+  }
+
+  /**
+   * Aplica o resultado do par-ou-ímpar escolhido pelo usuário: o jogador vencedor
+   * forma dupla com o avulso e o perdedor é eliminado (entrando na prioridade
+   * apenas se a flag estiver habilitada).
+   */
+  async applyOddPlayerPlacement(
+    tournament: Tournament,
+    survivingPlayerId: string,
+    matches: Match[],
+  ): Promise<Tournament> {
+    this.normalizeTournament(tournament);
+    if (!tournament.waitingPlayerId || tournament.oddPlayerPlacement) {
+      return tournament;
+    }
+
+    const completed = matches.filter((match) => match.winnerId !== null);
+    const resolved = this.resolvePlacementTeams(tournament, completed);
+    if (!resolved) {
+      return tournament;
+    }
+
+    const { placementSource, directElimination } = resolved;
+
+    if (directElimination && directElimination.id !== placementSource.id) {
+      this.markDirectElimination(tournament, directElimination);
+    }
+
+    const originalPlayerIds =
+      placementSource.originalPlayerIds ?? ([...placementSource.playerIds] as [string, string]);
+
+    const survivingPlayer = originalPlayerIds.includes(survivingPlayerId)
+      ? survivingPlayerId
+      : originalPlayerIds[0];
+    const eliminatedPlayerId = originalPlayerIds.find((id) => id !== survivingPlayer)!;
+
+    placementSource.playerIds = [survivingPlayer, tournament.waitingPlayerId];
+    placementSource.synthetic = true;
+    placementSource.originalPlayerIds = originalPlayerIds;
+
+    if (tournament.oddPlayerLoserPriorityEnabled) {
+      this.addPriorityEntries(tournament, [
+        { playerId: eliminatedPlayerId, reason: 'coin-flip-loss' },
+      ]);
+    }
+
+    tournament.oddPlayerPlacement = {
+      sourceTeamId: placementSource.id,
+      survivingPlayerId: survivingPlayer,
+      eliminatedPlayerId,
+    };
+
+    tournament.updatedAt = new Date().toISOString();
+    return this.facade.saveTournament(tournament);
   }
 
   async getNextMatches(tournament: Tournament): Promise<BracketMatch[]> {
@@ -134,7 +222,7 @@ export class TournamentService {
     const matches = await this.facade.getMatchesByTournamentId(tournament.id);
     const completedMatches = matches.filter((match) => match.winnerId !== null);
 
-    tournament = await this.syncTournamentState(tournament, matches);
+    tournament = await this.syncTournamentState(tournament);
 
     if (this.usesOddPlayerPlacement(tournament)) {
       switch (tournament.teams.length) {
@@ -223,6 +311,7 @@ export class TournamentService {
   private normalizeTournament(tournament: Tournament): void {
     tournament.waitingPlayerId ??= null;
     tournament.oddPlayerPlacementEnabled ??= false;
+    tournament.oddPlayerLoserPriorityEnabled ??= false;
     tournament.oddPlayerPlacement ??= null;
     tournament.priorityEntries ??= [];
 
@@ -231,13 +320,24 @@ export class TournamentService {
       team.originalPlayerIds ??= null;
     }
   }
+  private getPlacementSource(tournament: Tournament, matches: Match[]): TournamentTeam | null {
+    const completed = matches.filter((match) => match.winnerId !== null);
+    return this.resolvePlacementTeams(tournament, completed)?.placementSource ?? null;
+  }
 
-  private resolveOddPlayerPlacement(tournament: Tournament, completedMatches: Match[]): boolean {
+  /**
+   * Determina, a partir das partidas da rodada 1, qual dupla disputa o par-ou-ímpar
+   * (perdedora por menor diferença) e qual é eliminada diretamente (maior diferença).
+   */
+  private resolvePlacementTeams(
+    tournament: Tournament,
+    completedMatches: Match[],
+  ): { placementSource: TournamentTeam; directElimination: TournamentTeam | null } | null {
     const round1 = completedMatches.filter((match) => match.phase === 'round-1');
     const requiredRound1Matches = tournament.teams.length === 3 ? 1 : 2;
 
     if (!tournament.waitingPlayerId || round1.length < requiredRound1Matches) {
-      return false;
+      return null;
     }
 
     const losingTeams = round1
@@ -248,7 +348,7 @@ export class TournamentService {
       .filter((entry): entry is { match: Match; team: TournamentTeam } => !!entry.team);
 
     if (losingTeams.length === 0) {
-      return false;
+      return null;
     }
 
     let directElimination: TournamentTeam | null = null;
@@ -263,31 +363,7 @@ export class TournamentService {
       placementSource = sortedByDiff[sortedByDiff.length - 1].team;
     }
 
-    if (directElimination && directElimination.id !== placementSource.id) {
-      this.markDirectElimination(tournament, directElimination);
-    }
-
-    const originalPlayerIds =
-      placementSource.originalPlayerIds ?? ([...placementSource.playerIds] as [string, string]);
-    const survivingIndex = Math.random() < 0.5 ? 0 : 1;
-    const survivingPlayerId = originalPlayerIds[survivingIndex];
-    const eliminatedPlayerId = originalPlayerIds[survivingIndex === 0 ? 1 : 0];
-
-    placementSource.playerIds = [survivingPlayerId, tournament.waitingPlayerId];
-    placementSource.synthetic = true;
-    placementSource.originalPlayerIds = originalPlayerIds;
-
-    this.addPriorityEntries(tournament, [
-      { playerId: eliminatedPlayerId, reason: 'coin-flip-loss' },
-    ]);
-
-    tournament.oddPlayerPlacement = {
-      sourceTeamId: placementSource.id,
-      survivingPlayerId,
-      eliminatedPlayerId,
-    };
-
-    return true;
+    return { placementSource, directElimination };
   }
 
   private getNextOdd3Team(tournament: Tournament, completed: Match[]): BracketMatch[] {
