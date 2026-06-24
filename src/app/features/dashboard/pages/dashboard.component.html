@@ -78,7 +78,7 @@
             class="text-secondary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
             >emoji_events</mat-icon
           >
-          <p class="font-title-lg font-bold text-secondary">Eliabe</p>
+          <p class="font-title-lg font-bold text-secondary">{{ data()?.topWinsPlayer || '—' }}</p>
           <p class="text-sm text-on-surface-variant">Mais Vitórias</p>
         </mat-card-content>
       </mat-card>
@@ -91,8 +91,10 @@
             class="text-tertiary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
             >trending_up</mat-icon
           >
-          <p class="font-title-lg font-bold text-tertiary">Eliabe</p>
-          <p class="text-sm text-on-surface-variant">Melhor % (100%)</p>
+          <p class="font-title-lg font-bold text-tertiary">{{ data()?.topWinPctPlayer || '—' }}</p>
+          <p class="text-sm text-on-surface-variant">
+            Melhor % ({{ data()?.topWinPctValue || 0 }}%)
+          </p>
         </mat-card-content>
       </mat-card>
 
@@ -103,8 +105,10 @@
             class="text-primary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
             >group</mat-icon
           >
-          <p class="font-title-lg font-bold text-primary">Douglas</p>
-          <p class="text-sm text-on-surface-variant">Melhor % (100%)</p>
+          <p class="font-title-lg font-bold text-primary">{{ data()?.topTeam || '—' }}</p>
+          <p class="text-sm text-on-surface-variant">
+            Melhor % ({{ data()?.topTeamWinPct || 0 }}%)
+          </p>
         </mat-card-content>
       </mat-card>
       <!-- Mais Esperou -->
@@ -115,8 +119,10 @@
             class="text-primary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
             >hourglass_empty</mat-icon
           >
-          <p class="font-title-lg font-bold text-primary">Douglas</p>
-          <p class="text-sm text-on-surface-variant">Mais Esperou (0x)</p>
+          <p class="font-title-lg font-bold text-primary">{{ data()?.mostWaitedPlayer || '—' }}</p>
+          <p class="text-sm text-on-surface-variant">
+            Mais Esperou ({{ data()?.mostWaitedCount || 0 }}x)
+          </p>
         </mat-card-content>
       </mat-card>
     </div>

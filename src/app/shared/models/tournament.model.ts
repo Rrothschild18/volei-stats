@@ -5,6 +5,7 @@ export interface Tournament {
   teams: TournamentTeam[];
   waitingPlayerId: string | null;
   oddPlayerPlacementEnabled: boolean;
+  oddPlayerLoserPriorityEnabled: boolean;
   oddPlayerPlacement: OddPlayerPlacement | null;
   priorityEntries: TournamentPriorityEntry[];
   pointLimit: number;

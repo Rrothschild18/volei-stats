@@ -120,34 +120,26 @@ export class DrawService {
   async getPriorityEntries(sessionId: string): Promise<TournamentPriorityEntry[]> {
     const entries: TournamentPriorityEntry[] = [];
 
-    const draws = await this.facade.getDrawsBySessionId(sessionId);
-    const selectedDraws = draws.filter((d) => d.selected);
-    if (selectedDraws.length > 0) {
-      const lastDraw = selectedDraws[selectedDraws.length - 1];
-      if (lastDraw.waitingPlayerId) {
-        entries.push({
-          playerId: lastDraw.waitingPlayerId,
-          reason: 'waiting-draw',
-        });
-      }
-    }
-
+    // As prioridades valem somente para campeonatos FINALIZADOS. Campeonatos
+    // em andamento ou cancelados (que são excluídos) não interferem no sorteio.
+    // O jogador avulso só ganha prioridade quando ficou de fora o campeonato
+    // inteiro (encaixe desativado), o que é representado pela entrada
+    // 'waiting-player-not-used' gerada na criação do campeonato.
     const tournaments = await this.facade.getTournamentsBySessionId(sessionId);
-    if (tournaments.length > 0) {
-      const lastTournament = tournaments[tournaments.length - 1];
-      if (lastTournament.status === 'completed') {
-        if ((lastTournament.priorityEntries ?? []).length > 0) {
-          entries.push(...lastTournament.priorityEntries);
-        } else {
-          for (const team of lastTournament.teams) {
-            if (team.eliminatedDirectly) {
-              entries.push(
-                ...team.playerIds.map((playerId) => ({
-                  playerId,
-                  reason: 'direct-elimination' as const,
-                })),
-              );
-            }
+    const completed = tournaments.filter((t) => t.status === 'completed');
+    if (completed.length > 0) {
+      const lastTournament = completed[completed.length - 1];
+      if ((lastTournament.priorityEntries ?? []).length > 0) {
+        entries.push(...lastTournament.priorityEntries);
+      } else {
+        for (const team of lastTournament.teams) {
+          if (team.eliminatedDirectly) {
+            entries.push(
+              ...team.playerIds.map((playerId) => ({
+                playerId,
+                reason: 'direct-elimination' as const,
+              })),
+            );
           }
         }
       }
