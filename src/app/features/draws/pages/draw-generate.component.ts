@@ -26,6 +26,25 @@ import { Player, DrawProposal, TournamentPriorityEntry } from '../../../shared/m
     <div class="p-4 max-w-4xl mx-auto">
       <h1 class="text-2xl font-bold mb-4">Sorteio de Duplas</h1>
 
+      @if (lastWaitingPlayerName()) {
+        <mat-card class="mb-4 border-l-4 border-orange-400">
+          <mat-card-content class="p-3">
+            <div class="flex items-start gap-2">
+              <mat-icon class="text-orange-500">hourglass_empty</mat-icon>
+              <div>
+                <p class="font-medium text-orange-700">
+                  Atenção: jogador em espera no último campeonato
+                </p>
+                <p class="text-sm text-orange-700">
+                  {{ lastWaitingPlayerName() }} ficou em espera (avulso) no último campeonato desta
+                  sessão.
+                </p>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+
       @if (priorityEntries().length > 0) {
         <mat-card class="mb-4 border-l-4 border-blue-400">
           <mat-card-content class="p-4">
@@ -161,6 +180,7 @@ export class DrawGenerateComponent implements OnInit {
   priorityEntries = signal<TournamentPriorityEntry[]>([]);
   existingPairs = signal<Set<string>>(new Set());
   repeatedPairWarning = signal<string>('');
+  lastWaitingPlayerName = signal<string | null>(null);
   private sessionId = '';
 
   currentProposal = signal<DrawProposal | null>(null);
@@ -186,7 +206,24 @@ export class DrawGenerateComponent implements OnInit {
     this.players.set(players);
     this.availablePlayers.set(players);
 
+    await this.resolveLastWaitingPlayer();
     await this.generate();
+  }
+
+  /**
+   * Sinaliza o jogador que ficou em espera (avulso) no último campeonato desta
+   * sessão, para que o organizador possa priorizá-lo no novo sorteio.
+   */
+  private async resolveLastWaitingPlayer() {
+    const tournaments = await this.facade.getTournamentsBySessionId(this.sessionId);
+    const lastWithWaiting = [...tournaments]
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .reverse()
+      .find((t) => !!t.waitingPlayerId);
+
+    this.lastWaitingPlayerName.set(
+      lastWithWaiting?.waitingPlayerId ? this.getPlayerName(lastWithWaiting.waitingPlayerId) : null,
+    );
   }
 
   async generate() {
@@ -220,7 +257,6 @@ export class DrawGenerateComponent implements OnInit {
   private getPairKey(id1: string, id2: string): string {
     return [id1, id2].sort().join('|');
   }
-
   /**
    * Recalcula o aviso de duplas repetidas e os selos de "Dupla repetida" da
    * proposta atual, considerando as duplas já jogadas na mesma sessão.
