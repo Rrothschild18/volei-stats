@@ -153,6 +153,7 @@
 /* Note: Color palettes are generated from primary: #405F90, secondary: #7A580C, tertiary: #00696F */
 html {
   /* COLOR SYSTEM VARIABLES */
+  background-color: var(--mat-sidenav-content-background-color, var(--mat-sys-background));
   color-scheme: light;
 
   /* Primary palette variables */

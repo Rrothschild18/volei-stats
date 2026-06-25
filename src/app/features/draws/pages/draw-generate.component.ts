@@ -10,6 +10,9 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { DrawService } from '../../../core/services/draw.service';
 import { Player, DrawProposal, TournamentPriorityEntry } from '../../../shared/models';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { JsonPipe } from '@angular/common';
 
 @Component({
   selector: 'app-draw-generate',
@@ -21,43 +24,48 @@ import { Player, DrawProposal, TournamentPriorityEntry } from '../../../shared/m
     MatBadgeModule,
     MatSelectModule,
     MatFormFieldModule,
+    MatCheckboxModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    JsonPipe,
   ],
   template: `
     <div class="p-4 max-w-4xl mx-auto">
-      <h1 class="text-2xl font-bold mb-4">Sorteio de Duplas</h1>
-
-      @if (lastWaitingPlayerName()) {
-        <mat-card class="mb-4 border-l-4 border-orange-400">
-          <mat-card-content class="p-3">
-            <div class="flex items-start gap-2">
-              <mat-icon class="text-orange-500">hourglass_empty</mat-icon>
-              <div>
-                <p class="font-medium text-orange-700">
-                  Atenção: jogador em espera no último campeonato
-                </p>
-                <p class="text-sm text-orange-700">
-                  {{ lastWaitingPlayerName() }} ficou em espera (avulso) no último campeonato desta
-                  sessão.
-                </p>
-              </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-      }
+      <h1 class="text-2xl font-bold mb-4">Sorteio de Duplas ?</h1>
 
       @if (priorityEntries().length > 0) {
-        <mat-card class="mb-4 border-l-4 border-blue-400">
-          <mat-card-content class="p-4">
-            <p class="font-medium mb-2">Prioridades para este sorteio</p>
-            <div class="flex flex-col gap-1">
-              @for (entry of priorityEntries(); track entry.playerId + entry.reason) {
-                <p class="text-sm text-gray-700">
-                  {{ getPlayerName(entry.playerId) }}: {{ getPriorityReasonLabel(entry.reason) }}
-                </p>
+        <div
+          class="bg-white flex-col gap-4 p-4 rounded-lg mb-4 border-outline-variant border shadow-sm"
+        >
+          <p class="font-medium mb-2">Prioridades para este sorteio</p>
+          <div class="flex flex-col gap-1">
+            @for (entry of priorityEntries(); track entry.playerId + entry.reason) {
+              @if (entry.reason === 'coin-flip-loss') {
+                <div class="flex items-center gap-2">
+                  <mat-icon
+                    class="text-primary! bg-primary-container/10!  size-8! inline-flex! items-center! justify-center! rounded-lg! text-[20px]!"
+                    >handshake</mat-icon
+                  >
+                  <span class="text-xs font-bold"
+                    >Perdeu par ou ímpar do encaixe - {{ getPlayerName(entry.playerId) }}</span
+                  >
+                </div>
               }
-            </div>
-          </mat-card-content>
-        </mat-card>
+
+              @if (entry.reason === 'direct-elimination') {
+                <div class="flex items-center gap-2">
+                  <mat-icon
+                    class="text-error! bg-error-container/30!  size-8! inline-flex! items-center! justify-center! rounded-lg! text-[20px]!"
+                    >group_off</mat-icon
+                  >
+                  <span class="text-xs font-bold"
+                    >Eliminação direta - {{ getPlayerName(entry.playerId) }}</span
+                  >
+                </div>
+              }
+            }
+          </div>
+        </div>
       }
 
       @if (loading()) {
@@ -65,22 +73,35 @@ import { Player, DrawProposal, TournamentPriorityEntry } from '../../../shared/m
       }
 
       @if (!loading() && proposals().length > 0) {
-        <div class="flex gap-2 mb-4">
-          @for (proposal of proposals(); track proposal.id; let i = $index) {
-            <button
-              mat-raised-button
-              [class]="selectedIndex() === i ? 'bg-blue-100' : ''"
-              (click)="selectProposal(i)"
-            >
-              Proposta {{ i + 1 }}
-              @if (i === 0) {
-                (Melhor)
-              }
-            </button>
-          }
+        <div class="flex items-center justify-center mb-4">
+          <mat-button-toggle-group class="w-full!" aria-label="Favorite Color">
+            @for (proposal of proposals(); track proposal.id; let i = $index) {
+              <mat-button-toggle
+                class="w-full!"
+                (click)="selectProposal(i)"
+                [value]="i + 1"
+                [checked]="selectedIndex() === i"
+                >Proposta {{ i + 1 }}</mat-button-toggle
+              >
+            }
+          </mat-button-toggle-group>
         </div>
 
         @if (currentProposal()) {
+          @if (currentProposal()!.waitingPlayerId) {
+            <div
+              class="flex items-center gap-2 bg-secondary-container/30! rounded-sm p-2 mb-4 border-l-4 border-secondary-container!"
+            >
+              <mat-icon
+                class="text-secondary! font-bold size-8! inline-flex! items-center! justify-center! rounded-lg!"
+                >hourglass_empty</mat-icon
+              >
+              <span class="text-lg font-bold text-secondary"
+                >Jogador em espera - {{ getPlayerName(currentProposal()!.waitingPlayerId!) }}</span
+              >
+            </div>
+          }
+
           <div class="mb-4">
             @if (repeatedPairWarning()) {
               <mat-card class="mb-4 border-l-4 border-red-400">
@@ -96,69 +117,141 @@ import { Player, DrawProposal, TournamentPriorityEntry } from '../../../shared/m
               </mat-card>
             }
 
-            @if (currentProposal()!.waitingPlayerId) {
-              <mat-card class="mb-4 border-l-4 border-orange-400">
-                <mat-card-content class="p-3">
-                  <div class="flex items-center gap-2">
-                    <mat-icon class="text-orange-500">hourglass_empty</mat-icon>
-                    <span class="font-medium">Jogador em Espera:</span>
-                    <span>{{ getPlayerName(currentProposal()!.waitingPlayerId!) }}</span>
-                  </div>
-                </mat-card-content>
-              </mat-card>
-            }
-
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               @for (team of currentProposal()!.teams; track team.id; let ti = $index) {
-                <mat-card>
+                <mat-card class="border! border-outline-variant! bg-white! shadow-none!">
                   <mat-card-content class="p-3">
-                    <p class="font-medium mb-2">Dupla {{ ti + 1 }}</p>
-                    <div class="flex flex-col gap-1">
-                      @for (pid of team.playerIds; track pid; let pi = $index) {
-                        <div class="flex items-center gap-2">
-                          <mat-form-field appearance="outline" class="flex-1 text-sm">
-                            <mat-select
-                              [value]="pid"
-                              (selectionChange)="swapPlayer(team.id, pi, $event.value)"
+                    <div
+                      class="flex items-center justify-between gap-2 mb-2 border-b border-outline-variant pb-2"
+                    >
+                      <div class="flex items-center gap-2">
+                        <mat-icon class="text-primary!">group</mat-icon>
+                        <h4 class="text-primary font-medium uppercase">Dupla {{ ti + 1 }}</h4>
+                      </div>
+
+                      <div>
+                        @for (badge of getBadgesForTeam(team.id); track badge.type) {
+                          @if (badge.type === 'same-gender') {
+                            @let player1 = players().find((p) => p.id === team.playerIds[0]);
+                            @let player2 = players().find((p) => p.id === team.playerIds[1]);
+                            @let bothMen = player1?.gender === 'M' && player2?.gender === 'M';
+                            @let bothWomen = player1?.gender === 'F' && player2?.gender === 'F';
+                            @if (bothMen || bothWomen) {
+                              <mat-icon
+                                class=" bg-primary-container/30!  size-8! inline-flex! items-center! justify-center! rounded-lg! text-[20px]! mr-2"
+                                [class.text-primary!]="bothMen"
+                                [class.text-pink-700!]="bothWomen"
+                                [class.bg-primary-container/30!]="bothMen"
+                                [class.bg-pink-700/30!]="bothWomen"
+                                >{{ bothMen ? 'man' : bothWomen ? 'woman' : 'person' }}</mat-icon
+                              >
+                              <mat-icon
+                                class="size-8! inline-flex! items-center! justify-center! rounded-lg! text-[20px]!"
+                                [class.text-primary!]="bothMen"
+                                [class.text-pink-700!]="bothWomen"
+                                [class.bg-primary-container/30!]="bothMen"
+                                [class.bg-pink-700/30!]="bothWomen"
+                                >{{ bothMen ? 'man' : bothWomen ? 'woman' : 'person' }}</mat-icon
+                              >
+                            }
+                          }
+                          @if (badge.type === 'repeated-pair') {
+                            <mat-icon
+                              class="text-error! bg-error-container/30!  size-8! inline-flex! items-center! justify-center! rounded-lg! text-[20px]!"
+                              >replay</mat-icon
                             >
-                              @for (player of availablePlayers(); track player.id) {
-                                <mat-option [value]="player.id"
-                                  >{{ player.name }} ({{ player.gender }})</mat-option
-                                >
-                              }
-                            </mat-select>
-                          </mat-form-field>
-                        </div>
+                          }
+                          @if (badge.type === 'priority-player') {}
+                        }
+                      </div>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                      @for (pid of team.playerIds; track pid; let pi = $index) {
+                        <mat-form-field appearance="outline" class="w-full! text-sm">
+                          <mat-select
+                            [value]="pid"
+                            (selectionChange)="swapPlayer(team.id, pi, $event.value)"
+                          >
+                            @for (player of availablePlayers(); track player.id) {
+                              <mat-option [value]="player.id">{{ player.name }}</mat-option>
+                            }
+                          </mat-select>
+
+                          @let playerOnePriorityEntry =
+                            priorityEntries().find((entry) => entry.playerId === team.playerIds[0]);
+                          @let playerTwoPriorityEntry =
+                            priorityEntries().find((entry) => entry.playerId === team.playerIds[1]);
+
+                          @if (pid === team.playerIds[0] && playerOnePriorityEntry) {
+                            <mat-icon
+                              matSuffix
+                              [class.text-primary!]="
+                                playerOnePriorityEntry.reason === 'waiting-draw'
+                              "
+                              [class.text-error!]="
+                                playerOnePriorityEntry.reason === 'direct-elimination'
+                              "
+                              [class.text-secondary!]="
+                                playerOnePriorityEntry.reason === 'coin-flip-loss'
+                              "
+                              [class.text-warning!]="
+                                playerOnePriorityEntry.reason === 'waiting-player-not-used'
+                              "
+                              >{{ getIconNameForReason(playerOnePriorityEntry.reason) }}</mat-icon
+                            >
+                          }
+
+                          @if (pid === team.playerIds[1] && playerTwoPriorityEntry) {
+                            <mat-icon
+                              matSuffix
+                              [class.text-primary!]="
+                                playerTwoPriorityEntry.reason === 'waiting-draw'
+                              "
+                              [class.text-error!]="
+                                playerTwoPriorityEntry.reason === 'direct-elimination'
+                              "
+                              [class.text-secondary!]="
+                                playerTwoPriorityEntry.reason === 'coin-flip-loss'
+                              "
+                              [class.text-warning!]="
+                                playerTwoPriorityEntry.reason === 'waiting-player-not-used'
+                              "
+                              >{{ getIconNameForReason(playerTwoPriorityEntry.reason) }}</mat-icon
+                            >
+                          }
+                        </mat-form-field>
                       }
                     </div>
-                    @for (badge of getBadgesForTeam(team.id); track badge.type) {
-                      <mat-chip
-                        class="mt-2 text-xs"
-                        [class]="
-                          badge.type === 'repeated-pair'
-                            ? 'bg-red-100 text-red-700'
-                            : badge.type === 'same-gender'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-blue-100 text-blue-700'
-                        "
-                      >
-                        {{ badge.description }}
-                      </mat-chip>
-                    }
                   </mat-card-content>
                 </mat-card>
               }
             </div>
           </div>
 
-          <div class="flex gap-2 mt-4 mb-20">
-            <button mat-raised-button (click)="confirmDraw()">
-              <mat-icon>check</mat-icon>
-              Confirmar e Criar Campeonato
+          <div class="flex flex-col gap-2">
+            <button
+              matButton
+              class="w-full! bg-on-primary-container! text-primary-container!
+                    shadow-lg hover:shadow-xl hover:scale-105
+                    transition-all duration-300 active:scale-95
+                    rounded-lg!"
+              extended
+              (click)="generate()"
+            >
+              <mat-icon class="text-primary-container!">shuffle</mat-icon>
+              Sortear novamente
             </button>
-            <button mat-button (click)="regenerate()">
-              <mat-icon>refresh</mat-icon>
-              Gerar Novamente
+            <button
+              matButton
+              class="w-full! bg-primary-container! text-on-primary-container!
+                    shadow-lg hover:shadow-xl hover:scale-105
+                    transition-all duration-300 active:scale-95
+                    rounded-lg!"
+              extended
+              (click)="confirmDraw()"
+            >
+              <mat-icon class="text-on-primary-container!">check</mat-icon>
+              Criar campeonato
             </button>
           </div>
         }
@@ -309,7 +402,7 @@ export class DrawGenerateComponent implements OnInit {
   getPriorityReasonLabel(reason: TournamentPriorityEntry['reason']): string {
     switch (reason) {
       case 'waiting-draw':
-        return 'ficou em espera no sorteio anterior';
+        return 'ficou de fora no sorteio anterior';
       case 'direct-elimination':
         return 'eliminação por maior diferença no campeonato passado';
       case 'coin-flip-loss':
@@ -383,6 +476,21 @@ export class DrawGenerateComponent implements OnInit {
     this.router.navigate(['/campeonatos', 'novo'], {
       queryParams: { drawId: proposal.id, sessionId: this.sessionId },
     });
+  }
+
+  getIconNameForReason(reason: TournamentPriorityEntry['reason'] | undefined): string {
+    switch (reason) {
+      case 'waiting-draw':
+        return 'handshake';
+      case 'direct-elimination':
+        return 'group_off';
+      case 'coin-flip-loss':
+        return 'flip';
+      case 'waiting-player-not-used':
+        return 'person_off';
+      default:
+        return 'help';
+    }
   }
 
   async regenerate() {

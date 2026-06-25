@@ -1,7 +1,7 @@
 <mat-sidenav-container class="sidenav-container">
   <mat-sidenav
     #drawer
-    class="sidenav"
+    class="sidenav border-r! border-outline-variant/50! bg-surface-container-low! shadow-none!"
     fixedInViewport
     [attr.role]="(isHandset$ | async) ? 'dialog' : 'navigation'"
     [mode]="(isHandset$ | async) ? 'over' : 'side'"
@@ -42,7 +42,9 @@
           <mat-icon aria-label="Side nav toggle icon">menu</mat-icon>
         </button>
       }
-      <span>Vôlei Stats</span>
+      <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">
+        {{ title.getTitle() }}
+      </h2>
     </mat-toolbar>
     <ng-content></ng-content>
   </mat-sidenav-content>
