@@ -1,6 +1,7 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, viewChild, effect, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { MatTableModule } from '@angular/material/table';
+import { MatTableModule, MatTableDataSource } from '@angular/material/table';
+import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatButtonModule } from '@angular/material/button';
 import { AppFacade } from '../../../core/facade/app.facade';
 
@@ -15,7 +16,7 @@ interface TeamRankingEntry {
 
 @Component({
   selector: 'app-ranking-teams',
-  imports: [RouterLink, MatTableModule, MatButtonModule],
+  imports: [RouterLink, MatTableModule, MatSortModule, MatButtonModule],
   template: `
     <div class="p-4 max-w-4xl mx-auto">
       <div class="flex justify-between items-center mb-4">
@@ -31,34 +32,40 @@ interface TeamRankingEntry {
 
       @if (rankings().length > 0) {
         <div class="overflow-x-auto">
-          <table mat-table [dataSource]="rankings()" class="w-full" aria-label="Ranking de duplas">
+          <table
+            mat-table
+            matSort
+            [dataSource]="dataSource"
+            class="w-full"
+            aria-label="Ranking de duplas"
+          >
             <ng-container matColumnDef="position">
-              <th mat-header-cell *matHeaderCellDef>#</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>#</th>
               <td mat-cell *matCellDef="let r">{{ r.position }}</td>
             </ng-container>
 
             <ng-container matColumnDef="names">
-              <th mat-header-cell *matHeaderCellDef>Dupla</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>Dupla</th>
               <td mat-cell *matCellDef="let r">{{ r.names }}</td>
             </ng-container>
 
             <ng-container matColumnDef="gamesPlayed">
-              <th mat-header-cell *matHeaderCellDef>Jogos</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>Jogos</th>
               <td mat-cell *matCellDef="let r">{{ r.gamesPlayed }}</td>
             </ng-container>
 
             <ng-container matColumnDef="wins">
-              <th mat-header-cell *matHeaderCellDef>V</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>V</th>
               <td mat-cell *matCellDef="let r">{{ r.wins }}</td>
             </ng-container>
 
             <ng-container matColumnDef="losses">
-              <th mat-header-cell *matHeaderCellDef>D</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>D</th>
               <td mat-cell *matCellDef="let r">{{ r.losses }}</td>
             </ng-container>
 
             <ng-container matColumnDef="winPercentage">
-              <th mat-header-cell *matHeaderCellDef>%</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>%</th>
               <td mat-cell *matCellDef="let r">{{ r.winPercentage }}%</td>
             </ng-container>
 
@@ -73,7 +80,16 @@ interface TeamRankingEntry {
 export class RankingTeamsComponent implements OnInit {
   private facade = inject(AppFacade);
   rankings = signal<TeamRankingEntry[]>([]);
+  dataSource = new MatTableDataSource<TeamRankingEntry>([]);
+  readonly sort = viewChild(MatSort);
   columns = ['position', 'names', 'gamesPlayed', 'wins', 'losses', 'winPercentage'];
+
+  constructor() {
+    effect(() => {
+      const sort = this.sort();
+      if (sort) this.dataSource.sort = sort;
+    });
+  }
 
   async ngOnInit() {
     const stats = await this.facade.getTeamStats();
@@ -81,15 +97,16 @@ export class RankingTeamsComponent implements OnInit {
       .filter((s) => s.gamesPlayed >= 3)
       .sort((a, b) => b.winPercentage - a.winPercentage);
 
-    this.rankings.set(
-      qualified.map((s, i) => ({
-        position: i + 1,
-        names: s.playerNames.join(' + '),
-        gamesPlayed: s.gamesPlayed,
-        wins: s.wins,
-        losses: s.losses,
-        winPercentage: s.winPercentage,
-      })),
-    );
+    const entries = qualified.map((s, i) => ({
+      position: i + 1,
+      names: s.playerNames.join(' + '),
+      gamesPlayed: s.gamesPlayed,
+      wins: s.wins,
+      losses: s.losses,
+      winPercentage: s.winPercentage,
+    }));
+
+    this.rankings.set(entries);
+    this.dataSource.data = entries;
   }
 }

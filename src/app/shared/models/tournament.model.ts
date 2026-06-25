@@ -32,9 +32,13 @@ export interface TournamentStanding {
 }
 
 export interface OddPlayerPlacement {
+  /** Dupla original que perdeu o par-ou-ímpar e foi desfeita no encaixe. /
   sourceTeamId: string;
+  /* Nova dupla criada pelo encaixe (jogador vencedor + avulso). */
+  encaixeTeamId: string;
   survivingPlayerId: string;
   eliminatedPlayerId: string;
+  sourceTeamId: string;
 }
 
 export interface TournamentPriorityEntry {

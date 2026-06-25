@@ -1,6 +1,7 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, viewChild, effect, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { MatTableModule } from '@angular/material/table';
+import { MatTableModule, MatTableDataSource } from '@angular/material/table';
+import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTabsModule } from '@angular/material/tabs';
 import { AppFacade } from '../../../core/facade/app.facade';
@@ -17,7 +18,7 @@ interface RankingEntry {
 
 @Component({
   selector: 'app-ranking-individual',
-  imports: [RouterLink, MatTableModule, MatButtonModule, MatTabsModule],
+  imports: [RouterLink, MatTableModule, MatSortModule, MatButtonModule, MatTabsModule],
   template: `
     <div class="p-4 max-w-4xl mx-auto">
       <div class="flex justify-between items-center mb-4">
@@ -33,42 +34,43 @@ interface RankingEntry {
         <div class="overflow-x-auto">
           <table
             mat-table
-            [dataSource]="rankings()"
+            matSort
+            [dataSource]="dataSource"
             class="w-full"
             aria-label="Ranking individual de jogadores"
           >
             <ng-container matColumnDef="position">
-              <th mat-header-cell *matHeaderCellDef>#</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>#</th>
               <td mat-cell *matCellDef="let r">{{ r.position }}</td>
             </ng-container>
 
             <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>Jogador</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>Jogador</th>
               <td mat-cell *matCellDef="let r">{{ r.name }}</td>
             </ng-container>
 
             <ng-container matColumnDef="gamesPlayed">
-              <th mat-header-cell *matHeaderCellDef>Jogos</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>Jogos</th>
               <td mat-cell *matCellDef="let r">{{ r.gamesPlayed }}</td>
             </ng-container>
 
             <ng-container matColumnDef="wins">
-              <th mat-header-cell *matHeaderCellDef>V</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>V</th>
               <td mat-cell *matCellDef="let r">{{ r.wins }}</td>
             </ng-container>
 
             <ng-container matColumnDef="losses">
-              <th mat-header-cell *matHeaderCellDef>D</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>D</th>
               <td mat-cell *matCellDef="let r">{{ r.losses }}</td>
             </ng-container>
 
             <ng-container matColumnDef="winPercentage">
-              <th mat-header-cell *matHeaderCellDef>%</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>%</th>
               <td mat-cell *matCellDef="let r">{{ r.winPercentage }}%</td>
             </ng-container>
 
             <ng-container matColumnDef="timesWaited">
-              <th mat-header-cell *matHeaderCellDef>Esperas</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>Esperas</th>
               <td mat-cell *matCellDef="let r">{{ r.timesWaited }}</td>
             </ng-container>
 
@@ -83,7 +85,16 @@ interface RankingEntry {
 export class RankingIndividualComponent implements OnInit {
   private facade = inject(AppFacade);
   rankings = signal<RankingEntry[]>([]);
+  dataSource = new MatTableDataSource<RankingEntry>([]);
+  readonly sort = viewChild(MatSort);
   columns = ['position', 'name', 'gamesPlayed', 'wins', 'losses', 'winPercentage', 'timesWaited'];
+
+  constructor() {
+    effect(() => {
+      const sort = this.sort();
+      if (sort) this.dataSource.sort = sort;
+    });
+  }
 
   async ngOnInit() {
     const [stats, players] = await Promise.all([
@@ -94,16 +105,17 @@ export class RankingIndividualComponent implements OnInit {
     const playerMap = new Map(players.map((p) => [p.id, p]));
     const sorted = stats.sort((a, b) => b.winPercentage - a.winPercentage);
 
-    this.rankings.set(
-      sorted.map((s, i) => ({
-        position: i + 1,
-        name: playerMap.get(s.playerId)?.name || 'Desconhecido',
-        gamesPlayed: s.gamesPlayed,
-        wins: s.wins,
-        losses: s.losses,
-        winPercentage: s.winPercentage,
-        timesWaited: s.timesWaited,
-      })),
-    );
+    const entries = sorted.map((s, i) => ({
+      position: i + 1,
+      name: playerMap.get(s.playerId)?.name || 'Desconhecido',
+      gamesPlayed: s.gamesPlayed,
+      wins: s.wins,
+      losses: s.losses,
+      winPercentage: s.winPercentage,
+      timesWaited: s.timesWaited,
+    }));
+
+    this.rankings.set(entries);
+    this.dataSource.data = entries;
   }
 }

@@ -458,7 +458,7 @@ export class TournamentDetailComponent implements OnInit {
     // Check if tournament is complete
     const allMatches = await this.#facade.getMatchesByTournamentId(tournament.id);
     await this.#tournamentService.syncTournamentState(tournament);
-    if (this.#tournamentService.isTournamentComplete(tournament, allMatches)) {
+    if (await this.#tournamentService.isTournamentComplete(tournament, allMatches)) {
       tournament.status = 'completed';
       tournament.finalStandings = this.#tournamentService.computeFinalStandings(
         tournament,

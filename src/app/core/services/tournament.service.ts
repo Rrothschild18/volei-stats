@@ -55,23 +55,24 @@ export class TournamentService {
   }
 
   generateInitialMatches(tournament: Tournament): BracketMatch[] {
-    const count = tournament.teams.length;
+    // Considera apenas as duplas originais do sorteio. A dupla sintética do
+    // encaixe é criada depois e não participa da rodada inicial.
+    const teams = tournament.teams.filter((team) => !team.synthetic);
+    const count = teams.length;
 
     if (this.usesOddPlayerPlacement(tournament)) {
       switch (count) {
         case 3:
-          return [
-            { phase: 'round-1', teamAId: tournament.teams[0].id, teamBId: tournament.teams[1].id },
-          ];
+          return [{ phase: 'round-1', teamAId: teams[0].id, teamBId: teams[1].id }];
         case 4:
           return [
-            { phase: 'round-1', teamAId: tournament.teams[0].id, teamBId: tournament.teams[1].id },
-            { phase: 'round-1', teamAId: tournament.teams[2].id, teamBId: tournament.teams[3].id },
+            { phase: 'round-1', teamAId: teams[0].id, teamBId: teams[1].id },
+            { phase: 'round-1', teamAId: teams[2].id, teamBId: teams[3].id },
           ];
         case 5:
           return [
-            { phase: 'round-1', teamAId: tournament.teams[0].id, teamBId: tournament.teams[1].id },
-            { phase: 'round-1', teamAId: tournament.teams[2].id, teamBId: tournament.teams[3].id },
+            { phase: 'round-1', teamAId: teams[0].id, teamBId: teams[1].id },
+            { phase: 'round-1', teamAId: teams[2].id, teamBId: teams[3].id },
           ];
         default:
           return [];
@@ -80,34 +81,30 @@ export class TournamentService {
 
     switch (count) {
       case 2:
-        return [
-          { phase: 'final', teamAId: tournament.teams[0].id, teamBId: tournament.teams[1].id },
-        ];
+        return [{ phase: 'final', teamAId: teams[0].id, teamBId: teams[1].id }];
       case 3:
-        return [
-          { phase: 'round-1', teamAId: tournament.teams[0].id, teamBId: tournament.teams[1].id },
-        ];
+        return [{ phase: 'round-1', teamAId: teams[0].id, teamBId: teams[1].id }];
       case 4:
         return [
-          { phase: 'semifinal', teamAId: tournament.teams[0].id, teamBId: tournament.teams[1].id },
-          { phase: 'semifinal', teamAId: tournament.teams[2].id, teamBId: tournament.teams[3].id },
+          { phase: 'semifinal', teamAId: teams[0].id, teamBId: teams[1].id },
+          { phase: 'semifinal', teamAId: teams[2].id, teamBId: teams[3].id },
         ];
       case 5:
         return [
-          { phase: 'round-1', teamAId: tournament.teams[0].id, teamBId: tournament.teams[1].id },
-          { phase: 'round-1', teamAId: tournament.teams[2].id, teamBId: tournament.teams[3].id },
+          { phase: 'round-1', teamAId: teams[0].id, teamBId: teams[1].id },
+          { phase: 'round-1', teamAId: teams[2].id, teamBId: teams[3].id },
         ];
       case 6:
         return [
-          { phase: 'round-1', teamAId: tournament.teams[0].id, teamBId: tournament.teams[1].id },
-          { phase: 'round-1', teamAId: tournament.teams[2].id, teamBId: tournament.teams[3].id },
-          { phase: 'round-1', teamAId: tournament.teams[4].id, teamBId: tournament.teams[5].id },
+          { phase: 'round-1', teamAId: teams[0].id, teamBId: teams[1].id },
+          { phase: 'round-1', teamAId: teams[2].id, teamBId: teams[3].id },
+          { phase: 'round-1', teamAId: teams[4].id, teamBId: teams[5].id },
         ];
       case 7:
         return [
-          { phase: 'round-1', teamAId: tournament.teams[0].id, teamBId: tournament.teams[1].id },
-          { phase: 'round-1', teamAId: tournament.teams[2].id, teamBId: tournament.teams[3].id },
-          { phase: 'round-1', teamAId: tournament.teams[4].id, teamBId: tournament.teams[5].id },
+          { phase: 'round-1', teamAId: teams[0].id, teamBId: teams[1].id },
+          { phase: 'round-1', teamAId: teams[2].id, teamBId: teams[3].id },
+          { phase: 'round-1', teamAId: teams[4].id, teamBId: teams[5].id },
         ];
       default:
         return [];
@@ -189,17 +186,31 @@ export class TournamentService {
       this.markDirectElimination(tournament, directElimination);
     }
 
-    const originalPlayerIds =
-      placementSource.originalPlayerIds ?? ([...placementSource.playerIds] as [string, string]);
+    const originalPlayerIds = [...placementSource.playerIds] as [string, string];
 
     const survivingPlayer = originalPlayerIds.includes(survivingPlayerId)
       ? survivingPlayerId
       : originalPlayerIds[0];
     const eliminatedPlayerId = originalPlayerIds.find((id) => id !== survivingPlayer)!;
 
-    placementSource.playerIds = [survivingPlayer, tournament.waitingPlayerId];
-    placementSource.synthetic = true;
-    placementSource.originalPlayerIds = originalPlayerIds;
+    // A dupla original que perdeu o par-ou-ímpar é desfeita (eliminada, mas não
+    // por mais pontos). Mantemos seus jogadores originais intactos para que as
+    // partidas já jogadas continuem exibindo a dupla correta.
+    placementSource.eliminated = true;
+    placementSource.eliminatedDirectly = false;
+
+    // O encaixe cria uma NOVA dupla (jogador vencedor + avulso), que assume a
+    // vaga no chaveamento. Assim surge uma dupla a mais (ex.: 4 duplas + avulso
+    // passam a ter uma 5ª dupla) sem misturar com as partidas anteriores.
+    const encaixeTeam: TournamentTeam = {
+      id: crypto.randomUUID(),
+      playerIds: [survivingPlayer, tournament.waitingPlayerId],
+      eliminated: false,
+      eliminatedDirectly: false,
+      synthetic: true,
+      originalPlayerIds,
+    };
+    tournament.teams.push(encaixeTeam);
 
     if (tournament.oddPlayerLoserPriorityEnabled) {
       this.addPriorityEntries(tournament, [
@@ -209,6 +220,7 @@ export class TournamentService {
 
     tournament.oddPlayerPlacement = {
       sourceTeamId: placementSource.id,
+      encaixeTeamId: encaixeTeam.id,
       survivingPlayerId: survivingPlayer,
       eliminatedPlayerId,
     };
@@ -224,8 +236,12 @@ export class TournamentService {
 
     tournament = await this.syncTournamentState(tournament);
 
+    // Contagem das duplas originais (exclui a dupla sintética do encaixe, que é
+    // adicionada após a rodada 1 e não deve mudar o formato do chaveamento).
+    const originalCount = tournament.teams.filter((team) => !team.synthetic).length;
+
     if (this.usesOddPlayerPlacement(tournament)) {
-      switch (tournament.teams.length) {
+      switch (originalCount) {
         case 3:
           return this.getNextOdd3Team(tournament, completedMatches);
         case 4:
@@ -237,7 +253,7 @@ export class TournamentService {
       }
     }
 
-    switch (tournament.teams.length) {
+    switch (originalCount) {
       case 3:
         return this.getNext3Team(tournament, completedMatches);
       case 4:
@@ -272,8 +288,28 @@ export class TournamentService {
 
     const rankedIds = standings.map((standing) => standing.teamId);
     const unranked = tournament.teams.filter((team) => !rankedIds.includes(team.id));
-    let nextPosition = standings.length + 1;
 
+    // Ordena as duplas que não disputaram final/3º lugar por desempenho:
+    // - duplas eliminadas por mais pontos (eliminação direta) ficam por último;
+    // - quem venceu mais partidas fica acima;
+    // - empate é desfeito pelo saldo de pontos (quem perdeu por menos fica acima).
+    const stats = this.computeTeamMatchStats(tournament, matches);
+    unranked.sort((teamA, teamB) => {
+      const directA = teamA.eliminatedDirectly ? 1 : 0;
+      const directB = teamB.eliminatedDirectly ? 1 : 0;
+      if (directA !== directB) {
+        return directA - directB;
+      }
+
+      const statA = stats.get(teamA.id)!;
+      const statB = stats.get(teamB.id)!;
+      if (statB.wins !== statA.wins) {
+        return statB.wins - statA.wins;
+      }
+      return statB.pointDiff - statA.pointDiff;
+    });
+
+    let nextPosition = standings.length + 1;
     for (const team of unranked) {
       standings.push({ teamId: team.id, position: nextPosition++ });
     }
@@ -281,27 +317,51 @@ export class TournamentService {
     return standings;
   }
 
-  isTournamentComplete(tournament: Tournament, matches: Match[]): boolean {
-    const completedMatches = matches.filter((match) => match.winnerId !== null);
-    const hasFinal = completedMatches.some((match) => match.phase === 'final');
+  /**
+   * Calcula, para cada dupla, quantas partidas venceu e o saldo de pontos
+   * acumulado, usado como critério de desempate na classificação final.
+   */
+  private computeTeamMatchStats(
+    tournament: Tournament,
+    matches: Match[],
+  ): Map<string, { wins: number; pointDiff: number }> {
+    const stats = new Map<string, { wins: number; pointDiff: number }>();
+    for (const team of tournament.teams) {
+      stats.set(team.id, { wins: 0, pointDiff: 0 });
+    }
 
+    for (const match of matches) {
+      if (!match.winnerId) {
+        continue;
+      }
+
+      const statA = stats.get(match.teamAId);
+      const statB = stats.get(match.teamBId);
+      if (statA) {
+        statA.pointDiff += match.scoreA - match.scoreB;
+        if (match.winnerId === match.teamAId) statA.wins++;
+      }
+      if (statB) {
+        statB.pointDiff += match.scoreB - match.scoreA;
+        if (match.winnerId === match.teamBId) statB.wins++;
+      }
+    }
+
+    return stats;
+  }
+
+  /**
+   * O campeonato termina quando a final já foi disputada e o chaveamento não
+   * gera nenhuma partida adicional (ex.: disputa de 3º lugar pendente).
+   */
+  async isTournamentComplete(tournament: Tournament, matches: Match[]): Promise<boolean> {
+    const hasFinal = matches.some((match) => match.phase === 'final' && match.winnerId !== null);
     if (!hasFinal) {
       return false;
     }
 
-    if (this.usesOddPlayerPlacement(tournament) && tournament.teams.length === 4) {
-      return true;
-    }
-
-    if (!tournament.thirdPlaceEnabled) {
-      return true;
-    }
-
-    if (tournament.teams.length < 4) {
-      return true;
-    }
-
-    return completedMatches.some((match) => match.phase === 'third-place');
+    const next = await this.getNextMatches(tournament);
+    return next.length === 0;
   }
 
   private usesOddPlayerPlacement(tournament: Tournament): boolean {
@@ -372,16 +432,14 @@ export class TournamentService {
       return [];
     }
 
-    const byeTeam = tournament.teams.find(
-      (team) => !round1.some((match) => match.teamAId === team.id || match.teamBId === team.id),
-    );
+    const byeTeam = this.findByeTeam(tournament, round1);
     const semiBye = completed.filter((match) => match.phase === 'semifinal-bye');
 
     if (byeTeam && semiBye.length === 0) {
       return [
         {
           phase: 'semifinal-bye',
-          teamAId: tournament.oddPlayerPlacement.sourceTeamId,
+          teamAId: tournament.oddPlayerPlacement.encaixeTeamId,
           teamBId: byeTeam.id,
         },
       ];
@@ -409,7 +467,7 @@ export class TournamentService {
       return [
         {
           phase: 'semifinal',
-          teamAId: tournament.oddPlayerPlacement.sourceTeamId,
+          teamAId: tournament.oddPlayerPlacement.encaixeTeamId,
           teamBId: semifinalOpponent,
         },
       ];
@@ -435,9 +493,7 @@ export class TournamentService {
     const winners = this.getRound1WinnersByDiff(round1);
     const directToFinal = winners[0]?.id;
     const semifinalSeed = winners[1]?.id;
-    const byeTeam = tournament.teams.find(
-      (team) => !round1.some((match) => match.teamAId === team.id || match.teamBId === team.id),
-    );
+    const byeTeam = this.findByeTeam(tournament, round1);
     const semiBye = completed.filter((match) => match.phase === 'semifinal-bye');
     const semis = completed.filter((match) => match.phase === 'semifinal');
 
@@ -445,7 +501,7 @@ export class TournamentService {
       return [
         {
           phase: 'semifinal-bye',
-          teamAId: tournament.oddPlayerPlacement.sourceTeamId,
+          teamAId: tournament.oddPlayerPlacement.encaixeTeamId,
           teamBId: byeTeam.id,
         },
       ];
@@ -479,18 +535,43 @@ export class TournamentService {
 
     return [];
   }
-
   private getNext3Team(tournament: Tournament, completed: Match[]): BracketMatch[] {
     const round1 = completed.filter((match) => match.phase === 'round-1');
-    if (round1.length === 1 && !completed.some((match) => match.phase === 'final')) {
-      const byeTeam = tournament.teams.find(
-        (team) => !round1.some((match) => match.teamAId === team.id || match.teamBId === team.id),
-      );
-      if (byeTeam && round1[0].winnerId) {
-        return [{ phase: 'final', teamAId: round1[0].winnerId, teamBId: byeTeam.id }];
-      }
+    if (round1.length !== 1) {
+      return [];
     }
+
+    const byeTeam = this.findByeTeam(tournament, round1);
+    // Repescagem: a dupla que perdeu a rodada 1 enfrenta a dupla que estava de
+    // espera. O vencedor avança para a final contra o vencedor da rodada 1.
+    const repechage = completed.filter((match) => match.phase === 'semifinal');
+
+    if (byeTeam && round1[0].loserId && repechage.length === 0) {
+      return [{ phase: 'semifinal', teamAId: round1[0].loserId, teamBId: byeTeam.id }];
+    }
+
+    if (
+      repechage.length === 1 &&
+      round1[0].winnerId &&
+      !completed.some((match) => match.phase === 'final')
+    ) {
+      return [{ phase: 'final', teamAId: round1[0].winnerId, teamBId: repechage[0].winnerId! }];
+    }
+
     return [];
+  }
+
+  /**
+   * Encontra a dupla que está de espera (não jogou a rodada 1), ignorando a
+   * dupla sintética criada pelo encaixe.
+   */
+  private findByeTeam(tournament: Tournament, round1: Match[]): TournamentTeam | undefined {
+    return tournament.teams.find(
+      (team) =>
+        !team.synthetic &&
+        !team.eliminated &&
+        !round1.some((match) => match.teamAId === team.id || match.teamBId === team.id),
+    );
   }
 
   private getNext4Team(tournament: Tournament, completed: Match[]): BracketMatch[] {

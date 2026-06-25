@@ -121,7 +121,7 @@ interface TournamentVm {
                 [players]="sessionPlayers()"
                 [waitingPlayerId]="vm.waitingPlayerId"
                 [championTeamId]="vm.championTeamId"
-                [borrowedPlayerId]="vm.tournament.oddPlayerPlacement?.survivingPlayerId ?? null"
+                [coinFlipWinnerId]="vm.tournament.oddPlayerPlacement?.survivingPlayerId ?? null"
               />
 
               <div class="h-px bg-outline-variant border-0"></div>
