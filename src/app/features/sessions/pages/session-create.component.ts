@@ -48,11 +48,12 @@ import { JsonPipe } from '@angular/common';
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-6">
         @for (player of players(); track player.id) {
           <mat-card
-            class="cursor-pointer bg-beach-card! border-0! shadow-none!"
+            class="cursor-pointer bg-primary/10! border-0! shadow-none!"
             [class]="isSelected(player.id) ? 'outline-2! outline-primary/50! bg-primary/10!' : ''"
           >
             <mat-card-content class="p-3 flex! justify-between! items-center! gap-2 w-full!">
               <mat-checkbox
+                theme="primary"
                 [checked]="isSelected(player.id)"
                 [disabled]="!isSelected(player.id) && selectedCount() >= 14"
                 (change)="togglePlayer(player.id)"
@@ -64,13 +65,15 @@ import { JsonPipe } from '@angular/common';
               </mat-checkbox>
 
               @if (player.gender === 'F') {
-                <span class="px-3 py-1 bg-pink-100 text-pink-700 text-xs font-bold rounded-full"
+                <span
+                  class="px-1.5 py-1 w-9 text-center bg-pink-100 text-pink-700 border border-pink-300 text-xs font-bold rounded-full"
                   >F</span
                 >
               }
 
               @if (player.gender === 'M') {
-                <span class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full"
+                <span
+                  class="px-1.5 py-1 w-9 text-center bg-blue-100 text-blue-700 border border-blue-300 text-xs font-bold rounded-full"
                   >M</span
                 >
               }
@@ -83,41 +86,35 @@ import { JsonPipe } from '@angular/common';
         <p class="text-red-500 text-sm mb-4" role="alert">{{ errorMessage() }}</p>
       }
 
-      <div class="flex gap-2">
-        <button mat-raised-button (click)="createSession()" [disabled]="selectedCount() < 4">
-          Criar Sessão
+      <div class="flex flex-col gap-2">
+        <button
+          matButton
+          class="w-full! bg-on-primary-container! text-primary-container!
+                    shadow-lg hover:shadow-xl hover:scale-105
+                    transition-all duration-300 active:scale-95
+                    rounded-lg!"
+          extended
+          (click)="cancel()"
+        >
+          Cancelar
         </button>
-        <button mat-button (click)="cancel()">Cancelar</button>
+        <button
+          matButton
+          class="w-full! bg-primary-container! text-on-primary-container!
+                    shadow-lg hover:shadow-xl hover:scale-105
+                    transition-all duration-300 active:scale-95
+                    rounded-lg!"
+          extended
+          [disabled]="selectedCount() < 4"
+          (click)="createSession()"
+        >
+          <mat-icon class="text-on-primary-container!">shuffle</mat-icon>
+          Sortear equipes
+        </button>
       </div>
-
-      <button
-        matFab
-        class="w-11/12! bg-secondary-container! text-on-secondary-container!
-         fixed! bottom-26 left-1/2 -translate-x-1/2
-         shadow-lg hover:shadow-xl hover:scale-105
-         transition-all duration-300 active:scale-95
-         z-40 group"
-        extended
-        [disabled]="selectedCount() < 4"
-        (click)="createSession()"
-      >
-        <mat-icon>shuffle</mat-icon>
-        Sortear equipes
-      </button>
     </div>
   `,
-  styles: `
-    /* Custom styles for the component */
-    ::ng-deep {
-      .mdc-label {
-        width: 100% !important;
-      }
-
-      .mdc-form-field.mat-internal-form-field {
-        background: red !important;
-      }
-    }
-  `,
+  styles: ``,
 })
 export class SessionCreateComponent implements OnInit {
   private facade = inject(AppFacade);

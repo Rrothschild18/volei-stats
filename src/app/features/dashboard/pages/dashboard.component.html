@@ -1,18 +1,15 @@
-<div class="p-4 max-w-4xl mx-auto h-screen">
+<div class="p-4 max-w-4xl mx-auto mb-16">
   <div class="mb-4">
-    <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Dashboard</h2>
-    <p class="font-body-md text-body-md text-on-surface-variant">
-      Confira o resumo da sua temporada de vôlei de areia.
-    </p>
+    <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">
+      Resumo dos jogos
+    </h2>
   </div>
 
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    <mat-card
-      class="border! border-outline-variant! bg-surface-container-low! shadow-none! border-outline-variant!"
-    >
+    <mat-card class="border! border-outline-variant! bg-white! shadow-none!">
       <mat-card-content class="p-4 text-center">
         <mat-icon
-          class="text-primary! bg-on-primary-container! text-4xl mb-2 !size-10 !inline-flex !items-center !justify-center !rounded-xl m-icon"
+          class="text-primary! bg-on-primary-container! text-4xl mb-2 size-10! inline-flex! items-center! justify-center! rounded-xl! m-icon"
           >sports_volleyball</mat-icon
         >
         <p class="text-3xl font-bold text-primary">{{ data()?.totalMatches || 0 }}</p>
@@ -20,12 +17,10 @@
       </mat-card-content>
     </mat-card>
 
-    <mat-card
-      class="border! border-outline-variant! bg-surface-container-low! shadow-none! border-outline-variant!"
-    >
+    <mat-card class="border! bg-white! shadow-none! border-outline-variant!">
       <mat-card-content class="p-4 text-center">
         <mat-icon
-          class="text-tertiary! bg-tertiary-container/10! text-4xl mb-2 !size-10 !inline-flex !items-center !justify-center !rounded-xl m-icon"
+          class="text-tertiary! bg-tertiary-container/10! text-4xl mb-2 size-10! inline-flex! items-center! justify-center! rounded-xl! m-icon"
           >people</mat-icon
         >
         <p class="text-3xl font-bold text-tertiary">{{ data()?.totalActivePlayers || 0 }}</p>
@@ -33,12 +28,10 @@
       </mat-card-content>
     </mat-card>
 
-    <mat-card
-      class="border! border-outline-variant! bg-surface-container-low! shadow-none! border-outline-variant!"
-    >
+    <mat-card class="border! bg-white! shadow-none! border-outline-variant!">
       <mat-card-content class="p-4 text-center">
         <mat-icon
-          class="text-secondary! bg-secondary-container/10! text-4xl mb-2 !size-10 !inline-flex !items-center !justify-center !rounded-xl m-icon"
+          class="text-secondary! bg-secondary-container/10! text-4xl mb-2 size-10! inline-flex! items-center! justify-center! rounded-xl! m-icon"
           >casino</mat-icon
         >
         <p class="text-3xl font-bold text-secondary">{{ data()?.totalDraws || 0 }}</p>
@@ -62,11 +55,13 @@
   </div> -->
 
   <!-- Highlights Section -->
-  <section class="mt-6 mb-16 pb-42">
+  <section class="mt-6">
     <div class="flex items-center justify-between">
       <h3 class="font-title-lg text-title-lg text-on-surface mb-4">Estatísticas</h3>
-      <span class="font-label-md text-label-md text-primary uppercase tracking-wider"
-        >Ver Todos</span
+      <span
+        routerLink="/rankings"
+        class="font-label-md text-label-md text-primary uppercase tracking-wider"
+        >Ver Todas</span
       >
     </div>
 
@@ -75,7 +70,7 @@
       <mat-card class="border! border-outline-variant/50! bg-white! shadow-none!">
         <mat-card-content class="p-4 text-center">
           <mat-icon
-            class="text-secondary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
+            class="text-secondary! size-10! inline-flex! items-center! justify-center! rounded-xl!"
             >emoji_events</mat-icon
           >
           <p class="font-title-lg font-bold text-secondary">{{ data()?.topWinsPlayer || '—' }}</p>
@@ -88,7 +83,7 @@
       <mat-card class="border! border-outline-variant/50! bg-white! shadow-none!">
         <mat-card-content class="p-4 text-center">
           <mat-icon
-            class="text-tertiary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
+            class="text-tertiary! size-10! inline-flex! items-center! justify-center! rounded-xl!"
             >trending_up</mat-icon
           >
           <p class="font-title-lg font-bold text-tertiary">{{ data()?.topWinPctPlayer || '—' }}</p>
@@ -102,7 +97,7 @@
       <mat-card class="border! border-outline-variant/50! bg-white! shadow-none!">
         <mat-card-content class="p-4 text-center">
           <mat-icon
-            class="text-primary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
+            class="text-primary! size-10! inline-flex! items-center! justify-center! rounded-xl!"
             >group</mat-icon
           >
           <p class="font-title-lg font-bold text-primary">{{ data()?.topTeam || '—' }}</p>
@@ -116,7 +111,7 @@
       <mat-card class="border! border-outline-variant/50! bg-white! shadow-none!">
         <mat-card-content class="p-4 text-center">
           <mat-icon
-            class="text-primary! !size-10 !inline-flex !items-center !justify-center !rounded-xl"
+            class="text-primary! size-10! inline-flex! items-center! justify-center! rounded-xl!"
             >hourglass_empty</mat-icon
           >
           <p class="font-title-lg font-bold text-primary">{{ data()?.mostWaitedPlayer || '—' }}</p>
@@ -131,7 +126,7 @@
 
 <button
   matFab
-  class="bg-secondary-container! text-on-secondary-container! fixed! bottom-26 shadow-lg right-0 hover:shadow-xl hover:scale-105 transition-all duration-300 active:scale-95 z-40 group"
+  class="bg-secondary-container! text-on-secondary-container! fixed! bottom-18 shadow-lg right-0 hover:shadow-xl hover:scale-105 transition-all duration-300 active:scale-95 z-40 group"
   extended
   routerLink="/sessoes/nova"
 >
