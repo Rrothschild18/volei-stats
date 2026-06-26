@@ -13,14 +13,18 @@ import { JsonPipe } from '@angular/common';
   imports: [MatCheckboxModule, MatButtonModule, MatIconModule, MatCardModule, JsonPipe],
   template: `
     <div class="p-4 max-w-4xl mx-auto">
-      <h2 class="text-2xl font-bold mb-1">Seleção de Jogadores</h2>
+      <h2 class="text-2xl font-bold mb-1">Seleção de jogadores</h2>
       <p class="text-gray-600 text-sm mb-2">
         Selecione os jogadores presentes hoje (mínimo 4, máximo 14).
       </p>
 
       <!-- Selection Status Counter -->
       <div
-        class="bg-white rounded-m3-md p-4 mb-6 shadow-sm border border-gray-300 flex items-center justify-between transition-all rounded-lg"
+        class="rounded-m3-md p-4 mb-6 shadow-sm border border-gray-300 flex items-center justify-between transition-all rounded-lg bg-gre"
+        [class.bg-red-50]="selectedCount() < 4 || selectedCount() > 14"
+        [class.bg-green-50]="selectedCount() >= 4 && selectedCount() <= 14"
+        [class.border-red-300]="selectedCount() < 4 || selectedCount() > 14"
+        [class.border-green-300]="selectedCount() >= 4 && selectedCount() <= 14"
       >
         <div>
           <span
