@@ -14,6 +14,7 @@ interface TournamentVm {
   tournament: Tournament;
   championTeamId: string | null;
   championNames: string | null;
+  secondPlaceNames: string | null;
   waitingPlayerId: string | null;
 }
 
@@ -35,108 +36,174 @@ interface TournamentVm {
         <h2 class="text-3xl font-bold text-on-surface">
           Sessão {{ session()?.date | date: 'dd/MM/yyyy' }}
         </h2>
-      </section>
-      @if (session()) {
-        <mat-card
-          class="border! border-outline-variant! bg-surface-container-low! shadow-none! mb-4"
-        >
-          <mat-card-header class="flex mb-2 items-center">
-            <mat-icon
-              class="text-primary! bg-on-primary-container! size-10! inline-flex! items-center! justify-center! rounded-xl! mr-2"
-              >group</mat-icon
-            >
 
-            <p class="text-lg font-bold text-primary">
-              Jogadores presentes
-              <span class="text-lg font-bold  text-primary">({{ sessionPlayers().length }})</span>
-            </p>
-          </mat-card-header>
-          <mat-card-content class="inline-flex! gap-2 items-center! p-4 w-full!">
-            <div class="w-full inline-flex! gap-2 items-center flex-wrap justify-center">
-              @for (player of sessionPlayers(); track player.id) {
+        <section class="mb-6">
+          <div class="flex items-center gap-2 mb-3">
+            <h3 class="text-label-lg font-bold flex items-center gap-2 text-on-surface">
+              <span class="material-symbols-outlined text-primary text-[20px]">groups</span>
+              Jogadores Presentes
+            </h3>
+            <span
+              class="text-[10px] font-bold uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full"
+              >{{ sessionPlayers().length }}</span
+            >
+          </div>
+          <!-- Horizontal scroll of compact chips -->
+          <div class="flex gap-2 overflow-x-auto pb-2 hide-scrollbar overflow-auto scrollbar-none">
+            @for (player of sessionPlayers(); track player.id) {
+              @if (player.gender === 'M') {
                 <div
-                  class="flex bg-primary/15 rounded-full border border-primary/30 py-1 justify-center items-center mb-2 w-20"
+                  class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-full border border-outline-variant/30 shrink-0"
                 >
-                  <span class="text-primary font-medium text-sm">{{ player.name }}</span>
+                  <span class="material-symbols-outlined text-[16px] text-blue-700 fill-icon"
+                    >male</span
+                  >
+                  <span class="text-label-md font-medium">{{ player.name }}</span>
+                </div>
+              } @else {
+                <div
+                  class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-full border border-outline-variant/30 shrink-0"
+                >
+                  <span class="material-symbols-outlined text-[16px] text-pink-700 fill-icon"
+                    >female</span
+                  >
+                  <span class="text-label-md font-medium">{{ player.name }}</span>
                 </div>
               }
-            </div>
-          </mat-card-content>
-        </mat-card>
-
+            }
+          </div>
+        </section>
+      </section>
+      @if (session()) {
         <div class="flex items-center gap-2 mb-4">
           <mat-icon
-            class="text-secondary! bg-secondary-container/10! text-4xl size-10! inline-flex! items-center! justify-center! rounded-xl! "
+            fontSet="material-symbols-outlined"
+            class="text-primary!  text-4xl size-10! inline-flex! items-center! justify-center! rounded-xl! "
             >emoji_events</mat-icon
           >
-          <h3 class="text-xl font-semibold text-on-surface">Campeonatos</h3>
+          <h3 class="text-xl font-semibold text-on-surface">Campeonatos do dia</h3>
         </div>
 
         @for (vm of tournaments(); track vm.tournament.id) {
-          <mat-card class="border! border-secondary/30! bg-white! border-xl! shadow-none! mb-4">
+          <mat-card
+            class="border! border-primary/30! bg-surface-container! border-xl! shadow-none! mb-4"
+          >
             <mat-card-content>
               <div class="flex justify-between items-center">
-                <p class="text-lg font-semibold text-on-surface">Torneio {{ $index + 1 }}</p>
+                <div class="flex items-center gap-2 ">
+                  <mat-icon
+                    class="text-on-primary! bg-primary-container! text-4xl  size-10! inline-flex! items-center! justify-center! rounded-xl! m-icon"
+                    >sports_volleyball</mat-icon
+                  >
+                  <div class="flex gap-2">
+                    <p class="text-lg font-semibold text-on-surface">Torneio {{ $index + 1 }}</p>
+                    <small
+                      class="bg-green-50 text-green-600 font-bold px-2 py-1 rounded-full flex items-center gap-1 text-[10px]!"
+                    >
+                      <small
+                        class="w-1 h-1 bg-green-600 rounded-full mr-1 uppercase text-[10px]!"
+                      ></small>
+                      Finalizado
+                    </small>
+                  </div>
+                </div>
 
                 @if (vm.tournament.status === 'completed') {
-                  <small
-                    class="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1"
-                  >
-                    <small class="w-2 h-2 bg-green-500 rounded-full mr-1"></small>
-                    Finalizado
-                  </small>
+                  <div class="flex justify-between items-center ">
+                    <div class="flex flex-col gap-1">
+                      <div class="flex items-center gap-1">
+                        <mat-icon
+                          fontSet="material-symbols-outlined"
+                          class="text-primary! text-sm! size-4!"
+                          >star</mat-icon
+                        >
+                        <span class="text-sm"> {{ vm.tournament.pointLimit }} pontos </span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <mat-icon
+                          fontSet="material-symbols-outlined"
+                          class="text-primary! text-sm! size-4!"
+                          >group_outlined</mat-icon
+                        >
+                        <span class="text-sm"
+                          >{{ vm.tournament.teams.length }} duplas{{
+                            vm.tournament.waitingPlayerId ? ' + 1' : ''
+                          }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 } @else {
                   <small
                     class="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1"
                   >
-                    <small class="w-2 h-2 bg-blue-500 rounded-full mr-1"></small>
+                    <small class="w-2 h-2 bg-blue-500 rounded-full mr-1 uppercase"></small>
                     Em andamento
                   </small>
                 }
               </div>
-              <div class="flex justify-between items-center py-2">
-                <div class="flex">
-                  <mat-icon class="mr-1 text-secondary!">group_outlined</mat-icon>
-                  <span
-                    >{{ vm.tournament.teams.length }} duplas{{
-                      vm.tournament.waitingPlayerId ? ' + 1' : ''
-                    }}
-                    •
-                  </span>
-                  <mat-icon class="mr-1 text-secondary!">bolt</mat-icon>
-                  <span> {{ vm.tournament.pointLimit }} pontos </span>
+
+              <div class="flex flex-col gap-1 ">
+                <div class="flex items-center gap-2 py-4 border-b border-gray-300 ">
+                  @if (vm.championNames) {
+                    <div
+                      class="w-full bg-secondary-container/10 rounded-xl p-3 flex items-center gap-3 border border-secondary-container/20"
+                    >
+                      <div
+                        class="w-10 h-10 bg-secondary-container text-on-secondary-container rounded-full flex items-center justify-center shrink-0"
+                      >
+                        <span class="material-symbols-outlined fill-icon text-2xl"
+                          >emoji_events</span
+                        >
+                      </div>
+                      <div class="flex flex-col">
+                        <span
+                          class="text-[10px] font-bold text-on-secondary-container uppercase tracking-wider"
+                          >Campeão</span
+                        >
+                        <span class="text-label-md font-semibold text-on-surface">{{
+                          vm.championNames
+                        }}</span>
+                      </div>
+                    </div>
+                  }
+
+                  @if (vm.secondPlaceNames) {
+                    <div
+                      class="w-full bg-surface-container-highest/50 rounded-xl p-3 flex items-center gap-3 border border-outline-variant/20"
+                    >
+                      <div
+                        class="w-10 h-10 bg-surface-container-highest text-on-surface-variant rounded-full flex items-center justify-center shrink-0"
+                      >
+                        <span class="material-symbols-outlined text-2xl">military_tech</span>
+                      </div>
+                      <div class="flex flex-col">
+                        <span
+                          class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider"
+                          >Vice-Campeão</span
+                        >
+                        <span class="text-label-md font-medium text-on-surface-variant">{{
+                          vm.secondPlaceNames
+                        }}</span>
+                      </div>
+                    </div>
+                  }
                 </div>
+
+                <a
+                  class="flex items-center justify-end pt-2"
+                  [routerLink]="['/campeonatos', vm.tournament.id]"
+                >
+                  <div class="flex items-center gap-1">
+                    <span class="text-primary">Ver detalhes</span>
+                    <mat-icon class="text-primary!">chevron_right</mat-icon>
+                  </div>
+                </a>
               </div>
-
-              @if (vm.championNames) {
-                <div class="flex items-center gap-1 py-1 text-yellow-700 font-medium">
-                  <mat-icon class="text-yellow-500!">emoji_events</mat-icon>
-                  <span>Campeão: {{ vm.championNames }}</span>
-                </div>
-              }
-
-              <app-teams-display
-                class="block my-2"
-                [teams]="vm.tournament.teams"
-                [players]="sessionPlayers()"
-                [waitingPlayerId]="vm.waitingPlayerId"
-                [championTeamId]="vm.championTeamId"
-                [coinFlipWinnerId]="vm.tournament.oddPlayerPlacement?.survivingPlayerId ?? null"
-              />
-
-              <div class="h-px bg-outline-variant border-0"></div>
-
-              <a
-                class="mt-2 flex items-center justify-between"
-                [routerLink]="['/campeonatos', vm.tournament.id]"
-              >
-                <span class="text-secondary">Ver detalhes</span>
-                <mat-icon class="text-secondary!">chevron_right</mat-icon>
-              </a>
             </mat-card-content>
           </mat-card>
         } @empty {
-          <mat-card class="border! border-secondary/30! bg-white! border-xl! shadow-none! mb-4">
+          <mat-card class="border! border-primary/30! bg-white! border-xl! shadow-none! mb-4">
             <mat-card-content>
               <p class="text-gray-500">Nenhum campeonato criado ainda.</p>
             </mat-card-content>
@@ -194,6 +261,7 @@ export class SessionDetailComponent implements OnInit {
   private toVm(tournament: Tournament, nameMap: Map<string, string>): TournamentVm {
     let championTeamId: string | null = null;
     let championNames: string | null = null;
+    let secondPlaceNames: string | null = null;
 
     if (tournament.status === 'completed') {
       championTeamId = tournament.finalStandings.find((s) => s.position === 1)?.teamId ?? null;
@@ -201,7 +269,16 @@ export class SessionDetailComponent implements OnInit {
       if (championTeam) {
         championNames = championTeam.playerIds
           .map((pid) => nameMap.get(pid) ?? 'Desconhecido')
-          .join(' + ');
+          .join(' e ');
+      }
+
+      const secondPlaceTeamId =
+        tournament.finalStandings.find((s) => s.position === 2)?.teamId ?? null;
+      const secondPlaceTeam = tournament.teams.find((t) => t.id === secondPlaceTeamId);
+      if (secondPlaceTeam) {
+        secondPlaceNames = secondPlaceTeam.playerIds
+          .map((pid) => nameMap.get(pid) ?? 'Desconhecido')
+          .join(' e ');
       }
     }
 
@@ -209,6 +286,7 @@ export class SessionDetailComponent implements OnInit {
       tournament,
       championTeamId,
       championNames,
+      secondPlaceNames,
       waitingPlayerId: tournament.oddPlayerPlacement ? null : tournament.waitingPlayerId,
     };
   }

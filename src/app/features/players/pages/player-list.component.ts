@@ -41,29 +41,40 @@ import { Player } from '../../../shared/models';
         </mat-form-field>
       </div>
 
-      <table mat-table [dataSource]="filteredPlayers()" class="w-full" aria-label="Lista de jogadores">
+      <table
+        mat-table
+        class="bg-white! w-full! rounded-lg! shadow-sm!"
+        [dataSource]="filteredPlayers()"
+        aria-label="Lista de jogadores"
+      >
         <ng-container matColumnDef="name">
-          <th mat-header-cell *matHeaderCellDef>Nome</th>
-          <td mat-cell *matCellDef="let player">{{ player.name }}</td>
+          <th class="rounded-lg! font-bold!" mat-header-cell *matHeaderCellDef>Nome</th>
+          <td mat-cell class="rounded-lg! font-bold! " *matCellDef="let player">
+            {{ player.name }}
+          </td>
         </ng-container>
 
         <ng-container matColumnDef="gender">
-          <th mat-header-cell *matHeaderCellDef>Sexo</th>
-          <td mat-cell *matCellDef="let player">{{ player.gender === 'M' ? 'Masculino' : 'Feminino' }}</td>
+          <th class="rounded-lg! font-bold!" mat-header-cell *matHeaderCellDef>Sexo</th>
+          <td mat-cell class="rounded-lg! " *matCellDef="let player">
+            {{ player.gender === 'M' ? 'Masculino' : 'Feminino' }}
+          </td>
         </ng-container>
 
         <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>Status</th>
-          <td mat-cell *matCellDef="let player">
-            <span [class]="player.active ? 'text-green-600 font-medium' : 'text-red-600 font-medium'">
+          <th class="rounded-lg! font-bold!" mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell class="rounded-lg! " *matCellDef="let player">
+            <span
+              [class]="player.active ? 'text-green-600 font-medium' : 'text-red-600 font-medium'"
+            >
               {{ player.active ? 'Ativo' : 'Inativo' }}
             </span>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>Ações</th>
-          <td mat-cell *matCellDef="let player">
+          <th class="rounded-lg! font-bold!" mat-header-cell *matHeaderCellDef>Ações</th>
+          <td mat-cell class="rounded-lg! " *matCellDef="let player">
             <a mat-icon-button [routerLink]="[player.id]" aria-label="Visualizar jogador">
               <mat-icon>visibility</mat-icon>
             </a>
@@ -74,7 +85,7 @@ import { Player } from '../../../shared/models';
         </ng-container>
 
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
       </table>
 
       @if (filteredPlayers().length === 0) {
@@ -112,10 +123,10 @@ export class PlayerListComponent implements OnInit {
     const all = this.players();
     switch (this.filter()) {
       case 'active':
-        this.filteredPlayers.set(all.filter(p => p.active));
+        this.filteredPlayers.set(all.filter((p) => p.active));
         break;
       case 'inactive':
-        this.filteredPlayers.set(all.filter(p => !p.active));
+        this.filteredPlayers.set(all.filter((p) => !p.active));
         break;
       default:
         this.filteredPlayers.set(all);
