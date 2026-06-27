@@ -85,9 +85,7 @@ interface TournamentVm {
         </div>
 
         @for (vm of tournaments(); track vm.tournament.id) {
-          <mat-card
-            class="border! border-primary/30! bg-surface-container! border-xl! shadow-none! mb-4"
-          >
+          <mat-card class="border! border-primary/30! bg-white! border-xl! shadow-none! mb-4">
             <mat-card-content>
               <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2 ">
@@ -96,15 +94,13 @@ interface TournamentVm {
                     >sports_volleyball</mat-icon
                   >
                   <div class="flex gap-2">
-                    <p class="text-lg font-semibold text-on-surface">Torneio {{ $index + 1 }}</p>
-                    <small
-                      class="bg-green-50 text-green-600 font-bold px-2 py-1 rounded-full flex items-center gap-1 text-[10px]!"
+                    <p class="text-lg font-semibold text-on-surface">
+                      Torneio {{ vm.tournament.name || 'Torneio ' }} ({{ $index + 1 }})
+                    </p>
+                    <mat-icon
+                      class="text-green-600! rounded-full!text-sm!  size-8! inline-flex! items-center! justify-center! m-icon"
+                      >check</mat-icon
                     >
-                      <small
-                        class="w-1 h-1 bg-green-600 rounded-full mr-1 uppercase text-[10px]!"
-                      ></small>
-                      Finalizado
-                    </small>
                   </div>
                 </div>
 
@@ -114,7 +110,7 @@ interface TournamentVm {
                       <div class="flex items-center gap-1">
                         <mat-icon
                           fontSet="material-symbols-outlined"
-                          class="text-primary! text-sm! size-4!"
+                          class="text-primary! text-sm! size-4!  leading-4.5!"
                           >star</mat-icon
                         >
                         <span class="text-sm"> {{ vm.tournament.pointLimit }} pontos </span>
@@ -122,7 +118,7 @@ interface TournamentVm {
                       <div class="flex items-center gap-1">
                         <mat-icon
                           fontSet="material-symbols-outlined"
-                          class="text-primary! text-sm! size-4!"
+                          class="text-primary! text-sm! size-4! leading-4.5!  "
                           >group_outlined</mat-icon
                         >
                         <span class="text-sm"
@@ -150,7 +146,7 @@ interface TournamentVm {
                       class="w-full bg-secondary-container/10 rounded-xl p-3 flex items-center gap-3 border border-secondary-container/20"
                     >
                       <div
-                        class="w-10 h-10 bg-secondary-container text-on-secondary-container rounded-full flex items-center justify-center shrink-0"
+                        class="w-10 h-10 bg-secondary-container/75 text-on-secondary-container rounded-full flex items-center justify-center shrink-0"
                       >
                         <span class="material-symbols-outlined fill-icon text-2xl"
                           >emoji_events</span
@@ -173,14 +169,14 @@ interface TournamentVm {
                       class="w-full bg-surface-container-highest/50 rounded-xl p-3 flex items-center gap-3 border border-outline-variant/20"
                     >
                       <div
-                        class="w-10 h-10 bg-surface-container-highest text-on-surface-variant rounded-full flex items-center justify-center shrink-0"
+                        class="w-10 h-10 bg-outline/25 text-on-surface-variant rounded-full flex items-center justify-center shrink-0"
                       >
                         <span class="material-symbols-outlined text-2xl">military_tech</span>
                       </div>
                       <div class="flex flex-col">
                         <span
                           class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider"
-                          >Vice-Campeão</span
+                          >Vice</span
                         >
                         <span class="text-label-md font-medium text-on-surface-variant">{{
                           vm.secondPlaceNames

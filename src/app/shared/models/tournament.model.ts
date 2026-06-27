@@ -1,5 +1,6 @@
 export interface Tournament {
   id: string;
+  name: string;
   sessionId: string;
   drawId: string;
   teams: TournamentTeam[];

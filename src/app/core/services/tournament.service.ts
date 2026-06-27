@@ -15,6 +15,33 @@ export interface BracketMatch {
   teamBId: string;
 }
 
+const tournamentNames = [
+  'Escola Raul de forehand',
+  'Escola vitoria tira casaco',
+  'Oferecimento marmitas PF do willy',
+  'Torneio faltou vontade',
+  'Dava pra ter chego',
+  'Tem dia que é noite',
+  'Saca em mim Douglas',
+  'Não tem recepção',
+  'Valendo o aluguel da quadra',
+  'Marca a quadra das 9',
+  'A luz atrapalhou',
+  'Tira o par o impar aí',
+  'Pezao beach sports',
+  'Cade a lista',
+  'Solta a lista',
+  'Bicho do pé',
+  'Peguei rede',
+  'Não deixa ele contar não',
+  'Quanto tá isso daí?',
+  'Só ganha por conta da rede',
+  'Fica vendo que agora vai errar',
+  'Se esperar a Bê vai chover',
+  'Fora bola',
+  'Dentro bola',
+];
+
 @Injectable({ providedIn: 'root' })
 export class TournamentService {
   private facade = inject(AppFacade);
@@ -32,6 +59,7 @@ export class TournamentService {
     const usesOddPlayerPlacement = oddPlayerPlacementEnabled && !!waitingPlayerId;
     const tournament: Tournament = {
       id: crypto.randomUUID(),
+      name: `${tournamentNames[Math.floor(Math.random() * tournamentNames.length)]}`,
       sessionId,
       drawId,
       teams,

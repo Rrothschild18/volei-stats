@@ -104,17 +104,18 @@ import { JsonPipe } from '@angular/common';
 
           <div class="mb-4">
             @if (repeatedPairWarning()) {
-              <mat-card class="mb-4 border-l-4 border-red-400">
-                <mat-card-content class="p-3">
-                  <div class="flex items-start gap-2">
-                    <mat-icon class="text-red-500">warning</mat-icon>
-                    <div>
-                      <p class="font-medium text-red-700">Dupla(s) repetida(s) nesta sessão</p>
-                      <p class="text-sm text-red-700">{{ repeatedPairWarning() }}</p>
-                    </div>
-                  </div>
-                </mat-card-content>
-              </mat-card>
+              <div
+                class="flex items-start gap-2 bg-error-container/90! rounded-lg p-3 border-l-4 border-error mb-3"
+              >
+                <mat-icon
+                  class="text-red-500! bg-error-container/90! size-8! inline-flex! items-center! justify-center! rounded-lg! text-[20px]!"
+                  >warning</mat-icon
+                >
+                <div>
+                  <p class="font-medium text-red-700">Dupla(s) repetida(s) nesta sessão</p>
+                  <p class="text-sm text-red-700 bold">{{ repeatedPairWarning() }}</p>
+                </div>
+              </div>
             }
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -129,7 +130,7 @@ import { JsonPipe } from '@angular/common';
                         <h4 class="text-primary font-medium uppercase">Dupla {{ ti + 1 }}</h4>
                       </div>
 
-                      <div>
+                      <div class="flex items-center gap-1">
                         @for (badge of getBadgesForTeam(team.id); track badge.type) {
                           @if (badge.type === 'same-gender') {
                             @let player1 = players().find((p) => p.id === team.playerIds[0]);
@@ -138,7 +139,7 @@ import { JsonPipe } from '@angular/common';
                             @let bothWomen = player1?.gender === 'F' && player2?.gender === 'F';
                             @if (bothMen || bothWomen) {
                               <mat-icon
-                                class=" bg-primary-container/30!  size-8! inline-flex! items-center! justify-center! rounded-lg! text-[20px]! mr-2"
+                                class=" bg-primary-container/30!  size-8! inline-flex! items-center! justify-center! rounded-lg! text-[20px]!"
                                 [class.text-primary!]="bothMen"
                                 [class.text-pink-700!]="bothWomen"
                                 [class.bg-primary-container/30!]="bothMen"
