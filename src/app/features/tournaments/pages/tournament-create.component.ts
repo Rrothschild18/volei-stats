@@ -57,10 +57,10 @@ import { TeamsDisplayComponent } from '../../../shared/components/display-team/d
 
           @if (draw()!.waitingPlayerId) {
             <mat-slide-toggle formControlName="oddPlayerPlacementEnabled">
-              Encaixe do jogador avulso
+              Encaixe do jogador em espera
             </mat-slide-toggle>
             <p class="text-sm text-gray-600 -mt-2">
-              Quando ativado, o avulso pode entrar no campeonato pelo encaixe oficial.
+              O jogador entrará no campeonato para jogar com a dupla que perdeu por menos.
             </p>
 
             @if (form.controls.oddPlayerPlacementEnabled.value) {
@@ -69,7 +69,7 @@ import { TeamsDisplayComponent } from '../../../shared/components/display-team/d
               </mat-slide-toggle>
               <p class="text-sm text-gray-600 -mt-2">
                 Quando ativado, o jogador que perdeu o par-ou-ímpar do encaixe terá prioridade no
-                próximo sorteio.
+                primeiro jogo próximo sorteio.
               </p>
             }
           }

@@ -25,37 +25,45 @@ import { Session } from '../../../shared/models';
 
       <div class="flex flex-col gap-3">
         @for (session of sessions(); track session.id) {
-          <mat-card class="border! bg-white! shadow-none! border-outline-variant!">
+          <mat-card
+            [routerLink]="[session.id]"
+            class="border! bg-white! shadow-none! border-outline-variant! "
+          >
             <mat-card-content class="p-4">
               <div class="flex justify-between items-center">
                 <div>
                   <p class="font-medium">{{ session.date | date: 'dd/MM/yyyy' }}</p>
 
-                  <section class="flex  gap-6 mt-4">
+                  <section class="flex mt-4">
                     <div class="flex gap-2 items-center ">
-                      <mat-icon
-                        fontSet="material-symbols-outlined"
-                        class="text-tertiary! text-4xl  inline-flex! items-center! justify-center! rounded-xl! m-icon"
-                        >group</mat-icon
-                      >
-                      <p>{{ session.playerIds.length }} jogadores</p>
-                    </div>
-                    <p>•</p>
-                    <div class="flex gap-2 items-center ">
-                      <mat-icon
-                        fontSet="material-symbols-outlined"
-                        class="text-secondary! text-4xl  inline-flex! items-center! justify-center! rounded-xl! m-icon"
-                        >emoji_events</mat-icon
-                      >
+                      <div class="flex gap-2 items-center">
+                        <mat-icon
+                          fontSet="material-symbols-outlined"
+                          class="text-tertiary! text-4xl  inline-flex! items-center! justify-center! rounded-xl! m-icon"
+                          >group</mat-icon
+                        >
+                        <p>{{ session.playerIds.length }}</p>
+                        <span class="hidden sm:block">jogadores</span>
+                      </div>
 
-                      <p>{{ session.tournamentIds.length }} campeonatos</p>
+                      <div class="flex gap-2 items-center">
+                        <mat-icon
+                          fontSet="material-symbols-outlined"
+                          class="text-secondary! text-4xl  inline-flex! items-center! justify-center! rounded-xl! m-icon"
+                          >emoji_events</mat-icon
+                        >
+
+                        <p>
+                          {{ session.tournamentIds.length }}
+                        </p>
+                        <span class="hidden sm:block"> campeonatos</span>
+                      </div>
                     </div>
                   </section>
                 </div>
 
                 <button
                   matIconButton
-                  [routerLink]="[session.id]"
                   aria-label="Ver sessão"
                   aria-label="Example icon button with a vertical three dot icon"
                 >
