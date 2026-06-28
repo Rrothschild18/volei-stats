@@ -74,7 +74,7 @@ import { JsonPipe } from '@angular/common';
 
       @if (!loading() && proposals().length > 0) {
         <div class="flex items-center justify-center mb-4">
-          <mat-button-toggle-group class="w-full!" aria-label="Favorite Color">
+          <mat-button-toggle-group class="w-full!">
             @for (proposal of proposals(); track proposal.id; let i = $index) {
               <mat-button-toggle
                 class="w-full!"
@@ -90,30 +90,38 @@ import { JsonPipe } from '@angular/common';
         @if (currentProposal()) {
           @if (currentProposal()!.waitingPlayerId) {
             <div
-              class="flex items-center gap-2 bg-secondary-container/30! rounded-sm p-2 mb-4 border-l-4 border-secondary-container!"
+              class="w-full bg-secondary-container/10 rounded-xl p-3 flex items-center gap-3 border border-secondary-container/20 mb-4"
             >
-              <mat-icon
-                class="text-secondary! font-bold size-8! inline-flex! items-center! justify-center! rounded-lg!"
-                >hourglass_empty</mat-icon
+              <div
+                class="w-10 h-10 bg-secondary-container/75 text-on-secondary-container rounded-full flex items-center justify-center shrink-0"
               >
-              <span class="text-lg font-bold text-secondary"
-                >Jogador em espera - {{ getPlayerName(currentProposal()!.waitingPlayerId!) }}</span
-              >
+                <span class="material-symbols-outlined text-2xl">hourglass_empty</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider"
+                  >Jogador em espera</span
+                >
+                <span class="text-md font-medium text-on-surface-variant">{{
+                  getPlayerName(currentProposal()!.waitingPlayerId!)
+                }}</span>
+              </div>
             </div>
           }
 
           <div class="mb-4">
             @if (repeatedPairWarning()) {
               <div
-                class="flex items-start gap-2 bg-error-container/90! rounded-lg p-3 border-l-4 border-error mb-3"
+                class="flex items-start gap-2 bg-error-container! rounded-lg p-3 border border-error mb-3"
               >
                 <mat-icon
-                  class="text-red-500! bg-error-container/90! size-8! inline-flex! items-center! justify-center! rounded-lg! text-[20px]!"
+                  class="text-on-error-container/90! inline-flex! items-center! justify-center! text-[20px]! w-10 h-10 rounded-full p-5"
                   >warning</mat-icon
                 >
                 <div>
-                  <p class="font-medium text-red-700">Dupla(s) repetida(s) nesta sessão</p>
-                  <p class="text-sm text-red-700 bold">{{ repeatedPairWarning() }}</p>
+                  <p class="font-medium text-on-error-container">
+                    Dupla(s) repetida(s) nesta sessão
+                  </p>
+                  <p class="text-sm text-on-error-container bold">{{ repeatedPairWarning() }}</p>
                 </div>
               </div>
             }

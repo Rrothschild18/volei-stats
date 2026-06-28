@@ -10,6 +10,7 @@ import { AppFacade } from '../../../core/facade/app.facade';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { DrawProposal, Player, TournamentTeam } from '../../../shared/models';
 import { TeamsDisplayComponent } from '../../../shared/components/display-team/display-team.component';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-tournament-create',
@@ -21,15 +22,17 @@ import { TeamsDisplayComponent } from '../../../shared/components/display-team/d
     MatSlideToggleModule,
     MatCardModule,
     TeamsDisplayComponent,
+    MatIconModule,
   ],
   template: `
     <div class="p-4 max-w-lg mx-auto">
       <h1 class="text-2xl font-bold mb-4">Criar Campeonato</h1>
 
       @if (draw()) {
-        <p class="font-medium mb-2">
+        <!-- <p class="font-medium text-on-surface mb-2">
           {{ draw()!.teams.length }} duplas{{ draw()!.waitingPlayerId ? ' + 1' : '' }}
-        </p>
+        </p> -->
+
         <app-teams-display
           class="block mb-4"
           [teams]="draw()!.teams"
@@ -37,48 +40,114 @@ import { TeamsDisplayComponent } from '../../../shared/components/display-team/d
           [waitingPlayerId]="draw()!.waitingPlayerId"
         />
 
-        <form [formGroup]="form" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
-          <mat-form-field appearance="outline">
-            <mat-label>Limite de pontos</mat-label>
-            <input matInput type="number" formControlName="pointLimit" min="1" />
-            @if (form.controls.pointLimit.hasError('required')) {
-              <mat-error>Limite de pontos é obrigatório</mat-error>
-            }
-            @if (form.controls.pointLimit.hasError('min')) {
-              <mat-error>Deve ser pelo menos 1</mat-error>
-            }
-          </mat-form-field>
+        <form
+          [formGroup]="form"
+          (ngSubmit)="onSubmit()"
+          class="flex flex-col gap-4 bg-white p-4 rounded-lg shadow-md"
+        >
+          <div>
+            <div class="flex gap-2 mb-2">
+              <mat-icon class="text-primary!">sports_score</mat-icon>
+              <p class="font-medium text-on-surface">Limite de pontos</p>
+            </div>
+            <mat-form-field appearance="outline" class="w-full!">
+              <mat-label class="text-on-surface! font-medium!">Limite de pontos</mat-label>
+              <input matInput type="number" formControlName="pointLimit" min="1" />
+              @if (form.controls.pointLimit.hasError('required')) {
+                <mat-error>Limite de pontos é obrigatório</mat-error>
+              }
+              @if (form.controls.pointLimit.hasError('min')) {
+                <mat-error>Deve ser pelo menos 1</mat-error>
+              }
+              <span matTextSuffix>pts</span>
+            </mat-form-field>
+          </div>
 
+          <div class="flex gap-2">
+            <mat-icon class="text-primary!">settings_suggest</mat-icon>
+            <p class="font-medium text-on-surface">Configurações do campeonato</p>
+          </div>
           @if (draw()!.teams.length >= 4) {
-            <mat-slide-toggle formControlName="thirdPlaceEnabled">
-              Disputa de 3º/4º lugar
-            </mat-slide-toggle>
+            <div class="flex justify-between gap-1">
+              <div class="flex flex-col gap-2">
+                <mat-label class="text-on-surface! font-medium!">
+                  Disputa de 3º/4º lugar
+                </mat-label>
+
+                <p class="text-sm text-gray-600">
+                  Define se haverá uma partida extra para definir o pódio completo.
+                </p>
+              </div>
+
+              <mat-slide-toggle
+                formControlName="oddPlayerPlacementEnabled"
+                class="font-medium text-on-surface!"
+              />
+            </div>
           }
 
           @if (draw()!.waitingPlayerId) {
-            <mat-slide-toggle formControlName="oddPlayerPlacementEnabled">
-              Encaixe do jogador em espera
-            </mat-slide-toggle>
-            <p class="text-sm text-gray-600 -mt-2">
-              O jogador entrará no campeonato para jogar com a dupla que perdeu por menos.
-            </p>
+            <div class="flex justify-between gap-1">
+              <div class="flex flex-col gap-2">
+                <mat-label class="text-on-surface! font-medium!">
+                  Encaixe do jogador em espera
+                </mat-label>
+
+                <p class="text-sm text-gray-600">
+                  O jogador entrará no campeonato para jogar com a dupla que perdeu por menos.
+                </p>
+              </div>
+
+              <mat-slide-toggle
+                formControlName="oddPlayerPlacementEnabled"
+                class="font-medium text-on-surface!"
+              />
+            </div>
 
             @if (form.controls.oddPlayerPlacementEnabled.value) {
-              <mat-slide-toggle formControlName="oddPlayerLoserPriorityEnabled">
-                Prioridade para quem perdeu o par-ou-ímpar
-              </mat-slide-toggle>
-              <p class="text-sm text-gray-600 -mt-2">
-                Quando ativado, o jogador que perdeu o par-ou-ímpar do encaixe terá prioridade no
-                primeiro jogo próximo sorteio.
-              </p>
+              <div class="flex justify-between gap-1">
+                <div class="flex flex-col gap-2">
+                  <mat-label class="text-on-surface! font-medium!">
+                    Prioridade para quem perdeu o par-ou-ímpar</mat-label
+                  >
+                  <p class="text-sm text-gray-600">
+                    Quando ativado, o jogador que perdeu o par-ou-ímpar do encaixe terá prioridade
+                    no primeiro jogo próximo sorteio.
+                  </p>
+                </div>
+                <mat-slide-toggle
+                  formControlName="oddPlayerLoserPriorityEnabled"
+                  class="font-medium text-on-surface!"
+                >
+                </mat-slide-toggle>
+              </div>
             }
           }
 
-          <div class="flex gap-2">
-            <button mat-raised-button type="submit" [disabled]="form.invalid">
+          <div class="flex gap-2 flex-col mb-12">
+            <button
+              matButton
+              class="w-full! bg-on-primary-container! text-primary-container!
+                    shadow-lg hover:shadow-xl hover:scale-105
+                    transition-all duration-300 active:scale-95
+                    rounded-lg!"
+              (click)="cancel()"
+              extended
+            >
+              Cancelar
+            </button>
+            <button
+              matButton
+              class="w-full! bg-primary-container! text-on-primary-container!
+                    shadow-lg hover:shadow-xl hover:scale-105
+                    transition-all duration-300 active:scale-95
+                    rounded-lg!"
+              extended
+              type="submit"
+              [disabled]="form.invalid"
+            >
               Iniciar Campeonato
             </button>
-            <button mat-button type="button" (click)="cancel()">Cancelar</button>
           </div>
         </form>
       }
@@ -97,7 +166,7 @@ export class TournamentCreateComponent implements OnInit {
   private sessionId = '';
 
   form = this.fb.nonNullable.group({
-    pointLimit: [15, [Validators.required, Validators.min(1)]],
+    pointLimit: [12, [Validators.required, Validators.min(1)]],
     thirdPlaceEnabled: [true],
     oddPlayerPlacementEnabled: [true],
     oddPlayerLoserPriorityEnabled: [true],
