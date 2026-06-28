@@ -3,7 +3,8 @@ import { Component, computed, input } from '@angular/core';
 import { Player } from '../../models/player.model';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
-import { TitleCasePipe } from '@angular/common';
+import { JsonPipe, TitleCasePipe } from '@angular/common';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 export interface DisplayTeam {
   id: string;
@@ -20,7 +21,7 @@ export interface DisplayTeam {
  */
 @Component({
   selector: 'app-teams-display',
-  imports: [MatCardModule, MatIconModule, TitleCasePipe],
+  imports: [MatCardModule, MatIconModule, TitleCasePipe, MatTooltipModule, JsonPipe],
   template: `
     @if (waitingPlayerId()) {
       <div
@@ -99,16 +100,62 @@ export interface DisplayTeam {
           class="aspect-square w-full rounded-lg border border-outline-variant/50 bg-white p-4 flex flex-col"
         >
           <div class="flex flex-col gap-4">
+            @let isPlayerOneBorrowed = team.playerIds[0] === borrowedPlayerId();
+            @let isPlayerTwoBorrowed = team.playerIds[1] === borrowedPlayerId();
+            @let eliminatedAndNotSynthetic = team.eliminated && !team.synthetic;
             <!-- <mat-icon
               class="text-primary size-10 inline-flex items-center justify-center rounded-xl"
               >trending_up</mat-icon
             > -->
-            <div class="">
+            <div class="flex gap-2">
               <span
                 class="text-primary font-bold text-xs uppercase tracking-wide bg-primary-container/10 px-3 py-1 rounded-full inline-block"
               >
                 Dupla #0{{ i + 1 }}
               </span>
+
+              @if (team.eliminatedDirectly) {
+                <span
+                  matTooltip="Eliminação direta"
+                  aria-label="Eliminação direta"
+                  class="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 rounded-full px-2 py-0.5"
+                >
+                  <mat-icon class="text-sm! w-4! h-4! leading-4!">trending_down</mat-icon>
+                </span>
+              } @else if (team.eliminated && !team.synthetic) {
+                <span
+                  class="inline-flex items-center gap-1 text-xs font-medium  bg-tertiary rounded-full px-2 py-0.5"
+                  matTooltip="Par ou ímpar do encaixe"
+                >
+                  <mat-icon class="text-sm! w-4! h-4! leading-4! text-on-tertiary-container!"
+                    >call_split</mat-icon
+                  >
+                </span>
+              }
+
+              @if (team.synthetic) {
+                <span
+                  matTooltip="Par ou ímpar do encaixe"
+                  aria-label="Par ou ímpar do encaixe"
+                  class="inline-flex items-center gap-1 text-xs font-bold bg-tertiary rounded-full px-2 py-0.5"
+                >
+                  <mat-icon
+                    class="text-sm! w-4! h-4! leading-4! text-on-tertiary-container! rotate-180!"
+                    >merge</mat-icon
+                  >
+                </span>
+              }
+
+              @if (showCoinFlipWinner(team)) {
+                <div class="flex justify-center mt-2">
+                  <span
+                    class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5"
+                  >
+                    <mat-icon class="text-sm! w-4! h-4! leading-4! rotate-180!">merge</mat-icon>
+                    {{ playerName(coinFlipWinnerId()!) }} venceu o par-ou-ímpar
+                  </span>
+                </div>
+              }
             </div>
             <div class="flex gap-1 flex-col">
               <div class="flex min-w-0 gap-2">
@@ -126,15 +173,21 @@ export interface DisplayTeam {
               <div class="flex -space-x-3">
                 <div
                   class="w-12 h-12 rounded-full border-2 border-surface-container-lowest bg-primary-container/10 flex items-center justify-center text-on-surface-variant font-bold"
+                  [class.text-on-tertiary-container!]="isPlayerOneBorrowed"
+                  [class.bg-tertiary!]="isPlayerOneBorrowed"
                 >
                   {{ playerName(team.playerIds[0]).charAt(0) | titlecase }}
                 </div>
                 <div
                   class="w-12 h-12 rounded-full border-2 border-surface-container-lowest bg-primary-container/50 flex items-center justify-center text-on-surface-variant font-bold"
+                  [class.text-on-tertiary-container!]="isPlayerTwoBorrowed"
+                  [class.bg-tertiary!]="isPlayerTwoBorrowed"
                 >
                   {{ playerName(team.playerIds[1]).charAt(0) | titlecase }}
                 </div>
               </div>
+
+              <div></div>
             </div>
 
             <!-- <p class="text-sm text-on-surface-variant">Melhor % ({{ 0 }}%)</p> -->

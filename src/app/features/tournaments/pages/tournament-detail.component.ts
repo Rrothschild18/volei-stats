@@ -37,36 +37,92 @@ interface StandingDisplay {
   template: `
     <div class="p-4 max-w-4xl mx-auto">
       @if (tournament()) {
-        <div class="flex justify-between items-center mb-4">
-          <h1 class="text-2xl font-bold">Campeonato</h1>
-          <span
-            [class]="
-              tournament()!.status === 'completed'
-                ? 'text-green-600 font-medium'
-                : 'text-blue-600 font-medium'
-            "
-          >
-            {{ tournament()!.status === 'completed' ? 'Finalizado' : 'Em andamento' }}
-          </span>
+        <div>
+          <div class="flex justify-between items-center mb-4 ">
+            <h1 class="text-2xl font-bold">Torneio {{ tournament()!.name }}</h1>
+            <span
+              [class]="
+                tournament()!.status === 'completed'
+                  ? 'text-green-600 font-medium'
+                  : 'text-blue-600 font-medium'
+              "
+            >
+              {{ tournament()!.status === 'completed' ? 'Finalizado' : 'Em andamento' }}
+            </span>
+          </div>
+
+          <h4 class="text-lg font-bold mb-2">Configurações</h4>
+          <section class=" rounded-lg border border-outline-variant/50 bg-white p-4">
+            <div class="flex items-center gap-2 mb-4">
+              <span
+                class="inline-flex items-center gap-1 text-xs font-bold  rounded-full px-2 py-0.5"
+              >
+                <mat-icon
+                  fontSet="material-symbols-outlined"
+                  class="text-sm! w-4! h-4! leading-4! text-primary!"
+                  >group</mat-icon
+                >
+
+                {{ tournament()!.teams.length }} duplas
+              </span>
+
+              <span
+                class="inline-flex items-center gap-1 text-xs font-bold rounded-full px-2 py-0.5"
+              >
+                <mat-icon
+                  fontSet="material-symbols-outlined"
+                  class="text-sm! w-4! h-4! leading-4! text-primary!"
+                  >sports_score</mat-icon
+                >
+                {{ tournament()!.pointLimit }} pontos
+              </span>
+            </div>
+
+            <div class="flex flex-col gap-2 mb-4">
+              <div class="flex items-center gap-2">
+                <span
+                  matTooltip="Eliminação direta"
+                  aria-label="Eliminação direta"
+                  class="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 rounded-full px-2 py-0.5"
+                >
+                  <mat-icon class="text-sm! w-4! h-4! leading-4!">trending_down</mat-icon>
+                </span>
+                <span class="text-xs text-gray-700">Eliminação direta</span>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span
+                  matTooltip="Par ou ímpar do encaixe"
+                  aria-label="Par ou ímpar do encaixe"
+                  class="inline-flex items-center gap-1 text-xs font-bold  rounded-full bg-tertiary px-2 py-0.5"
+                >
+                  <mat-icon class="text-sm! w-4! h-4! leading-4! text-on-tertiary-container!"
+                    >merge</mat-icon
+                  >
+                </span>
+                <span
+                  matTooltip="Par ou ímpar do encaixe"
+                  aria-label="Par ou ímpar do encaixe"
+                  class="inline-flex items-center gap-1 text-xs font-bold  rounded-full bg-tertiary px-2 py-0.5"
+                >
+                  <mat-icon class="text-sm! w-4! h-4! leading-4! text-on-tertiary-container!"
+                    >call_split</mat-icon
+                  >
+                </span>
+                <span class="text-xs text-gray-700">Par ou ímpar do encaixe</span>
+              </div>
+            </div>
+          </section>
         </div>
 
-        <p class="text-gray-600 mb-4">
-          {{ tournament()!.teams.length }} duplas{{ tournament()!.waitingPlayerId ? ' + 1' : '' }} •
-          Limite: {{ tournament()!.pointLimit }} pontos
-        </p>
-
-        <!-- Duplas do campeonato (em andamento) -->
-        @if (tournament()!.status !== 'completed') {
-          <h2 class="text-lg font-semibold mb-2">Duplas</h2>
-          <app-teams-display
-            class="block mb-4"
-            [teams]="tournament()!.teams"
-            [players]="playerList()"
-            [waitingPlayerId]="visibleWaitingPlayerId()"
-            [borrowedPlayerId]="tournament()!.oddPlayerPlacement?.survivingPlayerId ?? null"
-          />
-        }
-
+        <h2 class="text-lg font-semibold mt-6 mb-4">Duplas</h2>
+        <app-teams-display
+          class="block mb-4"
+          [teams]="tournament()!.teams"
+          [players]="playerList()"
+          [waitingPlayerId]="visibleWaitingPlayerId()"
+          [borrowedPlayerId]="tournament()!.oddPlayerPlacement?.survivingPlayerId ?? null"
+        />
         <!-- Completed matches -->
         @if (completedMatches().length > 0) {
           <h2 class="text-lg font-semibold mb-2">Partidas Realizadas</h2>
