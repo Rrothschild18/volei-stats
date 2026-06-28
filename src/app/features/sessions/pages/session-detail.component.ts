@@ -113,7 +113,7 @@ interface TournamentVm {
                           class="text-primary! text-sm! size-4!  leading-4.5!"
                           >star</mat-icon
                         >
-                        <span class="text-sm"> {{ vm.tournament.pointLimit }} pontos </span>
+                        <span class="text-sm"> {{ vm.tournament.pointLimit }} pts </span>
                       </div>
                       <div class="flex items-center gap-1">
                         <mat-icon
@@ -207,19 +207,31 @@ interface TournamentVm {
         }
 
         <div class="flex gap-2 flex-col mb-12">
-          <a
-            mat-flat-button
-            class="w-full block"
+          <button
+            routerLink="/sessoes"
+            matButton
+            class="w-full! bg-on-primary-container! text-primary-container!
+                    shadow-lg hover:shadow-xl hover:scale-105
+                    transition-all duration-300 active:scale-95
+                    rounded-lg!"
+            extended
+          >
+            <mat-icon class="text-primary-container!">arrow_back</mat-icon>
+            voltar
+          </button>
+          <button
+            matButton
+            class="w-full! bg-primary-container! text-on-primary-container!
+                    shadow-lg hover:shadow-xl hover:scale-105
+                    transition-all duration-300 active:scale-95
+                    rounded-lg!"
+            extended
             [routerLink]="['/sorteios', 'novo']"
             [queryParams]="{ sessionId: session()!.id }"
           >
-            <mat-icon>casino</mat-icon>
-            Novo Sorteio
-          </a>
-          <a mat-button routerLink="/sessoes" class="w-full block">
-            <mat-icon>arrow_back</mat-icon>
-            Voltar
-          </a>
+            <mat-icon class="text-on-primary-container!">casino</mat-icon>
+            Novo sorteio
+          </button>
         </div>
       }
     </div>

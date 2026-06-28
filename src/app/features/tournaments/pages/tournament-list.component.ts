@@ -55,7 +55,7 @@ type HydratedTournament = Tournament & {
                           class="text-primary! text-sm! size-4!  leading-4.5!"
                           >star</mat-icon
                         >
-                        <span class="text-sm"> {{ t.pointLimit }} pontos </span>
+                        <span class="text-sm"> {{ t.pointLimit }} pts </span>
                       </div>
                       <div class="flex items-center gap-1">
                         <mat-icon
@@ -64,7 +64,7 @@ type HydratedTournament = Tournament & {
                           >group_outlined</mat-icon
                         >
                         <span class="text-sm"
-                          >{{ t.teams.length }} duplas{{ t.waitingPlayerId ? ' + 1' : '' }}
+                          >{{ t.teams.length }} dupla{{ t.waitingPlayerId ? ' + 1' : '' }}
                         </span>
                       </div>
                     </div>
