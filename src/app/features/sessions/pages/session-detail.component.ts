@@ -8,7 +8,6 @@ import { MatChipsModule } from '@angular/material/chips';
 import { DatePipe } from '@angular/common';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { Session, Player, Tournament } from '../../../shared/models';
-import { TeamsDisplayComponent } from '../../../shared/components/display-team/display-team.component';
 
 interface TournamentVm {
   tournament: Tournament;
@@ -28,7 +27,6 @@ interface TournamentVm {
     MatListModule,
     MatChipsModule,
     DatePipe,
-    TeamsDisplayComponent,
   ],
   template: `
     <div class="p-4 max-w-4xl mx-auto">
@@ -53,7 +51,7 @@ interface TournamentVm {
             @for (player of sessionPlayers(); track player.id) {
               @if (player.gender === 'M') {
                 <div
-                  class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-full border border-outline-variant/30 shrink-0"
+                  class="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full border border-outline-variant/30 shrink-0"
                 >
                   <span class="material-symbols-outlined text-[16px] text-blue-700 fill-icon"
                     >male</span
@@ -62,7 +60,7 @@ interface TournamentVm {
                 </div>
               } @else {
                 <div
-                  class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container rounded-full border border-outline-variant/30 shrink-0"
+                  class="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full border border-outline-variant/30 shrink-0"
                 >
                   <span class="material-symbols-outlined text-[16px] text-pink-700 fill-icon"
                     >female</span
@@ -97,46 +95,48 @@ interface TournamentVm {
                     <p class="text-lg font-semibold text-on-surface">
                       Torneio {{ vm.tournament.name || 'Torneio ' }} ({{ $index + 1 }})
                     </p>
-                    <mat-icon
-                      class="text-green-600! rounded-full!text-sm!  size-8! inline-flex! items-center! justify-center! m-icon"
-                      >check</mat-icon
-                    >
                   </div>
                 </div>
 
-                @if (vm.tournament.status === 'completed') {
-                  <div class="flex justify-between items-center ">
-                    <div class="flex flex-col gap-1">
-                      <div class="flex items-center gap-1">
-                        <mat-icon
-                          fontSet="material-symbols-outlined"
-                          class="text-primary! text-sm! size-4!  leading-4.5!"
-                          >star</mat-icon
-                        >
-                        <span class="text-sm"> {{ vm.tournament.pointLimit }} pts </span>
+                <div class="flex justify-between items-center ">
+                  <div class="flex flex-col gap-1">
+                    @if (vm.tournament.status === 'completed') {
+                      <div>
+                        <div class="flex items-center gap-1">
+                          <mat-icon
+                            fontSet="material-symbols-outlined"
+                            class="text-green-600! text-sm! size-4!  leading-4.5!"
+                            >check</mat-icon
+                          >
+                        </div>
                       </div>
-                      <div class="flex items-center gap-1">
-                        <mat-icon
-                          fontSet="material-symbols-outlined"
-                          class="text-primary! text-sm! size-4! leading-4.5!  "
-                          >group_outlined</mat-icon
-                        >
-                        <span class="text-sm"
-                          >{{ vm.tournament.teams.length }} duplas{{
-                            vm.tournament.waitingPlayerId ? ' + 1' : ''
-                          }}
-                        </span>
+                    } @else {
+                      <div class="relative flex h-3 w-3">
+                        <span
+                          class="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"
+                        ></span>
+                        <span class="relative inline-flex h-3 w-3 rounded-full bg-blue-500"></span>
                       </div>
+                    }
+
+                    <div class="flex items-center gap-1">
+                      <mat-icon
+                        fontSet="material-symbols-outlined"
+                        class="text-primary! text-sm! size-4!  leading-4.5!"
+                        >sports_score</mat-icon
+                      >
+                      <span class="text-sm"> {{ vm.tournament.pointLimit }} </span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <mat-icon
+                        fontSet="material-symbols-outlined"
+                        class="text-primary! text-sm! size-4! leading-4.5!"
+                        >group_outlined</mat-icon
+                      >
+                      <span class="text-sm">{{ vm.tournament.teams.length }} </span>
                     </div>
                   </div>
-                } @else {
-                  <small
-                    class="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1"
-                  >
-                    <small class="w-2 h-2 bg-blue-500 rounded-full mr-1 uppercase"></small>
-                    Em andamento
-                  </small>
-                }
+                </div>
               </div>
 
               <div class="flex flex-col gap-1 ">

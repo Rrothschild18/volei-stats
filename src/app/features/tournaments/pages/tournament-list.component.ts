@@ -39,43 +39,26 @@ type HydratedTournament = Tournament & {
                     <p class="text-lg font-semibold text-on-surface">
                       Torneio {{ t.name || 'Torneio ' }} ({{ $index + 1 }})
                     </p>
-                    <mat-icon
-                      class="text-green-600! rounded-full!text-sm!  size-8! inline-flex! items-center! justify-center! m-icon"
-                      >check</mat-icon
-                    >
                   </div>
                 </div>
 
                 @if (t.status === 'completed') {
-                  <div class="flex justify-between items-center ">
-                    <div class="flex flex-col gap-1">
-                      <div class="flex items-center gap-1">
-                        <mat-icon
-                          fontSet="material-symbols-outlined"
-                          class="text-primary! text-sm! size-4!  leading-4.5!"
-                          >star</mat-icon
-                        >
-                        <span class="text-sm"> {{ t.pointLimit }} pts </span>
-                      </div>
-                      <div class="flex items-center gap-1">
-                        <mat-icon
-                          fontSet="material-symbols-outlined"
-                          class="text-primary! text-sm! size-4! leading-4.5!  "
-                          >group_outlined</mat-icon
-                        >
-                        <span class="text-sm"
-                          >{{ t.teams.length }} dupla{{ t.waitingPlayerId ? ' + 1' : '' }}
-                        </span>
-                      </div>
+                  <div>
+                    <div class="flex items-center gap-1">
+                      <mat-icon
+                        fontSet="material-symbols-outlined"
+                        class="text-green-600! text-sm! size-4!  leading-4.5!"
+                        >check</mat-icon
+                      >
                     </div>
                   </div>
                 } @else {
-                  <small
-                    class="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1"
-                  >
-                    <small class="w-2 h-2 bg-blue-500 rounded-full mr-1 uppercase"></small>
-                    Em andamento
-                  </small>
+                  <div class="relative flex h-3 w-3">
+                    <span
+                      class="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"
+                    ></span>
+                    <span class="relative inline-flex h-3 w-3 rounded-full bg-blue-500"></span>
+                  </div>
                 }
               </div>
 
