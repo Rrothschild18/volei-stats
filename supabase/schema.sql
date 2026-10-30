@@ -289,6 +289,48 @@ create trigger players_touch     before update on players     for each row execu
 create trigger sessions_touch    before update on sessions    for each row execute function touch_updated_at();
 create trigger tournaments_touch before update on tournaments for each row execute function touch_updated_at();
 
+-- -----------------------------------------------------------------------------
+-- Um grupo nunca pode ficar sem administrador.
+--
+-- Protege contra o tiro no pé de dentro do app (o admin se rebaixa, ou remove
+-- o outro admin). NÃO atrapalha apagar um grupo nem apagar um usuário: nesses
+-- casos a linha pai já sumiu, e a cascata passa direto.
+-- -----------------------------------------------------------------------------
+create or replace function prevent_last_admin_removal()
+returns trigger language plpgsql as $$
+declare remaining int;
+begin
+  -- Só interessa quando alguém DEIXA de ser administrador.
+  if old.role <> 'admin' then
+    return case tg_op when 'DELETE' then old else new end;
+  end if;
+  if tg_op = 'UPDATE' and new.role = 'admin' then
+    return new;
+  end if;
+
+  -- Cascata de grupo apagado ou usuário apagado: deixa passar.
+  if not exists (select 1 from groups where id = old.group_id) then
+    return case tg_op when 'DELETE' then old else new end;
+  end if;
+  if not exists (select 1 from auth.users where id = old.user_id) then
+    return case tg_op when 'DELETE' then old else new end;
+  end if;
+
+  select count(*) into remaining
+  from group_members
+  where group_id = old.group_id and role = 'admin' and user_id <> old.user_id;
+
+  if remaining = 0 then
+    raise exception 'O grupo ficaria sem administrador' using errcode = 'P0001';
+  end if;
+
+  return case tg_op when 'DELETE' then old else new end;
+end $$;
+
+create trigger group_members_keep_admin
+  before update or delete on group_members
+  for each row execute function prevent_last_admin_removal();
+
 -- =============================================================================
 -- QUEM PODE O QUÊ
 -- =============================================================================
@@ -530,6 +572,8 @@ begin
   insert into group_members (group_id, user_id, player_id, role)
   values (new_group, auth.uid(), new_player, 'admin');
 
+  -- Sem expires_at de propósito: um link de recuperação que vence é um jeito
+  -- de se trancar para fora. O administrador pode revogá-lo e gerar outro.
   insert into invites (group_id, player_id, grants_role, label)
   values (new_group, new_player, 'admin', 'Recuperação de administrador')
   returning token into recovery;

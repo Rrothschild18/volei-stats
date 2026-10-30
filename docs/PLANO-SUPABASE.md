@@ -61,23 +61,45 @@ bateu na trava.
 > Se bastasse saber a data de nascimento do admin para assumir o grupo, qualquer
 > um que o conhecesse poderia apagar tudo.
 
-### ⚠️ O que ainda falta decidir: recuperação do ADMINISTRADOR
+### Recuperação do administrador
 
 Para os jogadores o problema está resolvido (nome + nascimento). Para o
-administrador, não: se ele limpar o navegador ou perder o aparelho, **não há
-e-mail nem senha**, e o grupo fica sem quem escreva.
+administrador vale outra coisa, porque conceder esse papel por data de
+nascimento significaria que quem souber o aniversário dele assume o grupo e
+pode apagar tudo. Então, em camadas:
 
-Por isso `create_group()` já devolve um **link de recuperação de administrador**.
-Três coisas precisam ser verdade, e quero seu aval:
+**1. Mais de um administrador.** É a proteção de verdade: com dois, perder um
+navegador vira um problema pequeno. O grupo **nunca pode ficar sem
+administrador** — um gatilho no banco recusa rebaixar ou remover o último.
+Isso não atrapalha apagar um grupo nem apagar um usuário.
 
-1. O app mostra esse link na criação do grupo com um aviso claro de **guardar**
-   (anotar, mandar para si mesmo no WhatsApp, favoritar).
-2. O link continua acessível nas configurações do grupo, para copiar de novo.
-3. **Dá para ter mais de um administrador** — é a melhor proteção. Recomendo
-   nomear um segundo desde o início.
+Para promover alguém, o administrador gera um convite com `grants_role = 'admin'`.
 
-Sem senha, essa é a troca honesta: ganha-se fricção zero, perde-se a
-recuperação automática.
+**2. Link de recuperação, sem validade.** `create_group()` já devolve um, e ele
+**não expira** de propósito — um link de recuperação que vence é um jeito de se
+trancar para fora. O administrador pode revogá-lo e gerar outro quando quiser.
+
+**3. Você, dono do projeto, é o último recurso.** Como o projeto do Supabase é
+seu, o SQL Editor sempre funciona, não importa o que aconteça com os
+navegadores. Não precisa de super-administrador no app — precisa de uma receita:
+
+```sql
+-- Gerar um novo link de administrador para um grupo.
+-- O token devolvido vira /convite/<token> para quem precisar.
+insert into invites (group_id, grants_role, label)
+select id, 'admin', 'Reenvio do dono'
+from groups where name = 'Nome do grupo'
+returning token;
+```
+
+```sql
+-- Ver quem administra cada grupo.
+select g.name, m.role, m.user_id, p.name as jogador
+from group_members m
+join groups g on g.id = m.group_id
+left join players p on p.id = m.player_id
+where m.role = 'admin';
+```
 
 ### Por que não OTP / magic link (e por que é uma boa notícia)
 
@@ -197,13 +219,13 @@ Consequência aceita: **sem sinal, não dá para lançar placar.**
 - **Jogador se reconhece por nome + data de nascimento**, com trava de força
   bruta. Data de nascimento passa a ser obrigatória no cadastro.
 
+- **Vários administradores por grupo**, e o grupo nunca fica sem nenhum.
+- **Link de recuperação não expira**; o administrador pode revogar e gerar outro.
+- **Sem super-administrador no app.** O dono do projeto resolve pelo SQL Editor
+  com as receitas do §1 — é um projeto de uso simples e não vale a pena
+  construir um painel para um evento raro.
+
 ❓ **Em aberto**
 
-1. **Recuperação do administrador** (§1). Hoje `claim_player()` devolve só o
-   papel de jogador. Três opções:
-   a. link de recuperação guardado + um segundo administrador _(recomendado)_;
-   b. nome + nascimento também devolver o papel de administrador — mais simples,
-   mas quem souber a sua data de nascimento assume o grupo;
-   c. as duas coisas.
-2. **Um grupo por link ou a pessoa pode estar em vários?** O schema já suporta
+1. **Um grupo por link ou a pessoa pode estar em vários?** O schema já suporta
    vários; falta decidir se a interface mostra um seletor.
