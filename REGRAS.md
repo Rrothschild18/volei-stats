@@ -48,6 +48,12 @@ Se o número de presentes é ímpar, um jogador fica **em espera** (avulso):
 > ⚠️ Existe um método `getWaitingPlayerByHistory()` que escolheria **quem menos
 > esperou até hoje**, mas ele **nunca é chamado**. Ver §7.3.
 
+> ✅ **REGRA DEFINIDA (§9.1).** A escolha é **aleatória, mas com revezamento
+> dentro da sessão**: entre os presentes, só podem ser sorteados os que menos
+> esperaram **naquele dia**. O histórico **não** pode ser global — um jogador
+> que aparece pouco teria sempre a menor contagem e acabaria esperando toda vez
+> que viesse jogar.
+
 ### 2.3. Geração das propostas
 
 O serviço gera **100 embaralhamentos** aleatórios, pontua cada um e apresenta as
@@ -134,6 +140,14 @@ Na criação do campeonato o organizador define:
 
 Regra fixa: com **4 duplas + encaixe**, a disputa de 3º lugar é **forçada a
 desligada** (o formato não a comporta).
+
+> ✅ **REGRA DEFINIDA (§9.6).** A disputa de 3º lugar **não é padrão sempre**.
+> O padrão depende do formato, e o objetivo dela é **fazer todo mundo jogar pelo
+> menos duas vezes**:
+> - **4 duplas** → ligada por padrão (é o caso clássico: sem ela, duas duplas
+>   jogariam só uma vez);
+> - **número ímpar de duplas** (3, 5, 7) → **desligada** por padrão, é raro;
+> - **4 duplas + encaixe** → indisponível, o formato não comporta.
 
 Cada campeonato recebe um **nome aleatório** de uma lista de piadas internas.
 
@@ -310,6 +324,11 @@ ordenam apenas por `pointDifference`. Com empate — comum em jogos curtos — q
 é eliminado diretamente e quem vai direto à final passa a depender da ordem em
 que as partidas foram salvas. Não há critério de desempate definido.
 
+> ✅ **REGRA DEFINIDA (§9.3).** Empate de diferença se resolve **no par ou
+> ímpar**, como na quadra. O app não deve decidir sozinho: ele **detecta o
+> empate, para, e pergunta** ao organizador quem venceu o par-ou-ímpar —
+> exatamente o mesmo fluxo que já existe para o encaixe do avulso.
+
 ### 7.8. Formatos não suportados criam campeonato travado 🔴
 
 Nenhuma partida é gerada, e o campeonato fica sem saída, quando:
@@ -354,8 +373,11 @@ rede.
 O motivo `waiting-draw` ("ficou em espera no sorteio anterior") está **tipado,
 rotulado e com ícone na interface**, mas **nenhum código o gera**. Hoje o avulso
 só ganha prioridade se o encaixe estiver desligado (`waiting-player-not-used`).
-Se a intenção é "quem esperou no sorteio tem prioridade no próximo", a regra
-está faltando.
+
+> ✅ **DECISÃO (§9.5).** O motivo é **removido**. Ele ficou redundante: quem
+> esperou no sorteio já é compensado pelo **revezamento de espera dentro da
+> sessão** (§9.1), que é um mecanismo melhor. E quem esperou o campeonato
+> inteiro continua coberto por `waiting-player-not-used`.
 
 ### 8.2. Prioridade entre sessões
 
@@ -375,11 +397,94 @@ Não há regra de dupla mista obrigatória, nem rankings separados.
 
 ---
 
-## 9. Perguntas em aberto
+## 9. Decisões tomadas
 
-1. A regra de **espera** deve ser justa por histórico (quem menos esperou espera
-   agora) ou aleatória? *(§7.3)*
-2. Prioridade deve **atravessar sessões** ou morrer no fim do dia? *(§8.2)*
-3. Qual o **desempate** quando duas duplas perdem pela mesma diferença? *(§7.7)*
-4. O que fazer com **16+ jogadores**: bloquear, ou suportar o formato? *(§7.8)*
-5. O motivo `waiting-draw` deve passar a existir? *(§8.1)*
+Respostas do dono do projeto. Estas são as regras **alvo** — o código deve ser
+ajustado para cumpri-las.
+
+### 9.1. Espera: aleatória, com revezamento **dentro da sessão**
+
+A escolha de quem espera é aleatória, **mas só entre os jogadores que menos
+esperaram naquele dia**. O revezamento é a regra: ninguém deve esperar duas
+vezes enquanto alguém ainda não esperou nenhuma.
+
+O histórico consultado é **o da sessão**, nunca o global. Motivo dado:
+*"às vezes a pessoa não joga toda semana e pode sem querer sempre esperar quando
+joga"* — com contagem global, quem aparece pouco tem sempre a menor contagem e
+seria escolhido para esperar toda vez que viesse.
+
+### 9.2. Prioridade morre no fim do dia
+
+A prioridade é **escopada à sessão**, como já é hoje. Nada atravessa de um dia
+para o outro. (Confirma o comportamento atual descrito em §8.2.)
+
+### 9.3. Empate de diferença: par ou ímpar
+
+Quando duas duplas perdem (ou vencem) pela mesma diferença de pontos, o
+desempate é **no par ou ímpar**, decidido na quadra. O app detecta o empate,
+**interrompe o chaveamento e pergunta** quem venceu — mesmo fluxo que já existe
+para o encaixe do avulso.
+
+### 9.4. Encaixe do avulso: confirmado como está
+
+A regra atual está correta e foi confirmada:
+
+- quem **venceu por maior diferença** vai **direto para a final**;
+- a **nova dupla** (avulso + jogador do par-ou-ímpar) enfrenta a dupla que
+  **venceu por menor diferença**.
+
+### 9.5. `waiting-draw` é removido
+
+Redundante com o revezamento de espera (§9.1). Ver §8.1.
+
+### 9.6. Disputa de 3º lugar: depende do formato
+
+Não é padrão sempre. O objetivo é **todo mundo jogar pelo menos duas vezes**.
+Ver §4.1.
+
+### 9.7. As 3 propostas de sorteio precisam ser realmente diferentes
+
+*"Isso é ruim, tem que reaver"* (§7.4). As propostas devem ser **deduplicadas** e
+devem **variar também o jogador em espera**, para que a escolha seja real.
+
+### 9.8. Formatos de campeonato viram catálogo genérico
+
+Ver §10.
+
+---
+
+## 10. Formatos de campeonato (direção nova)
+
+Hoje o chaveamento é um `switch` por número de duplas, de 2 a 7, e qualquer coisa
+fora disso trava o campeonato (§7.8). A direção definida é outra:
+
+> **O app deve mostrar os formatos possíveis a partir do número de pessoas
+> presentes**, e o organizador escolhe.
+
+O formato deixa de ser código escondido e vira **catálogo de dados**, com os
+atributos que importam na hora de escolher:
+
+| Atributo | Para quê |
+| --- | --- |
+| Nº de duplas | filtra pelo que dá para montar com os presentes |
+| Precisa de avulso? | formatos com encaixe só aparecem em número ímpar |
+| **Quadras necessárias** | formatos de grupos exigem 2 quadras |
+| **Mínimo de jogos por dupla** | responde "todo mundo joga pelo menos 2 vezes?" |
+| Tem 3º lugar? | obrigatório, opcional ou indisponível |
+| Nº total de partidas | quanto tempo vai levar |
+
+### Exemplo que motivou a mudança
+
+Com **12 pessoas (6 duplas) e 2 quadras**, o grupo já jogou um formato que o app
+não conhece: **dois grupos de 3 duplas**, classificando as duas melhores de cada
+grupo para semifinal e final.
+
+Com o catálogo, esse formato passa a ser uma entrada de dados ao lado do
+mata-mata de 6 duplas que já existe — e o organizador escolhe na hora, vendo
+quantas quadras cada um exige.
+
+### Consequência para 16+ jogadores
+
+Deixa de ser um caso que trava (§7.8): ou existe um formato cadastrado para
+aquele número, ou o app diz claramente que não existe formato e sugere o mais
+próximo — em vez de criar um campeonato sem partidas.
