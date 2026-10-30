@@ -21,6 +21,11 @@ create extension if not exists "pgcrypto";
 -- Tipos
 -- -----------------------------------------------------------------------------
 create type group_role        as enum ('admin', 'player', 'viewer');
+
+-- Resultado de claim_player(). Devolve status em vez de lançar exceção: um
+-- `raise` desfaria o registro da tentativa e a trava de força bruta nunca
+-- contaria nada.
+create type claim_result      as (ok boolean, reason text, player_id uuid);
 create type tournament_status as enum ('in-progress', 'completed');
 create type match_phase       as enum ('round-1', 'semifinal', 'semifinal-bye', 'final', 'third-place');
 create type priority_reason   as enum ('direct-elimination', 'coin-flip-loss', 'waiting-player-not-used');
@@ -43,6 +48,9 @@ create table players (
   group_id   uuid not null references groups(id) on delete cascade,
   name       text not null check (length(trim(name)) > 0),
   gender     char(1) not null check (gender in ('M', 'F')),
+  -- Usada para a pessoa se reconhecer num navegador novo (claim_player).
+  -- Nunca sai do servidor: só é comparada dentro de claim_player().
+  birth_date date,
   active     boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -85,6 +93,22 @@ create table invites (
   foreign key (player_id, group_id) references players(id, group_id)
 );
 create index invites_group_idx on invites (group_id);
+
+-- -----------------------------------------------------------------------------
+-- Tentativas de se reconhecer por nome + nascimento.
+-- Existe só para travar força bruta: uma data de nascimento tem 365
+-- possibilidades, o que sem limite nenhum se quebra em minutos.
+-- -----------------------------------------------------------------------------
+create table player_claim_attempts (
+  id             bigserial primary key,
+  group_id       uuid not null references groups(id)     on delete cascade,
+  user_id        uuid references auth.users(id)          on delete set null,
+  attempted_name text not null,
+  succeeded      boolean not null,
+  attempted_at   timestamptz not null default now()
+);
+create index player_claim_attempts_rate_idx
+  on player_claim_attempts (group_id, user_id, attempted_at desc);
 
 -- =============================================================================
 -- SESSÕES, SORTEIOS, CAMPEONATOS
@@ -332,9 +356,10 @@ $$;
  * Reutilizável de propósito: a mesma pessoa usa no celular e no tablet.
  */
 create or replace function redeem_invite(
-  p_token  uuid,
-  p_name   text    default null,
-  p_gender char(1) default null
+  p_token      uuid,
+  p_name       text    default null,
+  p_gender     char(1) default null,
+  p_birth_date date    default null
 )
 returns group_members
 language plpgsql security definer set search_path = public as $$
@@ -368,6 +393,10 @@ begin
     if p_gender is null or p_gender not in ('M', 'F') then
       raise exception 'Informe o sexo (M ou F)' using errcode = '22023';
     end if;
+    -- Obrigatória: é o que devolve o acesso num navegador novo.
+    if p_birth_date is null then
+      raise exception 'Informe a data de nascimento' using errcode = '22023';
+    end if;
 
     -- Se já existe alguém com esse nome no grupo, reaproveita em vez de duplicar.
     select id into target_player
@@ -375,9 +404,13 @@ begin
     where group_id = inv.group_id and lower(trim(name)) = lower(trim(p_name));
 
     if target_player is null then
-      insert into players (group_id, name, gender)
-      values (inv.group_id, trim(p_name), p_gender)
+      insert into players (group_id, name, gender, birth_date)
+      values (inv.group_id, trim(p_name), p_gender, p_birth_date)
       returning id into target_player;
+    else
+      -- Jogador já cadastrado pelo administrador e ainda sem nascimento.
+      update players set birth_date = p_birth_date
+      where id = target_player and birth_date is null;
     end if;
   end if;
 
@@ -392,14 +425,90 @@ begin
 end $$;
 
 /**
+ * Reconhecer-se por NOME + DATA DE NASCIMENTO.
+ *
+ * É o caminho de auto-atendimento para voltar num navegador novo, sem depender
+ * do administrador gerar convite. Pensado para um grupo de algumas dezenas de
+ * pessoas que se conhecem.
+ *
+ * O que o torna aceitável:
+ *   1. A data de nascimento NUNCA sai do servidor — o cliente envia um palpite
+ *      e recebe sim ou não. Nada de baixar a lista para comparar no navegador.
+ *   2. Só funciona para quem já tem o link do grupo (precisa ser membro).
+ *   3. Trava de força bruta: 5 erros em 15 minutos e para. Sem isso, 365
+ *      tentativas quebrariam qualquer identidade.
+ *   4. A mensagem de erro é a mesma para nome inexistente e data errada, para
+ *      não confirmar quem está no grupo.
+ *
+ * Concede SEMPRE o papel de jogador — nunca administrador. Ver §1 do plano.
+ */
+create or replace function claim_player(
+  p_group_id   uuid,
+  p_name       text,
+  p_birth_date date
+)
+returns claim_result
+language plpgsql security definer set search_path = public as $$
+declare
+  recent_failures int;
+  target_id       uuid;
+  result          claim_result;
+begin
+  if auth.uid() is null then
+    raise exception 'É preciso uma sessão' using errcode = '28000';
+  end if;
+
+  -- Precisa ter chegado pelo link do grupo.
+  if not is_group_member(p_group_id) then
+    raise exception 'Abra o link do grupo primeiro' using errcode = '42501';
+  end if;
+
+  select count(*) into recent_failures
+  from player_claim_attempts
+  where group_id = p_group_id
+    and user_id  = auth.uid()
+    and not succeeded
+    and attempted_at > now() - interval '15 minutes';
+
+  if recent_failures >= 5 then
+    return (false, 'rate_limited', null)::claim_result;
+  end if;
+
+  select id into target_id
+  from players
+  where group_id = p_group_id
+    and lower(trim(name)) = lower(trim(coalesce(p_name, '')))
+    and birth_date is not null
+    and birth_date = p_birth_date;
+
+  insert into player_claim_attempts (group_id, user_id, attempted_name, succeeded)
+  values (p_group_id, auth.uid(), coalesce(p_name, ''), target_id is not null);
+
+  if target_id is null then
+    -- Mesmo motivo para nome inexistente e data errada: não confirma quem
+    -- está no grupo.
+    return (false, 'not_found', null)::claim_result;
+  end if;
+
+  insert into group_members (group_id, user_id, player_id, role)
+  values (p_group_id, auth.uid(), target_id, 'player')
+  on conflict (group_id, user_id) do update
+    set player_id = excluded.player_id,
+        role      = greatest_role(group_members.role, excluded.role);
+
+  return (true, 'ok', target_id)::claim_result;
+end $$;
+
+/**
  * Cria um grupo e põe quem chamou como administrador.
  * Devolve também um convite de recuperação de administrador — o único jeito de
  * voltar a administrar o grupo se este navegador for perdido. GUARDE O LINK.
  */
 create or replace function create_group(
-  p_group_name  text,
-  p_admin_name  text,
-  p_admin_gender char(1)
+  p_group_name      text,
+  p_admin_name      text,
+  p_admin_gender    char(1),
+  p_admin_birth_date date default null
 )
 returns table (group_id uuid, player_id uuid, recovery_token uuid)
 language plpgsql security definer set search_path = public as $$
@@ -414,8 +523,8 @@ begin
 
   insert into groups (name) values (trim(p_group_name)) returning id into new_group;
 
-  insert into players (group_id, name, gender)
-  values (new_group, trim(p_admin_name), p_admin_gender)
+  insert into players (group_id, name, gender, birth_date)
+  values (new_group, trim(p_admin_name), p_admin_gender, p_admin_birth_date)
   returning id into new_player;
 
   insert into group_members (group_id, user_id, player_id, role)
@@ -440,6 +549,7 @@ end $$;
 alter table groups                      enable row level security;
 alter table group_members               enable row level security;
 alter table invites                     enable row level security;
+alter table player_claim_attempts       enable row level security;
 alter table players                     enable row level security;
 alter table sessions                    enable row level security;
 alter table session_players             enable row level security;
@@ -483,6 +593,11 @@ create policy group_members_select on group_members
 create policy group_members_write_admin on group_members
   for all to authenticated
   using (is_group_admin(group_id)) with check (is_group_admin(group_id));
+
+-- Tentativas de reconhecimento: só o administrador enxerga (para notar abuso).
+-- A escrita acontece dentro de claim_player(), que é security definer.
+create policy claim_attempts_admin_only on player_claim_attempts
+  for select to authenticated using (is_group_admin(group_id));
 
 -- Convites: SÓ o administrador enxerga. Quem recebe o link usa redeem_invite(),
 -- que roda como security definer e não precisa de leitura na tabela.

@@ -13,14 +13,14 @@ que as expõem. Serve como fonte de verdade para discutir mudanças.
 
 ## 1. Conceitos
 
-| Conceito | O que é | Modelo |
-| --- | --- | --- |
-| **Jogador** (`Player`) | Pessoa cadastrada, com sexo (M/F) e flag `active` | `player.model.ts` |
-| **Sessão** (`Session`) | Um dia de jogo. Agrupa os jogadores presentes, os sorteios e os campeonatos daquele dia | `session.model.ts` |
-| **Sorteio** (`DrawProposal`) | Uma proposta de divisão dos presentes em duplas, com pontuação e selos | `draw.model.ts` |
-| **Dupla** (`Team` / `TournamentTeam`) | Par de jogadores. Dentro do campeonato ganha estado de eliminação | `draw.model.ts`, `tournament.model.ts` |
-| **Campeonato** (`Tournament`) | Chaveamento mata-mata disputado por duplas de um sorteio | `tournament.model.ts` |
-| **Partida** (`Match`) | Jogo entre duas duplas, com placar e fase | `match.model.ts` |
+| Conceito                              | O que é                                                                                 | Modelo                                 |
+| ------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------- |
+| **Jogador** (`Player`)                | Pessoa cadastrada, com sexo (M/F) e flag `active`                                       | `player.model.ts`                      |
+| **Sessão** (`Session`)                | Um dia de jogo. Agrupa os jogadores presentes, os sorteios e os campeonatos daquele dia | `session.model.ts`                     |
+| **Sorteio** (`DrawProposal`)          | Uma proposta de divisão dos presentes em duplas, com pontuação e selos                  | `draw.model.ts`                        |
+| **Dupla** (`Team` / `TournamentTeam`) | Par de jogadores. Dentro do campeonato ganha estado de eliminação                       | `draw.model.ts`, `tournament.model.ts` |
+| **Campeonato** (`Tournament`)         | Chaveamento mata-mata disputado por duplas de um sorteio                                | `tournament.model.ts`                  |
+| **Partida** (`Match`)                 | Jogo entre duas duplas, com placar e fase                                               | `match.model.ts`                       |
 
 Hierarquia: **Sessão → Sorteio → Campeonato → Partidas**.
 Uma sessão pode ter vários sorteios e vários campeonatos; cada campeonato nasce
@@ -68,12 +68,12 @@ ou seja, **quem joga a primeira rodada**.
 
 Começa em **100 pontos**:
 
-| Critério | Efeito | Selo exibido |
-| --- | --- | --- |
-| Dupla já jogou junta **nesta sessão** | **−50** por dupla | `Dupla repetida` |
-| Dupla do mesmo sexo | **−10** por dupla | `Dupla de mesmo sexo` |
-| Jogador com prioridade está em alguma dupla | — | `Prioridade: <motivo>` |
-| **Todos** os jogadores prioritários foram escalados | **+20** (uma vez) | — |
+| Critério                                            | Efeito            | Selo exibido           |
+| --------------------------------------------------- | ----------------- | ---------------------- |
+| Dupla já jogou junta **nesta sessão**               | **−50** por dupla | `Dupla repetida`       |
+| Dupla do mesmo sexo                                 | **−10** por dupla | `Dupla de mesmo sexo`  |
+| Jogador com prioridade está em alguma dupla         | —                 | `Prioridade: <motivo>` |
+| **Todos** os jogadores prioritários foram escalados | **+20** (uma vez) | —                      |
 
 A regra de **não repetir duplas** é portanto a de maior peso, seguida pelo
 **equilíbrio de sexos** (duplas mistas são preferidas).
@@ -109,12 +109,12 @@ entra com vantagem no sorteio seguinte **da mesma sessão**.
 
 ### 3.2. Motivos de prioridade
 
-| Motivo | Quando é gerado | Quem ganha |
-| --- | --- | --- |
-| `direct-elimination` | Dupla eliminada na rodada 1 **por maior diferença de pontos** | Os 2 jogadores da dupla |
-| `coin-flip-loss` | Jogador perdeu o par-ou-ímpar do encaixe | O jogador eliminado |
-| `waiting-player-not-used` | Avulso ficou de fora do campeonato inteiro (encaixe **desativado**) | O avulso |
-| `waiting-draw` | **nunca é gerado** — ver §8.1 | — |
+| Motivo                    | Quando é gerado                                                     | Quem ganha              |
+| ------------------------- | ------------------------------------------------------------------- | ----------------------- |
+| `direct-elimination`      | Dupla eliminada na rodada 1 **por maior diferença de pontos**       | Os 2 jogadores da dupla |
+| `coin-flip-loss`          | Jogador perdeu o par-ou-ímpar do encaixe                            | O jogador eliminado     |
+| `waiting-player-not-used` | Avulso ficou de fora do campeonato inteiro (encaixe **desativado**) | O avulso                |
+| `waiting-draw`            | **nunca é gerado** — ver §8.1                                       | —                       |
 
 ### 3.3. Efeito da prioridade
 
@@ -131,12 +131,12 @@ entra com vantagem no sorteio seguinte **da mesma sessão**.
 
 Na criação do campeonato o organizador define:
 
-| Opção | Padrão | Condição de exibição |
-| --- | --- | --- |
-| **Limite de pontos** | 12 | sempre |
-| **Disputa de 3º/4º lugar** | ligado | só com 4 duplas ou mais |
-| **Encaixe do jogador avulso** | ligado | só se houver avulso |
-| **Prioridade para quem perdeu o par-ou-ímpar** | ligado | só com encaixe ligado |
+| Opção                                          | Padrão | Condição de exibição    |
+| ---------------------------------------------- | ------ | ----------------------- |
+| **Limite de pontos**                           | 12     | sempre                  |
+| **Disputa de 3º/4º lugar**                     | ligado | só com 4 duplas ou mais |
+| **Encaixe do jogador avulso**                  | ligado | só se houver avulso     |
+| **Prioridade para quem perdeu o par-ou-ímpar** | ligado | só com encaixe ligado   |
 
 Regra fixa: com **4 duplas + encaixe**, a disputa de 3º lugar é **forçada a
 desligada** (o formato não a comporta).
@@ -144,6 +144,7 @@ desligada** (o formato não a comporta).
 > ✅ **REGRA DEFINIDA (§9.6).** A disputa de 3º lugar **não é padrão sempre**.
 > O padrão depende do formato, e o objetivo dela é **fazer todo mundo jogar pelo
 > menos duas vezes**:
+>
 > - **4 duplas** → ligada por padrão (é o caso clássico: sem ela, duas duplas
 >   jogariam só uma vez);
 > - **número ímpar de duplas** (3, 5, 7) → **desligada** por padrão, é raro;
@@ -159,14 +160,14 @@ A rodada 1 é disputada e, a partir dela, dois critérios comandam o resto:
 - **Perdedor com maior diferença de pontos** é **eliminado diretamente** e recebe
   prioridade no próximo sorteio.
 
-| Duplas | Rodada 1 | Sequência |
-| --- | --- | --- |
-| **2** | — | Final direta |
-| **3** | 1 jogo (duplas 1×2) | Perdedor da R1 × dupla de bye (repescagem) → vencedor vai à final contra o vencedor da R1 |
-| **4** | 2 semifinais | Final + 3º lugar (se habilitado) |
-| **5** | 2 jogos (4 duplas) | Pior perdedor eliminado direto. Vencedor de menor diferença × dupla de bye → final contra o vencedor de maior diferença. 3º lugar: outro perdedor da R1 × perdedor do bye |
-| **6** | 3 jogos | Pior perdedor eliminado direto. Semifinal entre os 2 vencedores de menor diferença → final contra o vencedor de maior diferença. 3º lugar: outro perdedor da R1 × perdedor da semi |
-| **7** | 3 jogos (6 duplas) | Pior perdedor eliminado direto. Vencedor nº2 × dupla de bye → semifinal contra o vencedor nº3 → final contra o vencedor nº1. 3º lugar: perdedor do bye × perdedor da semi |
+| Duplas | Rodada 1            | Sequência                                                                                                                                                                          |
+| ------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **2**  | —                   | Final direta                                                                                                                                                                       |
+| **3**  | 1 jogo (duplas 1×2) | Perdedor da R1 × dupla de bye (repescagem) → vencedor vai à final contra o vencedor da R1                                                                                          |
+| **4**  | 2 semifinais        | Final + 3º lugar (se habilitado)                                                                                                                                                   |
+| **5**  | 2 jogos (4 duplas)  | Pior perdedor eliminado direto. Vencedor de menor diferença × dupla de bye → final contra o vencedor de maior diferença. 3º lugar: outro perdedor da R1 × perdedor do bye          |
+| **6**  | 3 jogos             | Pior perdedor eliminado direto. Semifinal entre os 2 vencedores de menor diferença → final contra o vencedor de maior diferença. 3º lugar: outro perdedor da R1 × perdedor da semi |
+| **7**  | 3 jogos (6 duplas)  | Pior perdedor eliminado direto. Vencedor nº2 × dupla de bye → semifinal contra o vencedor nº3 → final contra o vencedor nº1. 3º lugar: perdedor do bye × perdedor da semi          |
 
 Com **8 duplas ou mais** (16+ jogadores) **não há chaveamento**: o campeonato é
 criado mas nenhuma partida é gerada. Ver §7.8.
@@ -180,7 +181,7 @@ O **encaixe** é a regra que coloca o jogador avulso para jogar:
    **par-ou-ímpar** entre seus dois jogadores. (A que perdeu por maior diferença é
    eliminada diretamente.)
 3. O organizador informa quem **venceu** o par-ou-ímpar.
-4. O vencedor forma uma **dupla nova** com o avulso — a *dupla do encaixe*.
+4. O vencedor forma uma **dupla nova** com o avulso — a _dupla do encaixe_.
    Essa dupla é marcada como `synthetic` e entra no chaveamento.
 5. O perdedor do par-ou-ímpar está eliminado e, se a opção estiver ligada,
    recebe prioridade (`coin-flip-loss`).
@@ -188,11 +189,11 @@ O **encaixe** é a regra que coloca o jogador avulso para jogar:
    — ela não gera prioridade, e as partidas já jogadas continuam exibindo a
    formação correta (`originalPlayerIds`).
 
-| Duplas originais | Rodada 1 | Sequência |
-| --- | --- | --- |
-| **3** | 1 jogo | Encaixe × dupla de bye (semifinal-bye) → final contra o vencedor da R1 |
-| **4** | 2 jogos | Encaixe × vencedor de menor diferença (semifinal) → final contra o vencedor de maior diferença. **Sem 3º lugar** |
-| **5** | 2 jogos (4 duplas) | Encaixe × dupla de bye → semifinal contra o vencedor nº2 → final contra o vencedor nº1. 3º lugar: perdedor da semi × perdedor do bye |
+| Duplas originais | Rodada 1           | Sequência                                                                                                                            |
+| ---------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **3**            | 1 jogo             | Encaixe × dupla de bye (semifinal-bye) → final contra o vencedor da R1                                                               |
+| **4**            | 2 jogos            | Encaixe × vencedor de menor diferença (semifinal) → final contra o vencedor de maior diferença. **Sem 3º lugar**                     |
+| **5**            | 2 jogos (4 duplas) | Encaixe × dupla de bye → semifinal contra o vencedor nº2 → final contra o vencedor nº1. 3º lugar: perdedor da semi × perdedor do bye |
 
 Com **6 ou 7 duplas + avulso e encaixe ligado**, nenhuma partida é gerada —
 o campeonato trava. Ver §7.8.
@@ -229,6 +230,7 @@ estava habilitado).
 ### 4.7. Cancelamento
 
 Um campeonato pode ser **excluído**. Ao excluir:
+
 - todas as suas partidas são apagadas;
 - ele é removido da sessão;
 - ele deixa de contar para prioridades e estatísticas.
@@ -306,7 +308,7 @@ Além disso, **o avulso é o mesmo nas três**, então não há escolha de quem 
 
 `getNextMatches()` chama `markDirectElimination()`, que **muta o campeonato**
 (marca duplas eliminadas e grava entradas de prioridade). Mas `getNextMatches` é
-chamada em vários pontos só para *consultar* o próximo jogo, e **não persiste**
+chamada em vários pontos só para _consultar_ o próximo jogo, e **não persiste**
 a mudança. A marcação depende de o fluxo passar por `saveMatch()` depois —
 se o usuário sair da tela antes, a eliminação direta e a prioridade **se perdem**.
 
@@ -409,8 +411,8 @@ esperaram naquele dia**. O revezamento é a regra: ninguém deve esperar duas
 vezes enquanto alguém ainda não esperou nenhuma.
 
 O histórico consultado é **o da sessão**, nunca o global. Motivo dado:
-*"às vezes a pessoa não joga toda semana e pode sem querer sempre esperar quando
-joga"* — com contagem global, quem aparece pouco tem sempre a menor contagem e
+_"às vezes a pessoa não joga toda semana e pode sem querer sempre esperar quando
+joga"_ — com contagem global, quem aparece pouco tem sempre a menor contagem e
 seria escolhido para esperar toda vez que viesse.
 
 ### 9.2. Prioridade morre no fim do dia
@@ -444,7 +446,7 @@ Ver §4.1.
 
 ### 9.7. As 3 propostas de sorteio precisam ser realmente diferentes
 
-*"Isso é ruim, tem que reaver"* (§7.4). As propostas devem ser **deduplicadas** e
+_"Isso é ruim, tem que reaver"_ (§7.4). As propostas devem ser **deduplicadas** e
 devem **variar também o jogador em espera**, para que a escolha seja real.
 
 ### 9.8. Formatos de campeonato viram catálogo genérico
@@ -464,14 +466,14 @@ fora disso trava o campeonato (§7.8). A direção definida é outra:
 O formato deixa de ser código escondido e vira **catálogo de dados**, com os
 atributos que importam na hora de escolher:
 
-| Atributo | Para quê |
-| --- | --- |
-| Nº de duplas | filtra pelo que dá para montar com os presentes |
-| Precisa de avulso? | formatos com encaixe só aparecem em número ímpar |
-| **Quadras necessárias** | formatos de grupos exigem 2 quadras |
-| **Mínimo de jogos por dupla** | responde "todo mundo joga pelo menos 2 vezes?" |
-| Tem 3º lugar? | obrigatório, opcional ou indisponível |
-| Nº total de partidas | quanto tempo vai levar |
+| Atributo                      | Para quê                                         |
+| ----------------------------- | ------------------------------------------------ |
+| Nº de duplas                  | filtra pelo que dá para montar com os presentes  |
+| Precisa de avulso?            | formatos com encaixe só aparecem em número ímpar |
+| **Quadras necessárias**       | formatos de grupos exigem 2 quadras              |
+| **Mínimo de jogos por dupla** | responde "todo mundo joga pelo menos 2 vezes?"   |
+| Tem 3º lugar?                 | obrigatório, opcional ou indisponível            |
+| Nº total de partidas          | quanto tempo vai levar                           |
 
 ### Exemplo que motivou a mudança
 
