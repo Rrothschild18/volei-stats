@@ -11,7 +11,8 @@ insert into auth.users (id) values
   ('55555555-5555-5555-5555-555555555555'),  -- cadastro sem nascimento
   ('66666666-6666-6666-6666-666666666666'),  -- se reconhece por nome+nascimento
   ('77777777-7777-7777-7777-777777777777'),  -- erra e bate na trava
-  ('88888888-8888-8888-8888-888888888888');  -- tenta sem o link do grupo
+  ('88888888-8888-8888-8888-888888888888'),  -- tenta sem o link do grupo
+  ('99999999-9999-9999-9999-999999999999');  -- segundo administrador
 
 create or replace function assert(cond boolean, msg text)
 returns void language plpgsql as $$
@@ -209,6 +210,87 @@ begin
   raise exception 'FALHOU: tentou sem ser membro do grupo';
 exception when insufficient_privilege then null;
 end $$;
+commit;
+
+
+-- ===== 16. PODE HAVER MAIS DE UM ADMINISTRADOR =====
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+create temp table inv_adm as
+  with novo as (
+    insert into invites (group_id, grants_role, label)
+    values ((select group_id from ctx), 'admin', 'Segundo administrador')
+    returning token)
+  select token from novo;
+commit;
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '99999999-9999-9999-9999-999999999999';
+select redeem_invite((select token from inv_adm), 'Willy2', 'M', date '1988-05-05');
+select assert((select role from group_members
+               where user_id='99999999-9999-9999-9999-999999999999')='admin','virou administrador');
+-- e o segundo admin escreve de verdade
+insert into players (group_id, name, gender, birth_date)
+values ((select group_id from ctx),'Criado pelo 2o admin','M',date '1991-01-01');
+commit;
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select assert((select count(*) from group_members
+               where group_id=(select group_id from ctx) and role='admin')=2,'dois administradores');
+commit;
+
+-- ===== 17. O GRUPO NAO PODE FICAR SEM ADMINISTRADOR =====
+-- com dois admins, rebaixar um e permitido
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+update group_members set role='player'
+ where group_id=(select group_id from ctx) and user_id='99999999-9999-9999-9999-999999999999';
+select assert((select count(*) from group_members
+               where group_id=(select group_id from ctx) and role='admin')=1,'sobrou um admin');
+commit;
+-- rebaixar o ULTIMO e barrado
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+begin
+  update group_members set role='player'
+   where group_id=(select group_id from ctx) and user_id='11111111-1111-1111-1111-111111111111';
+  raise exception 'FALHOU: rebaixou o ultimo';
+exception when raise_exception then
+  if position('sem administrador' in sqlerrm)=0 then raise; end if;
+end $$;
+commit;
+-- remover o ULTIMO tambem e barrado
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+begin
+  delete from group_members
+   where group_id=(select group_id from ctx) and user_id='11111111-1111-1111-1111-111111111111';
+  raise exception 'FALHOU: apagou o ultimo';
+exception when raise_exception then
+  if position('sem administrador' in sqlerrm)=0 then raise; end if;
+end $$;
+commit;
+
+-- ===== 18. A TRAVA NAO ATRAPALHA APAGAR O GRUPO =====
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+create temp table g2 as select * from create_group('Descartavel','Teste','M',date '1990-09-09');
+select assert((select recovery_token from g2) is not null,'link de recuperacao gerado');
+select assert((select expires_at from invites where token=(select recovery_token from g2)) is null,
+              'link de recuperacao nao expira');
+commit;
+begin;
+set local role postgres;
+delete from groups where id=(select group_id from g2);
+select assert((select count(*) from groups where id=(select group_id from g2))=0,'grupo apagado');
 commit;
 
 select 'TODOS OS TESTES DE ACESSO PASSARAM' as resultado;
