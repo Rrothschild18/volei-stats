@@ -7,7 +7,11 @@ insert into auth.users (id) values
   ('11111111-1111-1111-1111-111111111111'),  -- admin
   ('22222222-2222-2222-2222-222222222222'),  -- espectador
   ('33333333-3333-3333-3333-333333333333'),  -- jogador novo
-  ('44444444-4444-4444-4444-444444444444');  -- mesmo jogador, outro aparelho
+  ('44444444-4444-4444-4444-444444444444'),  -- mesmo jogador, outro aparelho
+  ('55555555-5555-5555-5555-555555555555'),  -- cadastro sem nascimento
+  ('66666666-6666-6666-6666-666666666666'),  -- se reconhece por nome+nascimento
+  ('77777777-7777-7777-7777-777777777777'),  -- erra e bate na trava
+  ('88888888-8888-8888-8888-888888888888');  -- tenta sem o link do grupo
 
 create or replace function assert(cond boolean, msg text)
 returns void language plpgsql as $$
@@ -67,7 +71,7 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
-create temp table m1 as select * from redeem_invite((select token from inv1), 'Vitoria', 'F');
+create temp table m1 as select * from redeem_invite((select token from inv1), 'Vitoria', 'F', date '1995-03-14');
 select assert((select role from m1)='player', 'virou jogador');
 select assert((select player_id from m1) is not null, 'ficou ligado a um jogador');
 select assert((select count(*) from players)=2, 'o jogador foi criado');
@@ -77,7 +81,7 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
-create temp table m2 as select * from redeem_invite((select token from inv1), 'Vitoria', 'F');
+create temp table m2 as select * from redeem_invite((select token from inv1), 'Vitoria', 'F', date '1995-03-14');
 select assert((select player_id from m2)=(select player_id from m1), 'segundo aparelho, mesmo jogador');
 select assert((select count(*) from players)=2, 'nao duplicou o jogador');
 commit;
@@ -112,7 +116,7 @@ set local role authenticated;
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 do $$
 begin
-  perform redeem_invite((select token from inv1), 'Outro', 'M');
+  perform redeem_invite((select token from inv1), 'Outro', 'M', date '1990-01-01');
   raise exception 'FALHOU: convite revogado funcionou';
 exception when raise_exception then
   if position('cancelado' in sqlerrm)=0 then raise; end if;
@@ -124,6 +128,87 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select assert((select count(*) from invites)=0, 'jogador nao enxerga convites');
+commit;
+
+
+-- ===== 11. NASCIMENTO E OBRIGATORIO NO CADASTRO =====
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+create temp table inv3 as
+  with novo as (
+    insert into invites (group_id, grants_role, label)
+    values ((select group_id from ctx), 'player', 'Entrada 2')
+    returning token)
+  select token from novo;
+commit;
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
+do $$
+begin
+  perform redeem_invite((select token from inv3), 'Willy', 'M');
+  raise exception 'FALHOU: cadastrou sem data de nascimento';
+exception when invalid_parameter_value then null;
+end $$;
+select assert((select count(*) from redeem_invite((select token from inv3),'Willy','M',date '1992-07-02'))=1,
+              'cadastrou com nascimento');
+commit;
+
+-- ===== 12. RECONHECER-SE POR NOME + NASCIMENTO =====
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
+select enter_group((select group_id from ctx));
+create temp table c1 as select * from claim_player((select group_id from ctx),'Vitoria',date '1995-03-14');
+select assert((select ok from c1),'reconheceu');
+select assert((select player_id from c1)=(select player_id from m1),'reconheceu o jogador certo');
+select assert((select role from group_members
+               where user_id='66666666-6666-6666-6666-666666666666')='player','virou jogador');
+commit;
+
+-- ===== 13. DADO ERRADO NAO ENTRA, E NAO DIZ SE O NOME EXISTE =====
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
+select enter_group((select group_id from ctx));
+create temp table c2 as select
+  (claim_player((select group_id from ctx),'Vitoria',date '2000-01-01')).*;
+create temp table c3 as select
+  (claim_player((select group_id from ctx),'NaoExiste',date '2000-01-01')).*;
+select assert(not (select ok from c2),'data errada nao entra');
+select assert(not (select ok from c3),'nome inexistente nao entra');
+select assert((select reason from c2)=(select reason from c3),
+              'mesmo motivo: nao revela quem esta no grupo');
+commit;
+
+-- ===== 14. TRAVA DE FORCA BRUTA =====
+-- 2 erros acima + 3 aqui = 5; a 6a tentativa e barrada mesmo estando CERTA
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
+do $$ declare i int;
+begin
+  for i in 1..3 loop
+    perform claim_player((select group_id from ctx),'Vitoria',date '2001-01-01');
+  end loop;
+end $$;
+create temp table c4 as select
+  (claim_player((select group_id from ctx),'Vitoria',date '1995-03-14')).*;
+select assert(not (select ok from c4),'a trava segurou mesmo com o dado certo');
+select assert((select reason from c4)='rate_limited','parou pela trava, nao por outro motivo');
+commit;
+
+-- ===== 15. SEM O LINK DO GRUPO NAO DA NEM PARA TENTAR =====
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '88888888-8888-8888-8888-888888888888';
+do $$
+begin
+  perform claim_player((select group_id from ctx),'Vitoria',date '1995-03-14');
+  raise exception 'FALHOU: tentou sem ser membro do grupo';
+exception when insufficient_privilege then null;
+end $$;
 commit;
 
 select 'TODOS OS TESTES DE ACESSO PASSARAM' as resultado;

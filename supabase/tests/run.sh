@@ -28,7 +28,12 @@ pg "$BIN/initdb -D $DATA -U postgres --auth=trust" >/dev/null
 pg "$BIN/pg_ctl -D $DATA -o '-k $DATA -p $PORT -c listen_addresses=' -l $DATA/log start" >/dev/null
 sleep 2
 
-run() { psql -h "$DATA" -p "$PORT" -U postgres -v ON_ERROR_STOP=1 -q -f "$1" >/dev/null; }
+# VERBOSE=1 mostra a saída de cada asserção.
+if [ -n "${VERBOSE:-}" ]; then
+  run() { psql -h "$DATA" -p "$PORT" -U postgres -v ON_ERROR_STOP=1 -q -f "$1"; }
+else
+  run() { psql -h "$DATA" -p "$PORT" -U postgres -v ON_ERROR_STOP=1 -q -f "$1" >/dev/null; }
+fi
 reset_schema() {
   psql -h "$DATA" -p "$PORT" -U postgres -q \
     -c "drop schema public cascade; create schema public;" >/dev/null
