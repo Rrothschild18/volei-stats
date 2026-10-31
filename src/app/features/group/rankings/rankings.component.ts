@@ -36,6 +36,8 @@ interface MatchRow {
 interface MatchGroup {
   readonly key: string;
   readonly label: string;
+  /** Dia + criação do campeonato: ordena os grupos na tela. */
+  readonly sortKey: string;
   readonly rows: readonly MatchRow[];
 }
 
@@ -297,7 +299,7 @@ export class RankingsComponent implements OnInit {
     const limit =
       this.period() === 'all' ? null : this.period() === 'today' ? 0 : Number(this.period());
 
-    const groups = new Map<string, { label: string; rows: MatchRow[] }>();
+    const groups = new Map<string, { label: string; sortKey: string; rows: MatchRow[] }>();
 
     for (const match of this.matches()) {
       if (!match.winnerId) {
@@ -326,7 +328,11 @@ export class RankingsComponent implements OnInit {
       if (!entry) {
         const dayLabel =
           session.date === today ? 'HOJE' : formatShortDate(session.date).toUpperCase();
-        entry = { label: `${dayLabel} · ${tournament.name.toUpperCase()}`, rows: [] };
+        entry = {
+          label: `${dayLabel} · ${tournament.name.toUpperCase()}`,
+          sortKey: `${session.date} ${tournament.createdAt}`,
+          rows: [],
+        };
         groups.set(key, entry);
       }
 
@@ -342,13 +348,17 @@ export class RankingsComponent implements OnInit {
       });
     }
 
-    return [...groups.entries()]
-      .map(([key, entry]) => ({
-        key,
-        label: entry.label,
-        rows: entry.rows.sort((a, b) => a.time.localeCompare(b.time)),
-      }))
-      .sort((a, b) => b.rows[0].time.localeCompare(a.rows[0].time));
+    return (
+      [...groups.entries()]
+        .map(([key, entry]) => ({
+          key,
+          label: entry.label,
+          sortKey: entry.sortKey,
+          rows: entry.rows.sort((a, b) => a.time.localeCompare(b.time)),
+        }))
+        // Dia primeiro: a hora sozinha põe a semana passada na frente de hoje.
+        .sort((a, b) => b.sortKey.localeCompare(a.sortKey))
+    );
   });
 
   async ngOnInit(): Promise<void> {

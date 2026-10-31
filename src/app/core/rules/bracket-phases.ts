@@ -10,10 +10,15 @@ import { TournamentFormat } from './tournament-format.model';
  * o chaveamento segue; a tabela de formatos (REGRAS.md §10) diz o total de
  * partidas, e o teste confere que as duas contas batem.
  */
-export function plannedPhases(format: TournamentFormat): MatchPhase[] {
+export function plannedPhases(
+  format: TournamentFormat,
+  thirdPlaceEnabled = format.thirdPlaceDefault,
+): MatchPhase[] {
   const phases = basePhases(format.teamCount, format.usesWaitingPlayer);
 
-  if (format.thirdPlaceDefault) {
+  // O chaveamento gera a disputa de 3º lugar a partir da opção escolhida pelo
+  // organizador; o padrão do formato é só o valor inicial dela.
+  if (thirdPlaceEnabled) {
     // A disputa de 3º lugar é jogada antes da final.
     const finalIndex = phases.lastIndexOf('final');
     phases.splice(finalIndex, 0, 'third-place');

@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
 import { BracketMatch } from '../../../core/services/tournament.service';
+import { Match } from '../../../shared/models';
 import { formatTime } from '../../../shared/utils/date.util';
 import {
   BlueprintComponent,
@@ -220,7 +221,7 @@ type Tab = 'queue' | 'bracket' | 'teams';
     }
 
     @if (scoreTarget(); as bracket) {
-      <app-score-sheet [bracket]="bracket" (closed)="closeScore()" />
+      <app-score-sheet [bracket]="bracket" [correcting]="correcting()" (closed)="closeScore()" />
     }
 
     @if (group.isAdmin() && store.tiebreak()) {
@@ -240,6 +241,7 @@ export class TournamentLiveComponent implements OnInit {
 
   protected readonly tab = signal<Tab>('queue');
   protected readonly scoreTarget = signal<BracketMatch | null>(null);
+  protected readonly correcting = signal<Match | null>(null);
 
   protected readonly tabs = [
     { id: 'queue', label: 'Fila' },
@@ -450,11 +452,13 @@ export class TournamentLiveComponent implements OnInit {
   }
 
   protected openScore(bracket: BracketMatch): void {
+    this.correcting.set(null);
     this.scoreTarget.set(bracket);
   }
 
   protected async closeScore(): Promise<void> {
     this.scoreTarget.set(null);
+    this.correcting.set(null);
     await this.store.reload();
 
     if (this.store.tournament()?.status === 'completed') {
@@ -474,6 +478,7 @@ export class TournamentLiveComponent implements OnInit {
     if (!match) {
       return;
     }
+    this.correcting.set(match);
     this.scoreTarget.set({
       phase: match.phase,
       teamAId: match.teamAId,

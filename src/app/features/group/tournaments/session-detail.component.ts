@@ -175,10 +175,7 @@ export class SessionDetailComponent implements OnInit {
   );
 
   async ngOnInit(): Promise<void> {
-    const groupId = this.group.groupId();
-    if (groupId) {
-      await this.store.load(groupId);
-    }
+    await this.store.loadById(this.sessionId());
   }
 
   protected editPresence(): void {

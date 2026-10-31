@@ -5,7 +5,7 @@ import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { StatisticsService } from '../../../core/services/statistics.service';
 import { phaseLabel } from '../../../core/rules/bracket-phases';
 import { Match, Player, PlayerStats, TeamStats, Tournament } from '../../../shared/models';
-import { formatDayMonth, formatTime } from '../../../shared/utils/date.util';
+import { formatDayMonthFromIso, formatTime } from '../../../shared/utils/date.util';
 import {
   BlueprintComponent,
   IconComponent,
@@ -200,7 +200,7 @@ export class PlayerDetailComponent implements OnInit {
 
       return {
         id: match.id,
-        when: `${formatDayMonth(match.playedAt.slice(0, 10))} ${formatTime(match.playedAt)}`,
+        when: `${formatDayMonthFromIso(match.playedAt)} ${formatTime(match.playedAt)}`,
         phase: phaseLabel(match.phase),
         mine: label(myTeamId),
         theirs: label(theirTeamId),

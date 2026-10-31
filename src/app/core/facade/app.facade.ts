@@ -208,9 +208,17 @@ export class AppFacade {
     }
 
     if (tournament) {
+      // O sorteio que gerou o campeonato some junto: senão a espera do avulso
+      // continuaria contando nas estatísticas de um campeonato que não existe
+      // mais (REGRAS.md §7.6).
+      if (tournament.drawId) {
+        await this.#drawRepo.delete(tournament.drawId);
+      }
+
       const session = await this.#sessionRepo.getById(tournament.sessionId);
       if (session) {
         session.tournamentIds = session.tournamentIds.filter((tid) => tid !== id);
+        session.drawIds = session.drawIds.filter((drawId) => drawId !== tournament.drawId);
         await this.updateSession(session);
       }
     }

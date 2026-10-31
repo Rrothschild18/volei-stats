@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { BracketMatch } from '../../../core/services/tournament.service';
 import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
@@ -36,14 +36,14 @@ import {
       class="fixed inset-0 z-40 mx-auto flex max-w-[480px] flex-col bg-bg"
       role="dialog"
       aria-modal="true"
-      [attr.aria-label]="saved() ? 'Placar salvo' : 'Lançar placar'"
+      [attr.aria-label]="sheetTitle()"
       appFocusTrap
       (escape)="closed.emit()"
     >
       <header class="flex items-start justify-between gap-2 px-4 pt-4 pb-3">
         <div>
           <p class="kicker">{{ kicker() }}</p>
-          <h2 class="title-lg mt-1">{{ saved() ? 'PLACAR SALVO' : 'PLACAR FINAL' }}</h2>
+          <h2 class="title-lg mt-1">{{ sheetTitle() }}</h2>
         </div>
         <button
           type="button"
@@ -133,7 +133,7 @@ import {
           >
             <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>
             <i class="corner br"></i>
-            SALVAR {{ scoreA() }} × {{ scoreB() }}
+            {{ correcting() ? 'CORRIGIR' : 'SALVAR' }} {{ scoreA() }} × {{ scoreB() }}
           </button>
         </app-action-bar>
       } @else {
@@ -179,6 +179,8 @@ export class ScoreSheetComponent {
   private readonly group = inject(CurrentGroupStore);
 
   readonly bracket = input.required<BracketMatch>();
+  /** Partida já lançada que o admin está corrigindo. */
+  readonly correcting = input<Match | null>(null);
   readonly closed = output<void>();
 
   protected readonly scoreA = signal(0);
@@ -195,6 +197,24 @@ export class ScoreSheetComponent {
   );
 
   protected readonly pointLimit = computed(() => this.store.tournament()?.pointLimit ?? 12);
+
+  protected readonly sheetTitle = computed(() => {
+    if (this.saved()) {
+      return 'PLACAR SALVO';
+    }
+    return this.correcting() ? 'CORRIGIR PLACAR' : 'PLACAR FINAL';
+  });
+
+  constructor() {
+    // Corrigir parte do placar que está lá, não do zero.
+    effect(() => {
+      const match = this.correcting();
+      if (match) {
+        this.scoreA.set(match.scoreA);
+        this.scoreB.set(match.scoreB);
+      }
+    });
+  }
 
   protected readonly kicker = computed(
     () =>
@@ -307,6 +327,19 @@ export class ScoreSheetComponent {
     this.confirming.set(false);
     this.busy.set(true);
     try {
+      const correcting = this.correcting();
+      if (correcting) {
+        // Correção é UPDATE, e fica registrado quem corrigiu.
+        await this.store.correctScore(
+          correcting.id,
+          this.scoreA(),
+          this.scoreB(),
+          this.group.playerId(),
+        );
+        this.closed.emit();
+        return;
+      }
+
       const result = await this.store.reportScore(
         this.bracket(),
         this.scoreA(),

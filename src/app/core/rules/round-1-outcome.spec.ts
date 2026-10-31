@@ -25,10 +25,10 @@ function round1Match(teamAId: string, teamBId: string, scoreA: number, scoreB: n
 
 describe('readRound1', () => {
   it('ordena vencedores e perdedores pela diferença', () => {
-    const outcome = readRound1([
-      round1Match('thiago-nina', 'carol-gui', 12, 7),
-      round1Match('leo-bia', 'rafa-paty', 12, 10),
-    ]);
+    const outcome = readRound1(
+      [round1Match('thiago-nina', 'carol-gui', 12, 7), round1Match('leo-bia', 'rafa-paty', 12, 10)],
+      { expectedMatches: 2 },
+    );
 
     expect(outcome.winners.map((entry) => entry.id)).toEqual(['thiago-nina', 'leo-bia']);
     expect(outcome.losers.map((entry) => entry.id)).toEqual(['carol-gui', 'rafa-paty']);
@@ -36,10 +36,10 @@ describe('readRound1', () => {
   });
 
   it('pausa a chave quando os perdedores empatam na diferença', () => {
-    const outcome = readRound1([
-      round1Match('rafa-bia', 'carol-gui', 12, 9),
-      round1Match('leo-duda', 'rafa-paty', 12, 9),
-    ]);
+    const outcome = readRound1(
+      [round1Match('rafa-bia', 'carol-gui', 12, 9), round1Match('leo-duda', 'rafa-paty', 12, 9)],
+      { expectedMatches: 2 },
+    );
 
     expect(outcome.needsTiebreak).toEqual({
       kind: 'losers',
@@ -51,10 +51,10 @@ describe('readRound1', () => {
     // 12×9 e 11×8 são a mesma diferença, então empatam tanto a fronteira dos
     // perdedores (quem está fora) quanto a dos vencedores (quem vai à final).
     // A dos perdedores vem primeiro, porque é ela que elimina alguém.
-    const outcome = readRound1([
-      round1Match('rafa-bia', 'carol-gui', 12, 9),
-      round1Match('leo-duda', 'rafa-paty', 11, 8),
-    ]);
+    const outcome = readRound1(
+      [round1Match('rafa-bia', 'carol-gui', 12, 9), round1Match('leo-duda', 'rafa-paty', 11, 8)],
+      { expectedMatches: 2 },
+    );
 
     expect(outcome.needsTiebreak).toEqual({
       kind: 'losers',
@@ -63,15 +63,18 @@ describe('readRound1', () => {
 
     const afterLosers = readRound1(
       [round1Match('rafa-bia', 'carol-gui', 12, 9), round1Match('leo-duda', 'rafa-paty', 11, 8)],
-      [
-        {
-          kind: 'losers',
-          teamIds: ['carol-gui', 'rafa-paty'],
-          winnerTeamId: 'rafa-paty',
-          decidedBy: 'p-duda',
-          decidedAt: '2026-10-26T23:28:00.000Z',
-        },
-      ],
+      {
+        expectedMatches: 2,
+        decisions: [
+          {
+            kind: 'losers',
+            teamIds: ['carol-gui', 'rafa-paty'],
+            winnerTeamId: 'rafa-paty',
+            decidedBy: 'p-duda',
+            decidedAt: '2026-10-26T23:28:00.000Z',
+          },
+        ],
+      },
     );
 
     expect(afterLosers.needsTiebreak).toEqual({
@@ -100,7 +103,7 @@ describe('readRound1', () => {
 
     const outcome = readRound1(
       [round1Match('rafa-bia', 'carol-gui', 12, 9), round1Match('leo-duda', 'rafa-paty', 12, 9)],
-      decisions,
+      { expectedMatches: 2, decisions },
     );
 
     expect(outcome.needsTiebreak).toBeNull();
@@ -112,9 +115,54 @@ describe('readRound1', () => {
   });
 
   it('não procura fronteira com uma partida só na rodada 1', () => {
-    const outcome = readRound1([round1Match('rafa-bia', 'carol-gui', 12, 9)]);
+    const outcome = readRound1([round1Match('rafa-bia', 'carol-gui', 12, 9)], {
+      expectedMatches: 1,
+    });
 
     expect(outcome.needsTiebreak).toBeNull();
     expect(outcome.winners).toHaveLength(1);
+  });
+});
+
+describe('readRound1 com a rodada 1 pela metade', () => {
+  it('não pausa a chave por um empate entre duas de três partidas', () => {
+    // knockout-6: a terceira partida ainda pode desfazer o empate.
+    const outcome = readRound1([round1Match('a1', 'a2', 12, 9), round1Match('b1', 'b2', 11, 8)], {
+      expectedMatches: 3,
+    });
+
+    expect(outcome.needsTiebreak).toBeNull();
+  });
+
+  it('pausa quando a terceira partida entra e o empate continua na fronteira', () => {
+    const outcome = readRound1(
+      [
+        round1Match('a1', 'a2', 12, 9),
+        round1Match('b1', 'b2', 11, 8),
+        round1Match('c1', 'c2', 12, 5),
+      ],
+      { expectedMatches: 3 },
+    );
+
+    // c2 perdeu por 7 e está fora; a1 e b1 empatam na frente dos vencedores.
+    expect(outcome.needsTiebreak).toEqual({ kind: 'winners', teamIds: ['a1', 'b1'] });
+  });
+
+  it('só olha a segunda posição dos perdedores quando há disputa de 3º lugar', () => {
+    const matches = [
+      round1Match('a1', 'a2', 12, 2),
+      round1Match('b1', 'b2', 12, 9),
+      round1Match('c1', 'c2', 11, 8),
+    ];
+
+    // Sem 3º lugar, o empate de a2/b2 em -3 não decide nada.
+    expect(readRound1(matches, { expectedMatches: 3 }).needsTiebreak).toEqual({
+      kind: 'winners',
+      teamIds: ['b1', 'c1'],
+    });
+
+    expect(
+      readRound1(matches, { expectedMatches: 3, thirdPlaceEnabled: true }).needsTiebreak,
+    ).toEqual({ kind: 'losers', teamIds: ['b2', 'c2'] });
   });
 });

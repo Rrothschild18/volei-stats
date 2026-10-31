@@ -83,12 +83,29 @@ export class SessionStore {
     return this.present().filter((player) => (counts.get(player.id) ?? 0) === 0).length;
   });
 
+  /** A sessão de hoje do grupo. */
   async load(groupId: string): Promise<void> {
+    await this.loadSession(groupId, () => this.facade.getTodaySession(groupId));
+  }
+
+  /** Uma sessão específica — é como se abre um dia anterior. */
+  async loadById(sessionId: string): Promise<void> {
+    const session = await this.facade.getSessionById(sessionId);
+    if (!session) {
+      return;
+    }
+    await this.loadSession(session.groupId, async () => session);
+  }
+
+  private async loadSession(
+    groupId: string,
+    find: () => Promise<Session | undefined>,
+  ): Promise<void> {
     this.loading.set(true);
     try {
       const [players, session] = await Promise.all([
         this.facade.getPlayersByGroupId(groupId),
-        this.facade.getTodaySession(groupId),
+        find(),
       ]);
 
       this.players.set(players);
@@ -117,9 +134,9 @@ export class SessionStore {
 
   /** Relê a sessão corrente depois de uma escrita. */
   async reload(): Promise<void> {
-    const groupId = this.session()?.groupId;
-    if (groupId) {
-      await this.load(groupId);
+    const sessionId = this.session()?.id;
+    if (sessionId) {
+      await this.loadById(sessionId);
     }
   }
 }
