@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 import {
   cadastrar,
   criarVolei,
@@ -9,6 +9,11 @@ import {
 } from './apoio';
 
 test.afterAll(limparVoleisDeTeste);
+
+/** A linha de um jogador na lista, achada pelo nome que a tela mostra. */
+function linha(page: Page, nome: string) {
+  return page.getByRole('listitem').filter({ hasText: nome });
+}
 
 /**
  * A porta do app: criar um vôlei, e alguém entrar nele.
@@ -26,6 +31,14 @@ test.describe('entrar num vôlei', () => {
     await cadastrar(page, groupId, 'Be');
     await cadastrar(page, groupId, 'Caio');
     await expect(page.getByText('ATIVOS · 3')).toBeVisible();
+
+    // Quem foi cadastrado e ainda não disse quem é carrega a etiqueta: é como
+    // quem organiza vê de relance quem falta cobrar. O dono não a tem, porque
+    // entrou com a data dele no momento em que criou o vôlei.
+    await expect(linha(page, 'BE')).toContainText('NÃO ENTROU');
+    await expect(linha(page, 'CAIO')).toContainText('NÃO ENTROU');
+    await expect(linha(page, 'RAUL')).toContainText('DONO');
+    await expect(linha(page, 'RAUL')).not.toContainText('NÃO ENTROU');
 
     // O dono já entrou com a data dele: o nome dele não fica reivindicável.
     await page.goto(`/g/${groupId}/sou-quem`);
@@ -75,8 +88,17 @@ test.describe('entrar num vôlei', () => {
     await dela.getByRole('button', { name: 'SOU EU' }).click();
     await expect(dela.getByText('Não deu certo. Confira o nome e a data.')).toBeVisible();
 
+    // Antes de ela dizer quem é, a lista do dono a mostra como pendente.
+    await page.goto(`/g/${groupId}/jogadores`);
+    await expect(linha(page, 'VITÓRIA')).toContainText('NÃO ENTROU');
+
     await reivindicar(dela, groupId, 'Vitória', '1995-03-02');
     await expect(dela.getByText('VOCÊ ESTÁ SÓ OLHANDO')).toHaveCount(0);
+
+    // E depois não mostra mais: a etiqueta é estado, não um campo que alguém
+    // marca — some no instante em que a pessoa reivindica o nome.
+    await page.goto(`/g/${groupId}/jogadores`);
+    await expect(linha(page, 'VITÓRIA')).not.toContainText('NÃO ENTROU');
 
     await dela.goto('/voleis');
     // O selo do papel, e não qualquer texto com a palavra: "jogadores" do

@@ -1,4 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { Gender } from '../../shared/enums';
+import { AppFacade } from '../facade/app.facade';
 import { ClaimResult, CreatedGroup, Invite, MembershipService, UnclaimedPlayer } from '../identity';
 
 /**
@@ -11,6 +13,8 @@ import { ClaimResult, CreatedGroup, Invite, MembershipService, UnclaimedPlayer }
  */
 @Injectable()
 export class DemoMembershipService implements MembershipService {
+  private readonly facade = inject(AppFacade);
+
   readonly available = false;
 
   createGroup(): Promise<CreatedGroup> {
@@ -21,8 +25,21 @@ export class DemoMembershipService implements MembershipService {
     return this.unavailable();
   }
 
-  unclaimedPlayers(): Promise<readonly UnclaimedPlayer[]> {
-    return Promise.resolve([]);
+  /**
+   * Esta responde de verdade, e não com uma lista vazia: é ela que diz à lista
+   * de jogadores quem foi cadastrado e ainda não disse quem é. Devolver vazio
+   * aqui faria a tela parecer certa e esconder a etiqueta sempre.
+   */
+  async unclaimedPlayers(groupId: string): Promise<readonly UnclaimedPlayer[]> {
+    const [players, membros] = await Promise.all([
+      this.facade.getPlayersByGroupId(groupId),
+      this.facade.getGroupMembers(groupId),
+    ]);
+    const comDono = new Set(membros.map((membro) => membro.playerId));
+
+    return players
+      .filter((player) => player.active && !comDono.has(player.id))
+      .map((player) => ({ id: player.id, name: player.name, gender: player.gender as Gender }));
   }
 
   claim(): Promise<ClaimResult> {

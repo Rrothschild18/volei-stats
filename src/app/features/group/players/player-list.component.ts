@@ -1,6 +1,7 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { RefreshService } from '../../../core/refresh/refresh.service';
+import { MembershipService } from '../../../core/identity';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { StatisticsService } from '../../../core/services/statistics.service';
@@ -91,9 +92,14 @@ type Filter = 'active' | 'inactive' | 'all';
                 @if (entry.isOwner) {
                   <span class="tag tag-outline">DONO</span>
                 }
+                @if (entry.naoEntrou) {
+                  <span class="tag tag-neutral">NÃO ENTROU</span>
+                }
               </span>
               @if (!entry.player.active) {
                 <span class="text-[12px] muted">Inativo · fora da lista de presença</span>
+              } @else if (entry.naoEntrou) {
+                <span class="text-[12px] muted">Cadastrado · ainda não disse quem é</span>
               }
             </span>
             <span class="text-[13px] tnum muted">
@@ -127,12 +133,14 @@ type Filter = 'active' | 'inactive' | 'all';
 export class PlayerListComponent implements OnInit {
   private readonly facade = inject(AppFacade);
   private readonly refresh = inject(RefreshService);
+  private readonly membership = inject(MembershipService);
   private readonly stats = inject(StatisticsService);
   private readonly router = inject(Router);
   protected readonly group = inject(CurrentGroupStore);
 
   private readonly players = signal<readonly Player[]>([]);
   private readonly playerStats = signal<readonly PlayerStats[]>([]);
+  private readonly unclaimed = signal<ReadonlySet<string>>(new Set());
 
   protected readonly term = signal('');
   protected readonly filter = signal<Filter>('active');
@@ -145,10 +153,18 @@ export class PlayerListComponent implements OnInit {
   private readonly entries = computed(() => {
     const ownerId = this.group.group()?.ownerPlayerId ?? null;
     const statsById = new Map(this.playerStats().map((entry) => [entry.playerId, entry]));
+    const naoEntraram = this.unclaimed();
 
     return this.players().map((player) => ({
       player,
       isOwner: player.id === ownerId,
+      /**
+       * Cadastrado pelo dono e ainda sem dono do nome: a pessoa recebeu o
+       * código e não disse quem é. Ela conta na lista e no sorteio — quem joga
+       * não depende de ter entrado no app —, mas quem organiza precisa ver de
+       * relance quem ainda falta, para cobrar.
+       */
+      naoEntrou: naoEntraram.has(player.id),
       stats:
         statsById.get(player.id) ??
         ({
@@ -201,13 +217,15 @@ export class PlayerListComponent implements OnInit {
     }
 
     const scope = await this.facade.getGroupScope(groupId);
-    const [players, stats] = await Promise.all([
+    const [players, stats, naoEntraram] = await Promise.all([
       this.facade.getPlayersByGroupId(groupId),
       this.stats.getAllPlayerStats({ includeWithoutGames: true, scope }),
+      this.membership.unclaimedPlayers(groupId),
     ]);
 
     this.players.set(players);
     this.playerStats.set(stats);
+    this.unclaimed.set(new Set(naoEntraram.map((player) => player.id)));
   }
 
   protected open(player: Player): void {
