@@ -239,6 +239,15 @@ export class TournamentLiveComponent implements OnInit {
   protected readonly store = inject(LiveTournamentStore);
 
   readonly tournamentId = input.required<string>();
+  /**
+   * `?partidas=1`: vim corrigir um placar, não ver a classificação.
+   *
+   * Chega por `withComponentInputBinding`, que liga parâmetros de consulta a
+   * entradas do componente.
+   */
+  readonly partidas = input<string | undefined>(undefined);
+
+  private readonly verPartidas = computed(() => this.partidas() !== undefined);
 
   protected readonly tab = signal<Tab>('queue');
   protected readonly scoreTarget = signal<BracketMatch | null>(null);
@@ -420,8 +429,9 @@ export class TournamentLiveComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     await this.store.load(this.tournamentId());
 
-    // Campeonato que já terminou abre na classificação.
-    if (this.store.tournament()?.status === 'completed') {
+    // Campeonato que já terminou abre na classificação — a menos que a pessoa
+    // tenha vindo justamente para corrigir um placar (`?partidas=1`).
+    if (this.store.tournament()?.status === 'completed' && !this.verPartidas()) {
       void this.router.navigate([
         '/g',
         this.group.groupId(),
@@ -459,7 +469,7 @@ export class TournamentLiveComponent implements OnInit {
     this.correcting.set(null);
     await this.store.reload();
 
-    if (this.store.tournament()?.status === 'completed') {
+    if (this.store.tournament()?.status === 'completed' && !this.verPartidas()) {
       void this.router.navigate([
         '/g',
         this.group.groupId(),

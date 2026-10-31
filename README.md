@@ -96,3 +96,22 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+## Testes
+
+```bash
+pnpm lint        # eslint + angular-eslint
+pnpm test        # unidade: regras, stores e o cenário de exemplo
+pnpm test:sql    # o modelo de acesso e as regras que viraram constraints
+pnpm test:e2e    # os caminhos que atravessam o banco, num navegador de verdade
+```
+
+`pnpm test:sql` sobe um Postgres descartável em Docker e aplica as migrations —
+não precisa do `supabase start` nem de conta no Supabase.
+
+`pnpm test:e2e` precisa do Supabase local de pé (`supabase start`) e sobe o
+servidor de desenvolvimento sozinho. Cada teste **cria o próprio vôlei pelo
+fluxo de criação e apaga o que criou**: nenhum depende do cenário de exemplo nem
+da ordem dos outros, e dá para rodar a suíte duas vezes seguidas sem reset.
+
+Tudo isso roda na pipeline em todo push e pull request (`.github/workflows/ci.yml`).

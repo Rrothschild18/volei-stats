@@ -134,6 +134,23 @@ interface StandingRow {
         </section>
       }
 
+      @if (group.canPlay()) {
+        <!--
+          Sem este caminho, um placar errado num campeonato encerrado ficava
+          errado para sempre: a tela do campeonato redireciona para cá, e o
+          botão de corrigir mora lá. A frase "qualquer jogador corrige" não
+          valia depois do último jogo.
+        -->
+        <button
+          type="button"
+          class="flex items-center gap-2 self-start text-[13px] text-accent-700"
+          (click)="correctScores()"
+        >
+          <app-icon name="pencil" [size]="16" />
+          Errou um placar? Corrigir as partidas deste campeonato
+        </button>
+      }
+
       @if (group.isOwner() && menuOpen()) {
         <button
           type="button"
@@ -371,6 +388,18 @@ export class StandingsComponent implements OnInit {
     this.confirmingDelete.set(false);
     await this.facade.deleteTournament(this.tournamentId());
     void this.router.navigate(['/g', this.group.groupId(), 'campeonatos']);
+  }
+
+  /**
+   * Volta para a lista de partidas do campeonato.
+   *
+   * O `?partidas=1` existe para desarmar o redirecionamento de lá: um
+   * campeonato encerrado abre na classificação, e sem isso voltaria para cá.
+   */
+  protected correctScores(): void {
+    void this.router.navigate(['/g', this.group.groupId(), 'campeonatos', this.tournamentId()], {
+      queryParams: { partidas: 1 },
+    });
   }
 
   protected newDraw(): void {

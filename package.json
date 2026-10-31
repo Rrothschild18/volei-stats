@@ -8,7 +8,10 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint",
-    "build:gh": "ng build --base-href /volei-stats/"
+    "build:gh": "ng build --base-href /volei-stats/",
+    "test:e2e": "playwright test",
+    "test:sql": "./supabase/tests/run.sh",
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit"
   },
   "private": true,
   "packageManager": "pnpm@10.28.2",
@@ -34,6 +37,7 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.1.12",
+    "@types/node": "^26.6.6",
     "angular-cli-ghpages": "^3.1.0",
     "angular-eslint": "22.0.0",
     "eslint": "^10.3.0",

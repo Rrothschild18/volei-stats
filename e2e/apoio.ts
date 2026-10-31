@@ -92,14 +92,15 @@ export async function reivindicar(
   await expect(page).toHaveURL(new RegExp(`/g/${groupId}/inicio$`));
 }
 
-/** Põe o placar nos dois contadores. */
-export async function lancarPlacar(page: Page, a: number, b: number): Promise<void> {
-  const subir = async (label: string, vezes: number) => {
-    const botao = page.getByRole('button', { name: `Aumentar ${label}` });
-    for (let i = 0; i < vezes; i++) {
+/** Mexe nos contadores do placar. Negativo desce. */
+export async function ajustarPlacar(page: Page, a: number, b: number): Promise<void> {
+  const mexer = async (label: string, quanto: number) => {
+    const verbo = quanto >= 0 ? 'Aumentar' : 'Diminuir';
+    const botao = page.getByRole('button', { name: `${verbo} ${label}` });
+    for (let i = 0; i < Math.abs(quanto); i++) {
       await botao.click();
     }
   };
-  await subir('pontos da primeira dupla', a);
-  await subir('pontos da segunda dupla', b);
+  await mexer('pontos da primeira dupla', a);
+  await mexer('pontos da segunda dupla', b);
 }

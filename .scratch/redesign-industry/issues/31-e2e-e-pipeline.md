@@ -4,12 +4,12 @@
 
 **Blocked by:** 30
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Playwright como dependência do projeto, com o navegador que ele próprio baixa
-- [ ] Cada teste cria o próprio vôlei e apaga o que criou: nenhum depende do cenário de exemplo nem da ordem
-- [ ] Fluxo de entrar: criar vôlei, recusa de datas iguais, cadastro, convite, e outro navegador entrando pelo código e dizendo quem é
-- [ ] Fluxo de campeonato: presença, sorteio, campeonato, placar, correção assinada e campeonato finalizado
-- [ ] Sem rede: a mensagem aparece e o que foi digitado fica
-- [ ] `pnpm test:e2e` sobe o que precisa e roda sozinho
-- [ ] Pipeline em todo push e PR: lint, testes de unidade, suíte SQL, build e e2e
+- [x] Playwright como dependência do projeto, com o navegador que ele próprio baixa
+- [x] Cada teste cria o próprio vôlei e apaga o que criou: nenhum depende do cenário de exemplo nem da ordem
+- [x] Fluxo de entrar: criar vôlei, recusa de datas iguais, cadastro, convite, e outro navegador entrando pelo código e dizendo quem é
+- [x] Fluxo de campeonato: presença, sorteio, campeonato, placar, correção assinada e campeonato finalizado
+- [x] Sem rede: a mensagem aparece e o que foi digitado fica
+- [x] `pnpm test:e2e` sobe o que precisa e roda sozinho
+- [x] Pipeline em todo push e PR: lint, testes de unidade, suíte SQL, build e e2e

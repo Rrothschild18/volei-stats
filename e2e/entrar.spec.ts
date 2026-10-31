@@ -29,8 +29,10 @@ test.describe('entrar num vôlei', () => {
 
     // O dono já entrou com a data dele: o nome dele não fica reivindicável.
     await page.goto(`/g/${groupId}/sou-quem`);
-    await expect(page.getByRole('button', { name: /^Masculino RAUL$/ })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /BE/ })).toBeVisible();
+    // O nome acessível do botão traz o selo de sexo na frente ("Feminino Be").
+    await expect(page.getByRole('button', { name: /Raul$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Be$/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Caio$/ })).toBeVisible();
   });
 
   test('a sua data não pode ser a que o grupo vai combinar', async ({ page }) => {
@@ -77,7 +79,9 @@ test.describe('entrar num vôlei', () => {
     await expect(dela.getByText('VOCÊ ESTÁ SÓ OLHANDO')).toHaveCount(0);
 
     await dela.goto('/voleis');
-    await expect(dela.getByText('JOGADOR')).toBeVisible();
+    // O selo do papel, e não qualquer texto com a palavra: "jogadores" do
+    // rodapé do card também casaria.
+    await expect(dela.locator('span.tag', { hasText: 'JOGADOR' })).toBeVisible();
 
     await outro.close();
   });
@@ -91,7 +95,10 @@ test.describe('entrar num vôlei', () => {
     await expect(page).toHaveURL(/\/entrar$/);
   });
 
-  test('sem rede, a tela diz isso e não joga fora o que foi digitado', async ({ page, context }) => {
+  test('sem rede, a tela diz isso e não joga fora o que foi digitado', async ({
+    page,
+    context,
+  }) => {
     await page.goto('/entrar');
     await page.fill('#join-code', 'ABC123');
 
