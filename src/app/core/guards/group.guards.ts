@@ -11,7 +11,9 @@ async function enterGroup(route: ActivatedRouteSnapshot): Promise<boolean> {
     return false;
   }
 
-  return store.groupId() === groupId ? true : store.enter(groupId);
+  // `enter` já evita o retrabalho quando o grupo e a pessoa são os mesmos —
+  // e é ele que percebe quando a pessoa mudou.
+  return store.enter(groupId);
 }
 
 /** Só entra nas telas do grupo quem é membro dele. */

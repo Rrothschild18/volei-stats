@@ -50,3 +50,9 @@ export function daysBetween(from: string, to: string): number {
   const b = parseLocalDate(to).getTime();
   return Math.round((b - a) / 86_400_000);
 }
+
+/** "26 OUT" a partir de um timestamp ISO, no fuso de quem está olhando. */
+export function formatDayMonthFromIso(iso: string): string {
+  const parsed = new Date(iso);
+  return `${parsed.getDate()} ${MONTHS[parsed.getMonth()]}`;
+}

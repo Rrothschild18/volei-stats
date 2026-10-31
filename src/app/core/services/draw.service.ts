@@ -171,6 +171,25 @@ export class DrawService {
     }));
   }
 
+  /**
+   * Recalcula a avaliação de uma proposta depois de uma troca manual: sem
+   * isso, o aviso de duplas mistas continuaria descrevendo o sorteio de antes.
+   */
+  rescoreProposal(
+    proposal: DrawProposal,
+    players: Player[],
+    existingPairs: Set<string>,
+    priorityEntries: TournamentPriorityEntry[],
+  ): DrawProposal {
+    const { score, badges } = this.evaluateProposal(
+      proposal.teams,
+      existingPairs,
+      priorityEntries,
+      players,
+    );
+    return { ...proposal, score, badges };
+  }
+
   /** Duplas da proposta que já jogaram juntas hoje. */
   repeatedPairs(teams: readonly Team[], existingPairs: ReadonlySet<string>): Team[] {
     return teams.filter((team) =>

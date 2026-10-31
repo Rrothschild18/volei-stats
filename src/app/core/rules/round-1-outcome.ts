@@ -16,6 +16,18 @@ export interface RankedTeam {
   readonly diff: number;
 }
 
+export interface Round1Options {
+  readonly decisions?: readonly TiebreakDecision[];
+  /**
+   * Quantas partidas a rodada 1 tem neste formato. Sem a rodada fechada não há
+   * fronteira: duas partidas empatadas de três ainda podem ser desempatadas
+   * pela terceira.
+   */
+  readonly expectedMatches?: number;
+  /** Com 3º lugar, a segunda posição dos perdedores também decide. */
+  readonly thirdPlaceEnabled?: boolean;
+}
+
 export interface Round1Outcome {
   /** Vencedores ordenados pela diferença, do maior para o menor. */
   readonly winners: readonly RankedTeam[];
@@ -58,31 +70,43 @@ function rank(
 }
 
 /**
- * Procura empate na posição que decide: entre os vencedores é a primeira (quem
- * vai direto à final); entre os perdedores é a primeira também (quem está
- * eliminado direto, e por consequência quem vai ao par-ou-ímpar).
+ * Procura empate nas posições que decidem alguma coisa.
+ *
+ * Entre vencedores, qualquer par vizinho decide: o primeiro vai direto à final
+ * e, nos formatos de três partidas, o segundo entra uma rodada antes do
+ * terceiro. Entre perdedores, a primeira posição diz quem está fora, e a
+ * segunda só importa quando há disputa de 3º lugar.
  */
 function tiebreakAt(
   ranked: readonly RankedTeam[],
   kind: TiebreakKind,
   decisions: readonly TiebreakDecision[],
+  boundaries: readonly number[],
 ): PendingTiebreak | null {
-  if (ranked.length < 2 || ranked[0].diff !== ranked[1].diff) {
-    return null;
-  }
-
   if (decisions.some((decision) => decision.kind === kind)) {
     return null;
   }
 
-  const diff = ranked[0].diff;
-  return { kind, teamIds: ranked.filter((entry) => entry.diff === diff).map((entry) => entry.id) };
+  for (const index of boundaries) {
+    if (index + 1 >= ranked.length) {
+      continue;
+    }
+
+    if (ranked[index].diff === ranked[index + 1].diff) {
+      const diff = ranked[index].diff;
+      return {
+        kind,
+        teamIds: ranked.filter((entry) => entry.diff === diff).map((entry) => entry.id),
+      };
+    }
+  }
+
+  return null;
 }
 
-export function readRound1(
-  round1: readonly Match[],
-  decisions: readonly TiebreakDecision[] = [],
-): Round1Outcome {
+export function readRound1(round1: readonly Match[], options: Round1Options = {}): Round1Outcome {
+  const decisions = options.decisions ?? [];
+
   const winnerEntries = round1
     .filter((match) => match.winnerId)
     .map((match) => ({ id: match.winnerId!, diff: match.pointDifference }));
@@ -93,11 +117,20 @@ export function readRound1(
   const winners = rank(winnerEntries, decisions, 'winners');
   const losers = rank(loserEntries, decisions, 'losers');
 
-  // Com uma partida só não há fronteira para empatar.
-  const needsTiebreak =
-    round1.length < 2
-      ? null
-      : (tiebreakAt(losers, 'losers', decisions) ?? tiebreakAt(winners, 'winners', decisions));
+  // A fronteira só existe com a rodada 1 inteira jogada. Enquanto falta
+  // partida, um empate ainda pode ser desfeito pelo resultado que vem.
+  const complete =
+    options.expectedMatches !== undefined
+      ? round1.length === options.expectedMatches
+      : round1.length >= 2;
+
+  const winnerBoundaries = winners.map((_, index) => index);
+  const loserBoundaries = options.thirdPlaceEnabled ? [0, 1] : [0];
+
+  const needsTiebreak = !complete
+    ? null
+    : (tiebreakAt(losers, 'losers', decisions, loserBoundaries) ??
+      tiebreakAt(winners, 'winners', decisions, winnerBoundaries));
 
   return { winners, losers, needsTiebreak };
 }

@@ -20,6 +20,9 @@ export class CurrentGroupStore {
   readonly admins = signal<readonly Player[]>([]);
   readonly me = signal<Player | null>(null);
 
+  /** Para quem o estado atual foi carregado: trocar de pessoa invalida tudo. */
+  private loadedFor: string | null = null;
+
   readonly groupId = computed(() => this.group()?.id ?? null);
   readonly playerId = computed(() => this.identity.playerId());
   readonly isAdmin = computed(() => this.role() === 'admin');
@@ -36,6 +39,10 @@ export class CurrentGroupStore {
   /** Carrega o grupo e resolve o papel. Devolve `false` se não for membro. */
   async enter(groupId: string): Promise<boolean> {
     const playerId = this.identity.playerId();
+
+    if (this.group()?.id === groupId && this.loadedFor === playerId) {
+      return true;
+    }
     const [group, members, players] = await Promise.all([
       this.facade.getGroupById(groupId),
       this.facade.getGroupMembers(groupId),
@@ -49,6 +56,7 @@ export class CurrentGroupStore {
     }
 
     const byId = new Map(players.map((player) => [player.id, player]));
+    this.loadedFor = playerId;
     this.group.set(group);
     this.role.set(membership.role);
     this.me.set(byId.get(playerId) ?? null);
@@ -63,6 +71,7 @@ export class CurrentGroupStore {
   }
 
   clear(): void {
+    this.loadedFor = null;
     this.group.set(null);
     this.role.set(null);
     this.admins.set([]);

@@ -4,6 +4,8 @@ import { AppFacade } from '../../../core/facade/app.facade';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { SessionStore } from '../../../core/stores/session.store';
 import { DrawService } from '../../../core/services/draw.service';
+import { defaultFormatForPlayerCount } from '../../../core/rules/tournament-formats';
+import { plannedPhases } from '../../../core/rules/bracket-phases';
 import { DrawProposal, Player, TournamentPriorityEntry } from '../../../shared/models';
 import { formatShortDate } from '../../../shared/utils/date.util';
 import {
@@ -251,7 +253,7 @@ export class DrawComponent implements OnInit {
         .filter((player): player is Player => !!player),
       hasPriority: team.playerIds.some((playerId) => priorityIds.has(playerId)),
       repeated: pairs.has(this.draws.getPairKey(team.playerIds[0], team.playerIds[1])),
-      slot: this.slotLabel(index, teamCount),
+      slot: this.slotLabel(index, teamCount, !!proposal.waitingPlayerId),
     }));
   });
 
@@ -303,10 +305,7 @@ export class DrawComponent implements OnInit {
   });
 
   async ngOnInit(): Promise<void> {
-    const groupId = this.group.groupId();
-    if (groupId) {
-      await this.sessionStore.load(groupId);
-    }
+    await this.sessionStore.loadById(this.sessionId());
     await this.regenerate();
   }
 
@@ -364,12 +363,24 @@ export class DrawComponent implements OnInit {
     }
 
     const index = this.selectedIndex();
+    const players = [...this.sessionStore.present()];
+    const pairs = new Set(this.existingPairs());
+    const priorities = [...this.priorityEntries()];
+
     this.proposals.update((proposals) =>
-      proposals.map((proposal, position) =>
-        position === index
-          ? { ...proposal, teams: this.draws.swapPlayers(proposal.teams, selected, playerId) }
-          : proposal,
-      ),
+      proposals.map((proposal, position) => {
+        if (position !== index) {
+          return proposal;
+        }
+
+        const swapped = {
+          ...proposal,
+          teams: this.draws.swapPlayers(proposal.teams, selected, playerId),
+        };
+        // A troca muda as duplas, então o aviso de repetição e o de duplas
+        // mistas precisam ser refeitos.
+        return this.draws.rescoreProposal(swapped, players, pairs, priorities);
+      }),
     );
     this.swapSelection.set(null);
   }
@@ -406,13 +417,28 @@ export class DrawComponent implements OnInit {
     return this.sessionStore.playersById().get(playerId)?.name ?? '?';
   }
 
-  /** A vaga da dupla na chave: as primeiras jogam a rodada 1, a última é bye. */
-  private slotLabel(index: number, teamCount: number): string {
-    const round1Teams = teamCount >= 5 ? 4 : teamCount === 4 ? 4 : 2;
-    if (index >= round1Teams) {
+  /**
+   * A vaga da dupla na chave. Quantas duplas entram na abertura depende do
+   * formato, e o formato só é escolhido na tela seguinte — então aqui vale o
+   * recomendado para esse número de gente, que é o que vem pré-selecionado lá.
+   */
+  private slotLabel(index: number, teamCount: number, hasWaitingPlayer: boolean): string {
+    const playerCount = teamCount * 2 + (hasWaitingPlayer ? 1 : 0);
+    const format = defaultFormatForPlayerCount(playerCount);
+    if (!format) {
+      return '—';
+    }
+
+    const openingMatches = plannedPhases(format).filter(
+      (phase) => phase === 'round-1' || phase === 'semifinal',
+    ).length;
+    const openingTeams = Math.min(openingMatches * 2, teamCount * 2);
+
+    if (index * 2 >= openingTeams) {
       return 'BYE';
     }
-    return `JOGO ${Math.floor(index / 2) + 1}`;
+
+    return `JOGO ${index + 1}`;
   }
 
   private reasonLabel(reason: TournamentPriorityEntry['reason']): string {

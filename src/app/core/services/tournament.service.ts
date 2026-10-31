@@ -328,7 +328,7 @@ export class TournamentService {
   pendingTiebreak(tournament: Tournament, matches: Match[]): PendingTiebreak | null {
     this.normalizeTournament(tournament);
     const round1 = matches.filter((match) => match.phase === 'round-1' && match.winnerId !== null);
-    return readRound1(round1, tournament.tiebreakDecisions).needsTiebreak;
+    return readRound1(round1, this.round1Options(tournament)).needsTiebreak;
   }
 
   /** Registra quem venceu o par-ou-ímpar do desempate, e destrava a chave. */
@@ -369,7 +369,7 @@ export class TournamentService {
       return tournament;
     }
 
-    const { losers, needsTiebreak } = readRound1(round1, tournament.tiebreakDecisions);
+    const { losers, needsTiebreak } = readRound1(round1, this.round1Options(tournament));
     if (needsTiebreak || losers.length < 2) {
       return tournament;
     }
@@ -551,7 +551,7 @@ export class TournamentService {
       return null;
     }
 
-    const { losers, needsTiebreak } = readRound1(round1, tournament.tiebreakDecisions);
+    const { losers, needsTiebreak } = readRound1(round1, this.round1Options(tournament));
     if (needsTiebreak || losers.length === 0) {
       return null;
     }
@@ -852,16 +852,25 @@ export class TournamentService {
 
   private getRound1WinnersByDiff(
     round1: Match[],
-    tournament?: Tournament,
+    tournament: Tournament,
   ): { id: string; diff: number }[] {
-    return [...readRound1(round1, tournament?.tiebreakDecisions ?? []).winners];
+    return [...readRound1(round1, this.round1Options(tournament)).winners];
   }
 
   private getRound1LosersByDiff(
     round1: Match[],
-    tournament?: Tournament,
+    tournament: Tournament,
   ): { id: string; diff: number }[] {
-    return [...readRound1(round1, tournament?.tiebreakDecisions ?? []).losers];
+    return [...readRound1(round1, this.round1Options(tournament)).losers];
+  }
+
+  /** O que a leitura da rodada 1 precisa saber sobre este campeonato. */
+  private round1Options(tournament: Tournament) {
+    return {
+      decisions: tournament.tiebreakDecisions,
+      expectedMatches: this.generateInitialMatches(tournament).length,
+      thirdPlaceEnabled: tournament.thirdPlaceEnabled,
+    };
   }
 
   private getTeamById(tournament: Tournament, teamId: string): TournamentTeam | null {

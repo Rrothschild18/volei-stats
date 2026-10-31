@@ -197,6 +197,11 @@ export class LiveTournamentStore {
       return { saved: false, existing: null };
     }
 
+    // Vôlei não tem empate: nem o sheet nem nenhum outro caminho salva um.
+    if (scoreA === scoreB) {
+      return { saved: false, existing: null };
+    }
+
     const existing = this.findSavedMatch(bracket);
     if (existing) {
       return { saved: false, existing };
@@ -413,7 +418,7 @@ export class LiveTournamentStore {
     format: NonNullable<ReturnType<typeof findFormat>>,
     known: readonly { phase: MatchPhase }[],
   ): MatchPhase[] {
-    const planned = plannedPhases(format);
+    const planned = plannedPhases(format, this.tournament()?.thirdPlaceEnabled ?? false);
     const used = new Map<MatchPhase, number>();
     for (const entry of known) {
       used.set(entry.phase, (used.get(entry.phase) ?? 0) + 1);
@@ -486,7 +491,11 @@ export class LiveTournamentStore {
     const round1 = this.matches().filter(
       (match) => match.phase === 'round-1' && match.winnerId !== null,
     );
-    const { winners, losers } = readRound1(round1, tournament.tiebreakDecisions);
+    const { winners, losers } = readRound1(round1, {
+      decisions: tournament.tiebreakDecisions,
+      expectedMatches: this.tournaments.generateInitialMatches(tournament).length,
+      thirdPlaceEnabled: tournament.thirdPlaceEnabled,
+    });
     const usesEncaixe = tournament.oddPlayerPlacementEnabled && !!tournament.waitingPlayerId;
 
     const consequence = (teamId: string, diff: number): string | null => {

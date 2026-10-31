@@ -86,7 +86,7 @@ interface Suggestion {
               type="button"
               class="flex w-full flex-col gap-2 p-4 text-left"
               [attr.aria-pressed]="option.id === selectedId()"
-              (click)="selectedId.set(option.id)"
+              (click)="select(option)"
             >
               <span class="flex items-center gap-2">
                 <span
@@ -369,9 +369,14 @@ export class TournamentCreateComponent implements OnInit {
 
     const first = this.options()[0];
     if (first) {
-      this.selectedId.set(first.id);
-      this.thirdPlace.set(first.format.thirdPlaceDefault);
+      this.select(first);
     }
+  }
+
+  /** Cada formato traz o próprio padrão de 3º lugar (REGRAS.md §9.6). */
+  protected select(option: FormatOption): void {
+    this.selectedId.set(option.id);
+    this.thirdPlace.set(option.format.thirdPlaceDefault);
   }
 
   protected formatStats(format: TournamentFormat) {
