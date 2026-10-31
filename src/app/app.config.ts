@@ -1,15 +1,16 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter, TitleStrategy } from '@angular/router';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { provideRouter, TitleStrategy, withComponentInputBinding } from '@angular/router';
 
 import { routes } from './app.routes';
 import { AppTitleStrategy } from './shared/services/title-strategy';
+import { provideData } from './core/data.providers';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(routes),
-    provideAnimationsAsync(),
+    provideRouter(routes, withComponentInputBinding()),
+    // Banco ou cenário de exemplo: quem decide é src/environments.
+    provideData(),
     {
       provide: TitleStrategy,
       useClass: AppTitleStrategy,

@@ -7,10 +7,27 @@ This project was generated using [Angular CLI](https://github.com/angular/angula
 To start a local development server, run:
 
 ```bash
-ng serve
+pnpm start
 ```
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+
+## Testando sem backend
+
+Enquanto o Supabase não entra (ver `docs/PLANO-SUPABASE.md` e os tickets 18–21 em
+`.scratch/redesign-industry/`), o app roda contra um cenário de exemplo em memória,
+registrado em `src/app/core/mock/`. É o mesmo cenário das telas do redesign: o Vôlei
+Segunda com 11 presentes, um campeonato finalizado e outro ao vivo na semifinal do bye,
+mais alguns meses de histórico para os rankings terem números.
+
+- **Entre como quem quiser.** A tela "Seus vôleis" (`/voleis`) tem, no fim, um seletor de
+  identidade. Rafa e Duda são admins do Vôlei Segunda; Caio é jogador lá e admin no Vôlei
+  Trabalho — é assim que se vê a mesma tela pelos dois papéis.
+- **O que você fizer sobrevive a um F5**, porque o estado fica no `sessionStorage` da aba.
+  Fechar a aba, ou abrir outra, volta ao cenário inicial. Ele também se renova quando o dia
+  vira, porque as datas são relativas a hoje.
+- **As ações de admin não renderizam para jogador**, e as rotas de admin redirecionam — dá
+  para testar as duas coisas trocando de identidade.
 
 ## Code scaffolding
 
@@ -46,13 +63,14 @@ ng test
 
 ## Running end-to-end tests
 
-For end-to-end (e2e) testing, run:
+Playwright, contra o app em modo demonstração (sem Supabase):
 
 ```bash
-ng e2e
+pnpm e2e        # roda tudo; sobe o servidor sozinho
+pnpm e2e:ui     # modo interativo
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+O que está coberto, o que não está e como escrever teste novo: `e2e/README.md`.
 
 ## Additional Resources
 

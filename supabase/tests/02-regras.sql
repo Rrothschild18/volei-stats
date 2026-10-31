@@ -3,14 +3,15 @@ returns void language plpgsql as $$
 begin if not cond then raise exception 'FALHOU: %', msg; end if; end $$;
 
 -- fixture: 1 grupo, 4 jogadores, 1 sessao, 1 sorteio, 1 campeonato
-insert into groups (id, name) values ('aaaaaaaa-0000-0000-0000-000000000001','Terca');
-insert into groups (id, name) values ('bbbbbbbb-0000-0000-0000-000000000002','Quinta');
-insert into players (id, group_id, name, gender) values
- ('0a000000-0000-0000-0000-00000000000a','aaaaaaaa-0000-0000-0000-000000000001','Raul','M'),
- ('0b000000-0000-0000-0000-00000000000b','aaaaaaaa-0000-0000-0000-000000000001','Vitoria','F'),
- ('0c000000-0000-0000-0000-00000000000c','aaaaaaaa-0000-0000-0000-000000000001','Willy','M'),
- ('0d000000-0000-0000-0000-00000000000d','aaaaaaaa-0000-0000-0000-000000000001','Be','F'),
- ('0e000000-0000-0000-0000-00000000000e','bbbbbbbb-0000-0000-0000-000000000002','Outro','M');
+insert into groups (id, name, initial_birth_date) values
+ ('aaaaaaaa-0000-0000-0000-000000000001','Terca','2000-01-01'),
+ ('bbbbbbbb-0000-0000-0000-000000000002','Quinta','2000-01-01');
+insert into players (id, group_id, name, gender, birth_date) values
+ ('0a000000-0000-0000-0000-00000000000a','aaaaaaaa-0000-0000-0000-000000000001','Raul','M','1990-05-10'),
+ ('0b000000-0000-0000-0000-00000000000b','aaaaaaaa-0000-0000-0000-000000000001','Vitoria','F','1995-07-02'),
+ ('0c000000-0000-0000-0000-00000000000c','aaaaaaaa-0000-0000-0000-000000000001','Willy','M','1988-09-08'),
+ ('0d000000-0000-0000-0000-00000000000d','aaaaaaaa-0000-0000-0000-000000000001','Be','F','1997-05-19'),
+ ('0e000000-0000-0000-0000-00000000000e','bbbbbbbb-0000-0000-0000-000000000002','Outro','M','1991-01-01');
 insert into sessions (id, group_id, date) values
  ('5e550000-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001', current_date);
 insert into draws (id, group_id, session_id, selected)
@@ -52,10 +53,10 @@ exception when foreign_key_violation then null; end $$;
 
 -- ===== NOME UNICO POR GRUPO, NAO GLOBAL =====
 do $$ begin
-  insert into players (group_id,name,gender) values ('aaaaaaaa-0000-0000-0000-000000000001','raul','M');
+  insert into players (group_id,name,gender,birth_date) values ('aaaaaaaa-0000-0000-0000-000000000001','raul','M','2000-01-01');
   raise exception 'FALHOU: aceitou nome repetido no grupo';
 exception when unique_violation then null; end $$;
-insert into players (group_id,name,gender) values ('bbbbbbbb-0000-0000-0000-000000000002','Raul','M');
+insert into players (group_id,name,gender,birth_date) values ('bbbbbbbb-0000-0000-0000-000000000002','Raul','M','1990-05-10');
 select assert((select count(*) from players where lower(name)='raul')=2,'mesmo nome em grupos diferentes e permitido');
 
 -- ===== COLUNAS GERADAS =====
@@ -85,5 +86,28 @@ insert into draws (group_id,session_id,waiting_player_id,selected) values
  ('aaaaaaaa-0000-0000-0000-000000000001','5e550000-0000-0000-0000-000000000001','0d000000-0000-0000-0000-00000000000d',false);
 select assert((select times_waited from player_stats where player_id='0d000000-0000-0000-0000-00000000000d')=1,
               'esperou 1 vez, nao 3 (defeito 7.6 corrigido)');
+
+-- ===== O QUE O REDESIGN ACRESCENTOU =====
+-- Quem lancou e quem corrigiu ficam gravados: a tela mostra "corrigido por X".
+update matches set score_a=12, score_b=9,
+  corrected_by='0a000000-0000-0000-0000-00000000000a', corrected_at=now()
+where phase='final';
+select assert((select point_difference from matches)=3,'a diferenca recalculou na correcao');
+select assert((select corrected_by from matches) is not null,'gravou quem corrigiu');
+
+-- O par-ou-impar de empate de diferenca (REGRAS.md 9.3): um por tipo.
+insert into tiebreak_decisions (group_id,tournament_id,kind,winner_team_id,decided_by)
+values ('aaaaaaaa-0000-0000-0000-000000000001','7040000a-0000-0000-0000-000000000001',
+        'losers','70e00000-0000-0000-0000-00000000000a','0a000000-0000-0000-0000-00000000000a');
+do $$ begin
+  insert into tiebreak_decisions (group_id,tournament_id,kind,winner_team_id)
+  values ('aaaaaaaa-0000-0000-0000-000000000001','7040000a-0000-0000-0000-000000000001',
+          'losers','70e00000-0000-0000-0000-00000000000b');
+  raise exception 'FALHOU: dois par-ou-impar do mesmo tipo';
+exception when unique_violation then null; end $$;
+insert into tiebreak_decisions (group_id,tournament_id,kind,winner_team_id)
+values ('aaaaaaaa-0000-0000-0000-000000000001','7040000a-0000-0000-0000-000000000001',
+        'winners','70e00000-0000-0000-0000-00000000000a');
+select assert((select count(*) from tiebreak_decisions)=2,'perdedores e vencedores convivem');
 
 select 'TODOS OS TESTES DE REGRA PASSARAM' as resultado;

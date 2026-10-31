@@ -6,8 +6,11 @@ import {
   TournamentStanding,
   Match,
   MatchPhase,
+  PendingTiebreak,
+  TiebreakKind,
   TournamentPriorityEntry,
 } from '../../shared/models';
+import { readRound1 } from '../rules/round-1-outcome';
 
 export interface BracketMatch {
   phase: MatchPhase;
@@ -15,7 +18,7 @@ export interface BracketMatch {
   teamBId: string;
 }
 
-const tournamentNames = [
+export const TOURNAMENT_NAMES = [
   'Escola Raul de forehand',
   'Escola vitoria tira casaco',
   'Oferecimento marmitas PF do willy',
@@ -42,40 +45,52 @@ const tournamentNames = [
   'Dentro bola',
 ];
 
+export interface CreateTournamentInput {
+  readonly sessionId: string;
+  readonly drawId: string;
+  /** Formato do catálogo que conduz o chaveamento (REGRAS.md §10). */
+  readonly formatId: string;
+  readonly name: string;
+  readonly teams: TournamentTeam[];
+  readonly pointLimit: number;
+  readonly thirdPlaceEnabled: boolean;
+  readonly waitingPlayerId: string | null;
+  readonly oddPlayerPlacementEnabled: boolean;
+  readonly oddPlayerLoserPriorityEnabled: boolean;
+}
+
+/** Sorteia um nome de campeonato da lista. */
+export function randomTournamentName(): string {
+  return TOURNAMENT_NAMES[Math.floor(Math.random() * TOURNAMENT_NAMES.length)];
+}
+
 @Injectable({ providedIn: 'root' })
 export class TournamentService {
   private facade = inject(AppFacade);
 
-  async createTournament(
-    sessionId: string,
-    drawId: string,
-    teams: TournamentTeam[],
-    pointLimit: number,
-    thirdPlaceEnabled: boolean,
-    waitingPlayerId: string | null,
-    oddPlayerPlacementEnabled: boolean,
-    oddPlayerLoserPriorityEnabled: boolean,
-  ): Promise<Tournament> {
-    const usesOddPlayerPlacement = oddPlayerPlacementEnabled && !!waitingPlayerId;
+  async createTournament(input: CreateTournamentInput): Promise<Tournament> {
+    const usesOddPlayerPlacement = input.oddPlayerPlacementEnabled && !!input.waitingPlayerId;
     const tournament: Tournament = {
       id: crypto.randomUUID(),
-      name: `${tournamentNames[Math.floor(Math.random() * tournamentNames.length)]}`,
-      sessionId,
-      drawId,
-      teams,
-      waitingPlayerId,
+      name: input.name,
+      sessionId: input.sessionId,
+      drawId: input.drawId,
+      formatId: input.formatId,
+      teams: input.teams,
+      waitingPlayerId: input.waitingPlayerId,
       oddPlayerPlacementEnabled: usesOddPlayerPlacement,
-      oddPlayerLoserPriorityEnabled,
+      oddPlayerLoserPriorityEnabled: input.oddPlayerLoserPriorityEnabled,
       oddPlayerPlacement: null,
       priorityEntries:
-        waitingPlayerId && !usesOddPlayerPlacement
-          ? [{ playerId: waitingPlayerId, reason: 'waiting-player-not-used' }]
+        input.waitingPlayerId && !usesOddPlayerPlacement
+          ? [{ playerId: input.waitingPlayerId, reason: 'waiting-player-not-used' }]
           : [],
-      pointLimit,
-      thirdPlaceEnabled,
+      pointLimit: input.pointLimit,
+      thirdPlaceEnabled: input.thirdPlaceEnabled,
       matches: [],
       status: 'in-progress',
       finalStandings: [],
+      tiebreakDecisions: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -196,6 +211,7 @@ export class TournamentService {
     tournament: Tournament,
     survivingPlayerId: string,
     matches: Match[],
+    decidedBy: string | null = null,
   ): Promise<Tournament> {
     this.normalizeTournament(tournament);
     if (!tournament.waitingPlayerId || tournament.oddPlayerPlacement) {
@@ -251,6 +267,8 @@ export class TournamentService {
       encaixeTeamId: encaixeTeam.id,
       survivingPlayerId: survivingPlayer,
       eliminatedPlayerId,
+      decidedBy,
+      decidedAt: new Date().toISOString(),
     };
 
     tournament.updatedAt = new Date().toISOString();
@@ -261,6 +279,12 @@ export class TournamentService {
     this.normalizeTournament(tournament);
     const matches = await this.facade.getMatchesByTournamentId(tournament.id);
     const completedMatches = matches.filter((match) => match.winnerId !== null);
+
+    // Empate na fronteira que decide: ninguém gera partida até as duplas
+    // fazerem o par-ou-ímpar e alguém registrar (REGRAS.md §9.3).
+    if (this.pendingTiebreak(tournament, completedMatches)) {
+      return [];
+    }
 
     tournament = await this.syncTournamentState(tournament);
 
@@ -297,6 +321,122 @@ export class TournamentService {
     }
   }
 
+  /**
+   * O que ainda falta jogar: a rodada inicial sem placar, mais o que o
+   * chaveamento gera depois dela.
+   *
+   * Existe porque `getNextMatches` responde a outra pergunta — "o que vem DEPOIS
+   * do que já saiu" — e não inclui as partidas da rodada inicial, que o
+   * chaveamento monta de uma vez. Com uma semifinal jogada e a outra não,
+   * `getNextMatches` devolve vazio, e quem lesse isso como "nada a jogar"
+   * anunciaria uma chave pausada que não está pausada.
+   */
+  async getPendingMatches(tournament: Tournament): Promise<BracketMatch[]> {
+    const matches = await this.facade.getMatchesByTournamentId(tournament.id);
+    const played = (bracket: BracketMatch) =>
+      matches.some(
+        (match) =>
+          match.phase === bracket.phase &&
+          ((match.teamAId === bracket.teamAId && match.teamBId === bracket.teamBId) ||
+            (match.teamAId === bracket.teamBId && match.teamBId === bracket.teamAId)),
+      );
+
+    const initial = this.generateInitialMatches(tournament).filter((bracket) => !played(bracket));
+    return [...initial, ...(await this.getNextMatches(tournament))];
+  }
+
+  /**
+   * Empate de diferença na posição que decide (REGRAS.md §9.3). Enquanto houver
+   * um, a chave fica pausada: o app não escolhe no lugar das duplas.
+   */
+  pendingTiebreak(tournament: Tournament, matches: Match[]): PendingTiebreak | null {
+    this.normalizeTournament(tournament);
+    const round1 = matches.filter((match) => match.phase === 'round-1' && match.winnerId !== null);
+    return readRound1(round1, this.round1Options(tournament)).needsTiebreak;
+  }
+
+  /** Registra quem venceu o par-ou-ímpar do desempate, e destrava a chave. */
+  async recordTiebreak(
+    tournament: Tournament,
+    kind: TiebreakKind,
+    teamIds: string[],
+    winnerTeamId: string,
+    decidedBy: string | null,
+  ): Promise<Tournament> {
+    this.normalizeTournament(tournament);
+    tournament.tiebreakDecisions = [
+      ...tournament.tiebreakDecisions.filter((decision) => decision.kind !== kind),
+      {
+        kind,
+        teamIds,
+        winnerTeamId,
+        decidedBy,
+        decidedAt: new Date().toISOString(),
+      },
+    ];
+    tournament.updatedAt = new Date().toISOString();
+    return this.facade.saveTournament(tournament);
+  }
+
+  /**
+   * Fecha a rodada 1: marca a eliminação direta e a prioridade dela.
+   *
+   * Isso é um efeito colateral, então mora no caminho de **salvar** placar e
+   * não na leitura da fila (REGRAS.md §7.5).
+   */
+  async closeRound1(tournament: Tournament, matches: Match[]): Promise<Tournament> {
+    this.normalizeTournament(tournament);
+
+    const round1 = matches.filter((match) => match.phase === 'round-1' && match.winnerId !== null);
+    const expected = this.generateInitialMatches(tournament).length;
+    if (expected === 0 || round1.length < expected) {
+      return tournament;
+    }
+
+    const { losers, needsTiebreak } = readRound1(round1, this.round1Options(tournament));
+    if (needsTiebreak || losers.length < 2) {
+      return tournament;
+    }
+
+    // Com encaixe, a eliminação direta é marcada quando o par-ou-ímpar é
+    // aplicado — lá se sabe qual dupla foi desfeita.
+    if (this.usesOddPlayerPlacement(tournament)) {
+      return tournament;
+    }
+
+    const eliminated = this.getTeamById(tournament, losers[0].id);
+    if (!eliminated) {
+      return tournament;
+    }
+
+    // Corrigir um placar da rodada 1 pode mudar quem saiu por mais pontos:
+    // a marca é refeita, não acumulada.
+    let changed = false;
+    for (const team of tournament.teams) {
+      if (team.eliminatedDirectly && team.id !== eliminated.id) {
+        team.eliminatedDirectly = false;
+        team.eliminated = false;
+        tournament.priorityEntries = tournament.priorityEntries.filter(
+          (entry) =>
+            !(entry.reason === 'direct-elimination' && team.playerIds.includes(entry.playerId)),
+        );
+        changed = true;
+      }
+    }
+
+    if (!eliminated.eliminatedDirectly) {
+      this.markDirectElimination(tournament, eliminated);
+      changed = true;
+    }
+
+    if (!changed) {
+      return tournament;
+    }
+
+    tournament.updatedAt = new Date().toISOString();
+    return this.facade.saveTournament(tournament);
+  }
+
   computeFinalStandings(tournament: Tournament, matches: Match[]): TournamentStanding[] {
     const standings: TournamentStanding[] = [];
     const finalMatch = matches.find((match) => match.phase === 'final' && match.winnerId);
@@ -315,7 +455,13 @@ export class TournamentService {
     }
 
     const rankedIds = standings.map((standing) => standing.teamId);
-    const unranked = tournament.teams.filter((team) => !rankedIds.includes(team.id));
+    // A dupla original desfeita no encaixe não entra na classificação: ela
+    // deixou de existir no meio do campeonato e aparece só como nota de rodapé
+    // (REGRAS.md §4.6). Antes ela surgia duas vezes na tabela.
+    const dissolvedTeamId = tournament.oddPlayerPlacement?.sourceTeamId ?? null;
+    const unranked = tournament.teams.filter(
+      (team) => !rankedIds.includes(team.id) && team.id !== dissolvedTeamId,
+    );
 
     // Ordena as duplas que não disputaram final/3º lugar por desempenho:
     // - duplas eliminadas por mais pontos (eliminação direta) ficam por último;
@@ -402,6 +548,7 @@ export class TournamentService {
     tournament.oddPlayerLoserPriorityEnabled ??= false;
     tournament.oddPlayerPlacement ??= null;
     tournament.priorityEntries ??= [];
+    tournament.tiebreakDecisions ??= [];
 
     for (const team of tournament.teams) {
       team.synthetic ??= false;
@@ -428,28 +575,19 @@ export class TournamentService {
       return null;
     }
 
-    const losingTeams = round1
-      .map((match) => ({
-        match,
-        team: tournament.teams.find((team) => team.id === match.loserId),
-      }))
-      .filter((entry): entry is { match: Match; team: TournamentTeam } => !!entry.team);
-
-    if (losingTeams.length === 0) {
+    const { losers, needsTiebreak } = readRound1(round1, this.round1Options(tournament));
+    if (needsTiebreak || losers.length === 0) {
       return null;
     }
 
-    let directElimination: TournamentTeam | null = null;
-    let placementSource = losingTeams[0].team;
-
-    if (losingTeams.length > 1) {
-      const sortedByDiff = [...losingTeams].sort(
-        (entryA, entryB) => entryB.match.pointDifference - entryA.match.pointDifference,
-      );
-
-      directElimination = sortedByDiff[0].team;
-      placementSource = sortedByDiff[sortedByDiff.length - 1].team;
+    // Quem perdeu por menos diferença disputa o encaixe; quem perdeu por mais
+    // está fora. Com uma partida só na rodada 1, não há eliminação direta.
+    const placementSource = this.getTeamById(tournament, losers[losers.length - 1].id);
+    if (!placementSource) {
+      return null;
     }
+
+    const directElimination = losers.length > 1 ? this.getTeamById(tournament, losers[0].id) : null;
 
     return { placementSource, directElimination };
   }
@@ -486,7 +624,7 @@ export class TournamentService {
       return [];
     }
 
-    const winners = this.getRound1WinnersByDiff(round1);
+    const winners = this.getRound1WinnersByDiff(round1, tournament);
     const directToFinal = winners[0]?.id;
     const semifinalOpponent = winners[1]?.id;
     const semifinals = completed.filter((match) => match.phase === 'semifinal');
@@ -518,7 +656,7 @@ export class TournamentService {
       return [];
     }
 
-    const winners = this.getRound1WinnersByDiff(round1);
+    const winners = this.getRound1WinnersByDiff(round1, tournament);
     const directToFinal = winners[0]?.id;
     const semifinalSeed = winners[1]?.id;
     const byeTeam = this.findByeTeam(tournament, round1);
@@ -624,12 +762,10 @@ export class TournamentService {
     const round1 = completed.filter((match) => match.phase === 'round-1');
 
     if (round1.length === 2) {
-      const winners = this.getRound1WinnersByDiff(round1);
-      const losers = this.getRound1LosersByDiff(round1);
+      const winners = this.getRound1WinnersByDiff(round1, tournament);
+      const losers = this.getRound1LosersByDiff(round1, tournament);
       const directToFinal = winners[0].id;
       const smallerDiffWinner = winners[1].id;
-
-      this.markDirectElimination(tournament, this.getTeamById(tournament, losers[0].id));
 
       const byeTeam = tournament.teams.find(
         (team) => !round1.some((match) => match.teamAId === team.id || match.teamBId === team.id),
@@ -665,10 +801,8 @@ export class TournamentService {
     const round1 = completed.filter((match) => match.phase === 'round-1');
 
     if (round1.length === 3) {
-      const winners = this.getRound1WinnersByDiff(round1);
-      const losers = this.getRound1LosersByDiff(round1);
-
-      this.markDirectElimination(tournament, this.getTeamById(tournament, losers[0].id));
+      const winners = this.getRound1WinnersByDiff(round1, tournament);
+      const losers = this.getRound1LosersByDiff(round1, tournament);
 
       if (!completed.some((match) => match.phase === 'semifinal')) {
         return [{ phase: 'semifinal', teamAId: winners[1].id, teamBId: winners[2].id }];
@@ -700,13 +834,10 @@ export class TournamentService {
     const round1 = completed.filter((match) => match.phase === 'round-1');
 
     if (round1.length === 3) {
-      const winners = this.getRound1WinnersByDiff(round1);
-      const losers = this.getRound1LosersByDiff(round1);
+      const winners = this.getRound1WinnersByDiff(round1, tournament);
       const byeTeam = tournament.teams.find(
         (team) => !round1.some((match) => match.teamAId === team.id || match.teamBId === team.id),
       );
-
-      this.markDirectElimination(tournament, this.getTeamById(tournament, losers[0].id));
 
       if (byeTeam && !completed.some((match) => match.phase === 'semifinal-bye')) {
         return [{ phase: 'semifinal-bye', teamAId: winners[1].id, teamBId: byeTeam.id }];
@@ -743,16 +874,27 @@ export class TournamentService {
     return [];
   }
 
-  private getRound1WinnersByDiff(round1: Match[]): { id: string; diff: number }[] {
-    return round1
-      .map((match) => ({ id: match.winnerId!, diff: match.pointDifference }))
-      .sort((entryA, entryB) => entryB.diff - entryA.diff);
+  private getRound1WinnersByDiff(
+    round1: Match[],
+    tournament: Tournament,
+  ): { id: string; diff: number }[] {
+    return [...readRound1(round1, this.round1Options(tournament)).winners];
   }
 
-  private getRound1LosersByDiff(round1: Match[]): { id: string; diff: number }[] {
-    return round1
-      .map((match) => ({ id: match.loserId!, diff: match.pointDifference }))
-      .sort((entryA, entryB) => entryB.diff - entryA.diff);
+  private getRound1LosersByDiff(
+    round1: Match[],
+    tournament: Tournament,
+  ): { id: string; diff: number }[] {
+    return [...readRound1(round1, this.round1Options(tournament)).losers];
+  }
+
+  /** O que a leitura da rodada 1 precisa saber sobre este campeonato. */
+  private round1Options(tournament: Tournament) {
+    return {
+      decisions: tournament.tiebreakDecisions,
+      expectedMatches: this.generateInitialMatches(tournament).length,
+      thirdPlaceEnabled: tournament.thirdPlaceEnabled,
+    };
   }
 
   private getTeamById(tournament: Tournament, teamId: string): TournamentTeam | null {

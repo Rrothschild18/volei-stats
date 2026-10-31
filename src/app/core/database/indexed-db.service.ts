@@ -44,6 +44,16 @@ export class IndexedDbService {
           matchStore.createIndex('sessionId', 'sessionId', { unique: false });
           matchStore.createIndex('playedAt', 'playedAt', { unique: false });
         }
+
+        if (!db.objectStoreNames.contains(STORES.GROUPS)) {
+          db.createObjectStore(STORES.GROUPS, { keyPath: 'id' });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.GROUP_MEMBERS)) {
+          const memberStore = db.createObjectStore(STORES.GROUP_MEMBERS, { keyPath: 'id' });
+          memberStore.createIndex('groupId', 'groupId', { unique: false });
+          memberStore.createIndex('playerId', 'playerId', { unique: false });
+        }
       };
 
       request.onsuccess = (event) => {

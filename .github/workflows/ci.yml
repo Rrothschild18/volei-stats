@@ -1,0 +1,66 @@
+name: CI
+
+# Roda no pull request para a main — é antes de entrar que o teste serve para
+# alguma coisa — e outra vez no push da main, que é o que vai ao ar.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Um job por verificação: no GitHub é o job que aparece como check na pull
+# request, então quem olha a PR vê quatro linhas e sabe de cara o que caiu.
+# Os quatro rodam em paralelo; o setup de cada um vem do composite em
+# `.github/actions/setup`.
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+
+  unitarios:
+    name: Testes unitários
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+
+  e2e:
+    name: Testes e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      # Só o Chromium: a suíte roda um projeto mobile e um desktop, os dois
+      # nele. Mais navegador é mais minuto de esteira sem mais garantia.
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - run: pnpm e2e
+
+      # O relatório traz print e trace de cada falha — é por ele que se
+      # descobre o que aconteceu sem ter o navegador na mão.
+      - name: Upload report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
