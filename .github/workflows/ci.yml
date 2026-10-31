@@ -9,47 +9,82 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Um job por verificação, porque no GitHub é o job que aparece como check: quem
+# olha a pull request vê uma linha por coisa e sabe de cara qual caiu, em vez de
+# abrir um job só para descobrir em que passo ele parou. Todos rodam em
+# paralelo, e o setup de cada um vem do composite em `.github/actions/setup`.
 jobs:
-  # Lint, testes de unidade e build: minutos baixos, e barram quase tudo.
-  verificar:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
 
-      - name: Lint
-        run: pnpm lint
-      - name: Testes de unidade
-        run: pnpm test
-      - name: Build
-        run: pnpm build
-
-      # O modelo de acesso e as regras que viraram constraints. Sobe um Postgres
-      # descartável em Docker; não precisa de conta no Supabase.
-      - name: Suíte SQL
-        run: pnpm test:sql
-
-  # Os caminhos que atravessam o banco de verdade. Separado do job de cima para
-  # que uma falha de lint não espere o Supabase subir.
-  ponta-a-ponta:
+  unidade:
+    name: Testes de unidade
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm test
+
+  tipos-e2e:
+    name: Tipos dos testes de ponta a ponta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm typecheck:e2e
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+
+  # O modelo de acesso e as regras que viraram constraints. Sobe um Postgres
+  # descartável em Docker; não precisa de conta no Supabase.
+  sql:
+    name: Suíte SQL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm test:sql
+
+  # A metade que roda sem banco: rápida, em paralelo, e é ela que pega quebra
+  # nas telas de dentro do vôlei.
+  e2e-demo:
+    name: Ponta a ponta (demo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Instalar o navegador
+        run: pnpm exec playwright install --with-deps chromium
+
+      - run: pnpm test:e2e:demo
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
         with:
-          version: 10.28.2
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          name: playwright-report-demo
+          path: playwright-report/
+          retention-days: 7
+
+  # A metade que atravessa o banco de verdade: entrar, criar vôlei e um
+  # campeonato do zero ao fim. Em série, porque compartilham o Postgres.
+  e2e-banco:
+    name: Ponta a ponta (banco)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
 
       - uses: supabase/setup-cli@v1
         with:
@@ -60,15 +95,11 @@ jobs:
       - name: Instalar o navegador
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Tipos dos testes de ponta a ponta
-        run: pnpm typecheck:e2e
-
-      - name: Testes de ponta a ponta
-        run: pnpm test:e2e
+      - run: pnpm test:e2e:banco
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-banco
           path: playwright-report/
           retention-days: 7
