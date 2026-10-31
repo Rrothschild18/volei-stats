@@ -30,11 +30,10 @@ import {
       Sem saudação com nome: o nome é por vôlei. A mesma pessoa é "Raul" num e
       "Raulzinho" no outro, e não existe um nome dela fora deles.
     -->
-    <header class="px-4 pt-6 pb-4">
+    <header class="flex items-center justify-between gap-2 px-4 pt-6 pb-4">
       <h1 class="title-xl">SEUS VÔLEIS</h1>
+      <app-pull-to-refresh />
     </header>
-
-    <app-pull-to-refresh />
 
     <div class="flex flex-col gap-4 px-4">
       @for (summary of summaries(); track summary.group.id) {

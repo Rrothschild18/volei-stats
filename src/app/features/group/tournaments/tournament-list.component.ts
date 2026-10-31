@@ -52,50 +52,79 @@ interface PastRow {
         [isOwner]="group.isOwner()"
         [playerName]="group.me()?.name ?? null"
       />
+      <app-pull-to-refresh slot="action" />
     </app-root-header>
 
-    <app-pull-to-refresh />
-
     <div class="px-4 pt-4">
-      <section>
-        <app-section-band
-          [label]="'HOJE · ' + today().toUpperCase()"
-          [meta]="session() ? present() + ' presentes' : 'sem sessão'"
-        />
+      <!--
+        A sessão do dia é uma coisa; os campeonatos dela são outra. Antes as
+        duas moravam na mesma lista, sob uma faixa que dizia "HOJE" — e a
+        sessão parecia o primeiro campeonato. Agora ela é um card com destaque
+        próprio, e a faixa passou a rotular só os campeonatos.
+      -->
+      @if (session()) {
+        <button
+          type="button"
+          class="flex w-full items-center gap-3 border border-accent bg-accent-100 px-[14px] py-[13px] text-left"
+          (click)="go(sessionTarget())"
+        >
+          <span class="min-w-0 flex-1">
+            <span
+              class="block font-heading text-[18px] leading-tight font-semibold text-accent-900 uppercase"
+            >
+              Sessão de hoje
+            </span>
+            <span class="block text-[13px] text-accent-800">
+              {{ present() }} presentes · presença e revezamento de espera
+            </span>
+          </span>
+          <app-icon name="chevron-right" [size]="18" class="text-accent-700" />
+        </button>
 
-        @if (session()) {
-          <app-blueprint>
-            @for (row of todayRows(); track row.id; let last = $last) {
-              <button
-                type="button"
-                class="flex w-full items-center gap-3 px-[14px] py-[13px] text-left"
-                [class.row-rule]="!last"
-                (click)="go(row.target)"
-              >
-                <span class="min-w-0 flex-1">
-                  <span
-                    class="block font-heading text-[18px] leading-tight font-semibold uppercase"
-                  >
-                    {{ row.title }}
+        <section class="mt-6">
+          <app-section-band [label]="'HOJE · ' + today().toUpperCase()" [meta]="tournamentMeta()" />
+
+          @if (tournamentRows().length > 0) {
+            <app-blueprint>
+              @for (row of tournamentRows(); track row.id; let last = $last) {
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-3 px-[14px] py-[13px] text-left"
+                  [class.row-rule]="!last"
+                  (click)="go(row.target)"
+                >
+                  <span class="min-w-0 flex-1">
+                    <span
+                      class="block font-heading text-[18px] leading-tight font-semibold uppercase"
+                    >
+                      {{ row.title }}
+                    </span>
+                    <span
+                      class="flex items-center gap-1 text-[13px]"
+                      [class]="row.live ? 'text-accent-700 font-medium' : 'muted'"
+                    >
+                      @if (row.live) {
+                        <span class="size-[7px] bg-accent-700" aria-hidden="true"></span>
+                      }
+                      @if (row.champions) {
+                        <app-icon name="crown" [size]="14" />
+                      }
+                      {{ row.detail }}
+                    </span>
                   </span>
-                  <span
-                    class="flex items-center gap-1 text-[13px]"
-                    [class]="row.live ? 'text-accent-700 font-medium' : 'muted'"
-                  >
-                    @if (row.live) {
-                      <span class="size-[7px] bg-accent-700" aria-hidden="true"></span>
-                    }
-                    @if (row.champions) {
-                      <app-icon name="crown" [size]="14" />
-                    }
-                    {{ row.detail }}
-                  </span>
-                </span>
-                <app-icon name="chevron-right" [size]="18" class="muted" />
-              </button>
-            }
-          </app-blueprint>
-        } @else {
+                  <app-icon name="chevron-right" [size]="18" class="muted" />
+                </button>
+              }
+            </app-blueprint>
+          } @else {
+            <p class="text-[14px] muted">
+              Nenhum campeonato ainda. O próximo passo é sortear as duplas.
+            </p>
+          }
+        </section>
+      } @else {
+        <section>
+          <app-section-band [label]="'HOJE · ' + today().toUpperCase()" meta="sem sessão" />
           <app-blueprint class="p-4">
             <p class="text-[14px]">
               Ninguém abriu a sessão de hoje ainda.
@@ -106,8 +135,8 @@ interface PastRow {
               }
             </p>
           </app-blueprint>
-        }
-      </section>
+        </section>
+      }
 
       <section class="mt-6 mb-4">
         <app-section-band label="ANTERIORES" />
@@ -171,24 +200,31 @@ export class TournamentListComponent implements OnInit {
     () => `${this.group.group()?.name?.toUpperCase() ?? ''} · ${this.today()}`,
   );
 
-  protected readonly todayRows = computed<TodayRow[]>(() => {
+  /** Para onde o card da sessão de hoje leva. */
+  protected readonly sessionTarget = computed(() => {
+    const session = this.session();
+    return session
+      ? ['/g', this.group.groupId(), 'campeonatos', 'sessoes', session.id]
+      : ['/g', this.group.groupId(), 'campeonatos'];
+  });
+
+  /** O que a faixa "HOJE" diz à direita: quantos campeonatos o dia já teve. */
+  protected readonly tournamentMeta = computed(() => {
+    const total = this.sessionStore.tournaments().length;
+    if (total === 0) {
+      return 'nenhum ainda';
+    }
+    return total === 1 ? '1 campeonato' : `${total} campeonatos`;
+  });
+
+  protected readonly tournamentRows = computed<TodayRow[]>(() => {
     const session = this.session();
     if (!session) {
       return [];
     }
 
     const groupId = this.group.groupId();
-    const rows: TodayRow[] = [
-      {
-        id: session.id,
-        title: 'SESSÃO DE HOJE',
-        detail: 'Presença e revezamento de espera',
-        live: false,
-        champions: false,
-        target: ['/g', groupId, 'campeonatos', 'sessoes', session.id],
-      },
-    ];
-
+    const rows: TodayRow[] = [];
     const names = new Map(this.allPlayers().map((player) => [player.id, player.name]));
 
     this.sessionStore

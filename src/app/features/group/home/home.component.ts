@@ -60,9 +60,8 @@ interface Shortcut {
         [isOwner]="group.isOwner()"
         [playerName]="group.me()?.name ?? null"
       />
+      <app-pull-to-refresh slot="action" />
     </app-root-header>
-
-    <app-pull-to-refresh />
 
     <div class="flex flex-col gap-5 pb-6">
       @if (!group.canPlay()) {

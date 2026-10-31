@@ -9,7 +9,9 @@ const THRESHOLD = 72;
  * Puxar para atualizar, no topo das telas de lista.
  *
  * Escuta o gesto no documento em vez de envolver o conteúdo: assim entra numa
- * linha em cada tela, e a tela não precisa ser remontada em volta dela.
+ * linha em cada tela, e a tela não precisa ser remontada em volta dela. Mora na
+ * linha do título, no `slot=action` do header — uma faixa só para o botão
+ * gastava altura sem carregar informação.
  *
  * O botão ao lado não é enfeite: puxar é um gesto de trajetória, e a WCAG 2.1
  * (2.5.1) exige que tudo que se faça com gesto também se faça com um toque só.
@@ -20,8 +22,8 @@ const THRESHOLD = 72;
   selector: 'app-pull-to-refresh',
   imports: [IconComponent],
   template: `
-    <div class="flex min-h-7 items-center justify-between gap-2 px-4 text-[12px] muted">
-      <span aria-live="polite">
+    <div class="flex min-h-7 items-center gap-2 text-[12px] muted">
+      <span class="truncate" aria-live="polite">
         @if (refresh.refreshing()) {
           Atualizando…
         } @else if (pulled() >= THRESHOLD) {
@@ -42,7 +44,7 @@ const THRESHOLD = 72;
       </button>
     </div>
   `,
-  host: { class: 'block' },
+  host: { class: 'block shrink-0' },
 })
 export class PullToRefreshComponent {
   protected readonly refresh = inject(RefreshService);

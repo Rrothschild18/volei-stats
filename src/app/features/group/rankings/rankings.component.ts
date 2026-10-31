@@ -64,9 +64,8 @@ interface MatchGroup {
         [isOwner]="group.isOwner()"
         [playerName]="group.me()?.name ?? null"
       />
+      <app-pull-to-refresh slot="action" />
     </app-root-header>
-
-    <app-pull-to-refresh />
 
     <app-segmented
       [options]="tabs"

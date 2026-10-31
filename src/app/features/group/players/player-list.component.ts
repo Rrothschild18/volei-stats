@@ -39,9 +39,8 @@ type Filter = 'active' | 'inactive' | 'all';
         [isOwner]="group.isOwner()"
         [playerName]="group.me()?.name ?? null"
       />
+      <app-pull-to-refresh slot="action" />
     </app-root-header>
-
-    <app-pull-to-refresh />
 
     <div class="px-4 pt-4">
       <label class="relative block">
