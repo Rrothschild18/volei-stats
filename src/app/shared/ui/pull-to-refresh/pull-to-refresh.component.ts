@@ -22,7 +22,7 @@ const THRESHOLD = 72;
   selector: 'app-pull-to-refresh',
   imports: [IconComponent],
   template: `
-    <div class="flex min-h-7 items-center gap-2 text-[12px] muted">
+    <div class="flex min-h-7 min-w-0 items-center gap-2 text-[12px] muted">
       <span class="truncate" aria-live="polite">
         @if (refresh.refreshing()) {
           Atualizando…
@@ -35,7 +35,7 @@ const THRESHOLD = 72;
 
       <button
         type="button"
-        class="btn btn-ghost btn-icon border-0"
+        class="btn btn-ghost btn-icon shrink-0 border-0"
         aria-label="Atualizar"
         [disabled]="refresh.refreshing()"
         (click)="run()"
@@ -44,7 +44,7 @@ const THRESHOLD = 72;
       </button>
     </div>
   `,
-  host: { class: 'block shrink-0' },
+  host: { class: 'block min-w-0' },
 })
 export class PullToRefreshComponent {
   protected readonly refresh = inject(RefreshService);
