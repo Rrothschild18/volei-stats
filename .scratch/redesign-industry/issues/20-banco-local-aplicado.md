@@ -4,10 +4,10 @@
 
 **Blocked by:** 19
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] O schema é a migration inicial, aplicada pelo `supabase start` e pelo `db reset`
-- [ ] A suíte SQL passa a aplicar a mesma migration, sem schema duplicado em dois lugares
-- [ ] Cenário de exemplo com os dois vôleis do redesign, sessão de hoje e campeonato em andamento
-- [ ] Um vôlei de teste com código `TESTE-VOLEI`, data inicial 01/01/1990 e Raul cadastrado e ainda não reivindicado
-- [ ] O cenário é idempotente: `db reset` duas vezes seguidas dá o mesmo banco
+- [x] O schema é a migration inicial, aplicada pelo `supabase start` e pelo `db reset`
+- [x] A suíte SQL passa a aplicar a mesma migration, sem schema duplicado em dois lugares
+- [x] Cenário de exemplo com os dois vôleis do redesign, sessão de hoje e campeonato em andamento
+- [x] Um vôlei de teste com código `TESTE-VOLEI`, data inicial 01/01/1990 e Raul cadastrado e ainda não reivindicado
+- [x] O cenário é idempotente: `db reset` duas vezes seguidas dá o mesmo banco
