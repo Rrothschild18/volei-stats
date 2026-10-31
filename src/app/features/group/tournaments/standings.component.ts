@@ -168,8 +168,7 @@ interface StandingRow {
     </div>
 
     @if (group.canPlay()) {
-      <app-action-bar [pair]="true" [withTabBar]="true">
-        <button type="button" class="btn btn-secondary h-13" (click)="share()">NO ZAP</button>
+      <app-action-bar [withTabBar]="true">
         <button
           type="button"
           class="btn btn-primary blueprint h-13 text-[17px]"
@@ -179,13 +178,6 @@ interface StandingRow {
           <i class="corner br"></i>
           <app-icon name="dices" [size]="20" />
           NOVO SORTEIO
-        </button>
-      </app-action-bar>
-    } @else {
-      <app-action-bar [withTabBar]="true">
-        <button type="button" class="btn btn-secondary h-13" (click)="share()">
-          <app-icon name="send" [size]="18" />
-          COMPARTILHAR NO WHATSAPP
         </button>
       </app-action-bar>
     }
@@ -371,21 +363,6 @@ export class StandingsComponent implements OnInit {
       default:
         return 'Prioridade';
     }
-  }
-
-  /** Resultado em texto, para colar no grupo do WhatsApp. */
-  protected share(): void {
-    const tournament = this.store.tournament();
-    if (!tournament) {
-      return;
-    }
-
-    const lines = [
-      tournament.name,
-      ...this.rows().map((row) => `${row.position}. ${row.label} (${row.record}, ${row.balance})`),
-    ];
-
-    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
   }
 
   protected async remove(): Promise<void> {

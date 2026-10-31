@@ -2,6 +2,10 @@
 
 **What to build:** Corrigir um placar da rodada 1 pode mudar quem empatou, quem foi eliminado e quem foi para o encaixe. Hoje a eliminação direta é refeita e o resto não — as decisões de par-ou-ímpar e o encaixe ficam congelados no resultado antigo, e num dos casos o app passa a decidir sozinho o que a regra diz que ele nunca decide.
 
+Junto com isso: o que a correção invalida precisa SAIR, não ficar guardado ao
+lado do resultado novo. E a correção tem prazo — 30 minutos depois do
+campeonato encerrar, a noite está fechada.
+
 **Blocked by:** None (can start immediately)
 
 **Status:** ready-for-agent
@@ -62,6 +66,56 @@ nada: a **dupla sintética continua montada com os jogadores da dupla que já n�
 é a que perdeu por menos**, e a prioridade `coin-flip-loss` continua no jogador
 errado.
 
+## 3. O que a correção invalida precisa sair
+
+Hoje `correctScore` grava o placar novo e chama `closeRound1`. Nada é apagado.
+Tudo o que foi derivado do resultado antigo continua no banco, ao lado do novo:
+
+- **Partidas que não existiriam mais.** Mudar quem venceu a rodada 1 muda quem
+  se enfrenta na semifinal e na final. As partidas já lançadas dessas fases
+  foram jogadas entre duplas que o resultado corrigido não manda mais para lá.
+  `findSavedMatch` casa por fase **e** par de duplas, então elas não são
+  reconhecidas, não são apagadas e continuam contando nas estatísticas, nos
+  rankings e no saldo da classificação.
+- **A classificação final.** `finalStandings` é gravada uma vez em
+  `finishIfComplete` e nunca mais recalculada; `finishIfComplete` nem é chamada
+  no caminho da correção.
+- **`status: 'completed'`.** Se a correção reabre a chave, o campeonato continua
+  marcado como encerrado.
+- **As prioridades do próximo sorteio.** `priorityEntries` acumula; `closeRound1`
+  limpa as de eliminação direta, as outras ficam.
+
+A regra é uma só, e vale para os três achados: **o que depende de um resultado
+é derivado de novo, e o que não sobrevive é apagado.** Nada de resultado antigo
+"desconsiderado" na prática mas presente no banco — o que não vale tem de sair,
+senão volta a aparecer numa soma qualquer.
+
+Vale verificar no `on delete` das partidas no Supabase se apagar partida de fase
+posterior é permitido pelo schema atual.
+
+## 4. Prazo para corrigir: 30 minutos
+
+Corrigir um campeonato encerrado hoje não tem prazo nenhum — o botão "Errou um
+placar?" na classificação abre para sempre. Mas um campeonato de duas semanas
+atrás já virou ranking, prioridade e estatística de todo mundo; mexer nele é
+reescrever o passado de gente que não está ali.
+
+Prazo: **30 minutos depois de o campeonato encerrar.** Depois disso o campeonato
+é só leitura.
+
+- O corte é sobre o campeonato, não sobre a sessão: conta do fim da final
+  (`playedAt` da final, o mesmo instante que `tournamentTiming` já calcula).
+- Enquanto o campeonato está rolando, corrigir vale sem prazo.
+- Passado o prazo, o botão de corrigir sai da tela — não fica desabilitado com
+  tooltip. E a tela diz por que: "Este campeonato fechou. Placar só até 30 min
+  depois do fim."
+- O corte não pode valer só na tela: o caminho de correção na store recusa a
+  gravação fora do prazo. É a mesma lição do ticket 32 — se a tela é a única
+  guardiã, o estado errado entra por outro caminho.
+- O dono continua podendo **excluir** o campeonato depois do prazo. Excluir já
+  tem confirmação e já diz que some das prioridades e estatísticas; é a saída
+  honesta para um resultado que ninguém pode mais consertar.
+
 ## O que decidir ao implementar
 
 Uma correção que invalida uma decisão de quadra não pode ser desfeita em
@@ -91,3 +145,13 @@ vez de a chave voltar a pausar sem explicação.
 - [ ] Teste: empate decidido → correção muda o par → a chave pausa pedindo outro
 - [ ] Teste: empate decidido → correção não muda o par → a decisão continua valendo
 - [ ] Teste: correção depois do encaixe aplicado refaz a dupla sintética
+- [ ] Corrigir a rodada 1 apaga as partidas de fases posteriores que o resultado
+      novo não produz mais
+- [ ] `finalStandings`, `status` e as prioridades são re-derivados na correção,
+      não acumulados
+- [ ] Teste: correção que muda quem vai à final não deixa para trás a final
+      antiga contando no saldo e nos rankings
+- [ ] Corrigir vale até 30 min depois do fim do campeonato; passado o prazo o
+      botão sai e a tela explica
+- [ ] A store recusa a correção fora do prazo, não só a tela
+- [ ] Teste: correção 31 min depois do fim é recusada na store
