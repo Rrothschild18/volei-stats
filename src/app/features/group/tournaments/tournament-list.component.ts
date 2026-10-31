@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { RefreshService } from '../../../core/refresh/refresh.service';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { SessionStore } from '../../../core/stores/session.store';
@@ -11,6 +12,7 @@ import {
   ActionBarComponent,
   BlueprintComponent,
   IconComponent,
+  PullToRefreshComponent,
   RoleTagComponent,
   RootHeaderComponent,
   SectionBandComponent,
@@ -38,6 +40,7 @@ interface PastRow {
     ActionBarComponent,
     BlueprintComponent,
     IconComponent,
+    PullToRefreshComponent,
     RoleTagComponent,
     RootHeaderComponent,
     SectionBandComponent,
@@ -50,6 +53,8 @@ interface PastRow {
         [playerName]="group.me()?.name ?? null"
       />
     </app-root-header>
+
+    <app-pull-to-refresh />
 
     <div class="px-4 pt-4">
       <section>
@@ -148,6 +153,7 @@ interface PastRow {
 })
 export class TournamentListComponent implements OnInit {
   private readonly facade = inject(AppFacade);
+  private readonly refresh = inject(RefreshService);
   private readonly tournamentService = inject(TournamentService);
   private readonly router = inject(Router);
   protected readonly group = inject(CurrentGroupStore);
@@ -249,7 +255,16 @@ export class TournamentListComponent implements OnInit {
     });
   });
 
+  constructor() {
+    // Voltar para o app, a rede voltar, ou puxar para atualizar: tudo cai aqui.
+    this.refresh.register(() => this.load());
+  }
+
   async ngOnInit(): Promise<void> {
+    await this.load();
+  }
+
+  private async load(): Promise<void> {
     const groupId = this.group.groupId();
     if (!groupId) {
       return;

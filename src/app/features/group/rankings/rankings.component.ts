@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { RefreshService } from '../../../core/refresh/refresh.service';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { StatsRepository } from '../../../core/repositories';
@@ -13,6 +14,7 @@ import {
 } from '../../../shared/utils/date.util';
 import {
   IconComponent,
+  PullToRefreshComponent,
   RoleTagComponent,
   RootHeaderComponent,
   SectionBandComponent,
@@ -49,6 +51,7 @@ interface MatchGroup {
   selector: 'app-rankings',
   imports: [
     IconComponent,
+    PullToRefreshComponent,
     RoleTagComponent,
     RootHeaderComponent,
     SectionBandComponent,
@@ -62,6 +65,8 @@ interface MatchGroup {
         [playerName]="group.me()?.name ?? null"
       />
     </app-root-header>
+
+    <app-pull-to-refresh />
 
     <app-segmented
       [options]="tabs"
@@ -205,6 +210,7 @@ interface MatchGroup {
 })
 export class RankingsComponent implements OnInit {
   private readonly facade = inject(AppFacade);
+  private readonly refresh = inject(RefreshService);
   private readonly stats = inject(StatsRepository);
   private readonly router = inject(Router);
   protected readonly group = inject(CurrentGroupStore);
@@ -365,7 +371,16 @@ export class RankingsComponent implements OnInit {
     );
   });
 
+  constructor() {
+    // Voltar para o app, a rede voltar, ou puxar para atualizar: tudo cai aqui.
+    this.refresh.register(() => this.load());
+  }
+
   async ngOnInit(): Promise<void> {
+    await this.load();
+  }
+
+  private async load(): Promise<void> {
     const groupId = this.group.groupId();
     if (!groupId) {
       return;

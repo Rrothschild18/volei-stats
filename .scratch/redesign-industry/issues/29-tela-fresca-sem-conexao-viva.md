@@ -4,10 +4,10 @@
 
 **Blocked by:** 26, 27, 28
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Relê ao voltar para o primeiro plano
-- [ ] Relê depois de cada escrita sua
-- [ ] Puxar para atualizar em todas as telas de lista
-- [ ] Sem rede: "sem conexão · tentar de novo", com o que foi digitado preservado
-- [ ] Nada de fila de escrita offline: o que falhou, falhou, e a pessoa tenta de novo
+- [x] Relê ao voltar para o primeiro plano
+- [x] Relê depois de cada escrita sua
+- [x] Puxar para atualizar em todas as telas de lista
+- [x] Sem rede: "sem conexão · tentar de novo", com o que foi digitado preservado
+- [x] Nada de fila de escrita offline: o que falhou, falhou, e a pessoa tenta de novo

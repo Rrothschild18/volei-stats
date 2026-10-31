@@ -14,6 +14,7 @@ import {
   InnerHeaderComponent,
   SectionBandComponent,
 } from '../../../shared/ui';
+import { describeError } from '../../../shared/utils/error.util';
 
 interface RecentMatch {
   readonly id: string;
@@ -295,7 +296,7 @@ export class PlayerDetailComponent implements OnInit {
       await action();
       this.notice.set(done);
     } catch (cause) {
-      this.error.set(cause instanceof Error ? cause.message : 'Não deu certo.');
+      this.error.set(describeError(cause, 'Não deu certo.'));
     } finally {
       this.busy.set(false);
     }

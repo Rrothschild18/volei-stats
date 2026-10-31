@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { RefreshService } from '../../../core/refresh/refresh.service';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { SessionStore } from '../../../core/stores/session.store';
@@ -13,6 +14,7 @@ import {
   IconComponent,
   InlineNoteComponent,
   LadderComponent,
+  PullToRefreshComponent,
   RoleTagComponent,
   RootHeaderComponent,
   SectionBandComponent,
@@ -43,6 +45,7 @@ interface Shortcut {
     IconComponent,
     InlineNoteComponent,
     LadderComponent,
+    PullToRefreshComponent,
     RoleTagComponent,
     RootHeaderComponent,
     ScoreSheetComponent,
@@ -58,6 +61,8 @@ interface Shortcut {
         [playerName]="group.me()?.name ?? null"
       />
     </app-root-header>
+
+    <app-pull-to-refresh />
 
     <div class="flex flex-col gap-5 pb-6">
       @if (!group.canPlay()) {
@@ -252,6 +257,7 @@ interface Shortcut {
 })
 export class HomeComponent implements OnInit {
   private readonly router = inject(Router);
+  private readonly refresh = inject(RefreshService);
   private readonly facade = inject(AppFacade);
   private readonly statistics = inject(StatisticsService);
   protected readonly group = inject(CurrentGroupStore);
@@ -461,7 +467,16 @@ export class HomeComponent implements OnInit {
     return `${played} de ${total} jogos`;
   });
 
+  constructor() {
+    // Voltar para o app, a rede voltar, ou puxar para atualizar: tudo cai aqui.
+    this.refresh.register(() => this.load());
+  }
+
   async ngOnInit(): Promise<void> {
+    await this.load();
+  }
+
+  private async load(): Promise<void> {
     const groupId = this.group.groupId();
     if (!groupId) {
       return;
