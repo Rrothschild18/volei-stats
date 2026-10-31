@@ -5,6 +5,7 @@ import {
   limparVoleisDeTeste,
   matarUsuarioDaSessao,
   nomeDeVolei,
+  preencherData,
   reivindicar,
   SENHA_DO_GRUPO,
 } from './apoio';
@@ -58,7 +59,7 @@ test.describe('entrar num vôlei', () => {
     await page.goto('/criar');
     await page.fill('#group-name', nomeDeVolei('senha curta'));
     await page.fill('#owner-name', 'Raul');
-    await page.fill('#owner-date', '1988-07-23');
+    await preencherData(page, '#owner-date', '1988-07-23');
 
     await page.fill('#join-password', 'ab');
     await expect(page.getByRole('button', { name: 'CRIAR' })).toBeDisabled();
@@ -90,7 +91,7 @@ test.describe('entrar num vôlei', () => {
     await dela.goto(`/g/${groupId}/sou-quem`);
     await dela.getByRole('button', { name: /Vitória/i }).click();
     await dela.fill('#claim-password', 'senha-errada');
-    await dela.fill('#claim-new-date', '1995-03-02');
+    await preencherData(dela, '#claim-new-date', '1995-03-02');
     await dela.getByRole('button', { name: 'SOU EU' }).click();
     await expect(dela.getByText('Não deu certo. Confira o nome e a senha do grupo.')).toBeVisible();
 
@@ -147,13 +148,13 @@ test.describe('entrar num vôlei', () => {
 
     // ===== a data =====
     // A atual é exigida: um celular emprestado já está dentro do app.
-    await ele.fill('#me-current', '1900-01-01');
-    await ele.fill('#me-next', '1988-01-01');
+    await preencherData(ele, '#me-current', '1900-01-01');
+    await preencherData(ele, '#me-next', '1988-01-01');
     await ele.getByRole('button', { name: 'SALVAR A DATA' }).click();
     await expect(ele.getByText('A data atual não confere.')).toBeVisible();
 
-    await ele.fill('#me-current', '1994-05-05');
-    await ele.fill('#me-next', '1988-01-01');
+    await preencherData(ele, '#me-current', '1994-05-05');
+    await preencherData(ele, '#me-next', '1988-01-01');
     await ele.getByRole('button', { name: 'SALVAR A DATA' }).click();
     await expect(ele.getByText(/Data trocada/)).toBeVisible();
 
@@ -170,7 +171,7 @@ test.describe('entrar num vôlei', () => {
     await expect(tablet).toHaveURL(new RegExp(`/g/${groupId}/sou-quem$`));
     await tablet.getByRole('button', { name: 'Já entrei antes, em outro aparelho' }).click();
     await tablet.fill('#claim-name', 'Rapha');
-    await tablet.fill('#claim-own-date', '1988-01-01');
+    await preencherData(tablet, '#claim-own-date', '1988-01-01');
     await tablet.getByRole('button', { name: 'SOU EU' }).click();
     await expect(tablet).toHaveURL(new RegExp(`/g/${groupId}/inicio$`));
 

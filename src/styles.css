@@ -8,6 +8,13 @@
  */
 @import 'tailwindcss';
 
+/*
+ * Só o bloco de variáveis do Material 3 (7 KB), não um tema inteiro: as peças
+ * do calendário leem `--mat-sys-*`, e logo abaixo essas variáveis são
+ * repintadas com os tokens daqui. Sem isto o calendário sai sem estilo nenhum.
+ */
+@import '@angular/material/prebuilt-themes/azure-blue.css';
+
 @theme {
   --color-bg: #f2f2f3;
   --color-surface: #e9e9ea;
@@ -460,4 +467,54 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/*
+ * O calendário do Material, repintado com os tokens daqui.
+ *
+ * As peças do Material leem `--mat-sys-*`; o tema pronto importado lá em cima
+ * só define essas variáveis, e é aqui que elas passam a apontar para a paleta
+ * "Industry". Nada de sobrescrever seletor interno do Material: token por
+ * token, que é o contrato público deles e o que sobrevive a uma atualização.
+ */
+html {
+  --mat-sys-primary: var(--color-accent-700);
+  --mat-sys-on-primary: var(--color-neutral-100);
+  --mat-sys-primary-container: var(--color-accent-200);
+  --mat-sys-on-primary-container: var(--color-accent-900);
+  --mat-sys-surface: var(--color-bg);
+  --mat-sys-surface-container: var(--color-bg);
+  --mat-sys-surface-container-high: var(--color-surface);
+  --mat-sys-surface-container-highest: var(--color-surface);
+  --mat-sys-on-surface: var(--color-text);
+  --mat-sys-on-surface-variant: var(--color-neutral-700);
+  --mat-sys-outline: var(--color-divider);
+  --mat-sys-outline-variant: var(--color-hairline);
+  --mat-sys-error: var(--color-danger-800);
+
+  /* Tipografia: a mesma do app, e os títulos na condensada. */
+  --mat-sys-body-medium-font: var(--font-body);
+  --mat-sys-body-large-font: var(--font-body);
+  --mat-sys-body-small-font: var(--font-body);
+  --mat-sys-label-large-font: var(--font-heading);
+  --mat-sys-label-medium-font: var(--font-heading);
+  --mat-sys-label-small-font: var(--font-heading);
+  --mat-sys-title-small-font: var(--font-heading);
+  --mat-sys-title-medium-font: var(--font-heading);
+
+  /*
+   * Canto reto: o sistema visual não tem raio em lugar nenhum, e um calendário
+   * arredondado em cima de telas de canto vivo pareceria de outro app.
+   */
+  --mat-sys-corner-extra-large: 0;
+  --mat-sys-corner-large: 0;
+  --mat-sys-corner-medium: 0;
+  --mat-sys-corner-small: 0;
+  --mat-sys-corner-full: 0;
+}
+
+/* A moldura do calendário segue a régua das outras superfícies. */
+.mat-datepicker-content {
+  border: 1px solid var(--color-divider);
+  box-shadow: none;
 }

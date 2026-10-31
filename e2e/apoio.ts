@@ -87,7 +87,7 @@ export async function criarVolei(
   await page.goto('/criar');
   await page.fill('#group-name', nome);
   await page.fill('#owner-name', dono);
-  await page.fill('#owner-date', '1988-07-23');
+  await preencherData(page, '#owner-date', '1988-07-23');
   await page.fill('#join-password', SENHA_DO_GRUPO);
   await page.getByRole('button', { name: 'CRIAR' }).click();
 
@@ -116,9 +116,20 @@ export async function reivindicar(
   await page.goto(`/g/${groupId}/sou-quem`);
   await page.getByRole('button', { name: new RegExp(nome, 'i') }).click();
   await page.fill('#claim-password', SENHA_DO_GRUPO);
-  await page.fill('#claim-new-date', minhaData);
+  await preencherData(page, '#claim-new-date', minhaData);
   await page.getByRole('button', { name: 'SOU EU' }).click();
   await expect(page).toHaveURL(new RegExp(`/g/${groupId}/inicio$`));
+}
+
+/**
+ * Preenche um campo de data.
+ *
+ * Os testes falam em `aaaa-mm-dd`, que é o que o banco guarda; a tela pede
+ * `dd/mm/aaaa`, que é como se digita aqui. A tradução mora neste lugar só.
+ */
+export async function preencherData(page: Page, seletor: string, iso: string): Promise<void> {
+  const [ano, mes, dia] = iso.split('-');
+  await page.fill(seletor, `${dia}/${mes}/${ano}`);
 }
 
 /** Mexe nos contadores do placar. Negativo desce. */

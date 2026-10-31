@@ -4,6 +4,7 @@ import { MembershipService } from '../../core/identity';
 import { Gender } from '../../shared/enums';
 import {
   ActionBarComponent,
+  DateFieldComponent,
   InlineNoteComponent,
   InnerHeaderComponent,
   SegmentedComponent,
@@ -23,7 +24,13 @@ import { describeError } from '../../shared/utils/error.util';
  */
 @Component({
   selector: 'app-create-group',
-  imports: [ActionBarComponent, InlineNoteComponent, InnerHeaderComponent, SegmentedComponent],
+  imports: [
+    ActionBarComponent,
+    DateFieldComponent,
+    InlineNoteComponent,
+    InnerHeaderComponent,
+    SegmentedComponent,
+  ],
   template: `
     <app-inner-header context="ENTRAR" title="CRIAR UM VÔLEI" (back)="back()" />
 
@@ -67,21 +74,16 @@ import { describeError } from '../../shared/utils/error.util';
           <p class="mt-2 text-[12px] muted">Usado só no sorteio, para preferir duplas mistas.</p>
         </div>
 
-        <div class="field mt-4">
-          <label for="owner-date">Sua data de nascimento</label>
-          <input
-            id="owner-date"
-            class="input"
-            type="date"
-            autocomplete="bday"
-            aria-describedby="owner-date-help"
-            [value]="ownerBirthDate()"
-            (input)="ownerBirthDate.set($any($event.target).value)"
-          />
-          <p id="owner-date-help" class="mt-2 text-[12px] muted">
-            É a sua senha. Ninguém vê, nem você depois.
-          </p>
-        </div>
+        <app-date-field
+          class="mt-4"
+          fieldId="owner-date"
+          label="Sua data de nascimento"
+          describedBy="owner-date-help"
+          [(value)]="ownerBirthDate"
+        />
+        <p id="owner-date-help" class="mt-2 text-[12px] muted">
+          É a sua chave. Ninguém vê, nem você depois.
+        </p>
       </div>
 
       <div class="border-t border-divider pt-5">

@@ -49,11 +49,30 @@ describe('siglas', () => {
     expect(siglas(['Ângela', 'Antônio']).get('Ângela')).toBe('ÂNG');
   });
 
-  it('nomes que empatam nas três primeiras ficam iguais, e o nome ao lado resolve', () => {
-    const resultado = siglas(['Ana', 'Ana Paula']);
+  it('cinco letras separam os pares que de fato aparecem num vôlei', () => {
+    const resultado = siglas(['Pedro', 'Pedrinho', 'Will', 'Willy', 'Paty']);
 
-    expect(resultado.get('Ana')).toBe('ANA');
-    expect(resultado.get('Ana Paula')).toBe('ANA');
+    // Três letras não bastavam: os dois pares davam PED e WIL.
+    expect(resultado.get('Pedro')).toBe('PEDRO');
+    expect(resultado.get('Pedrinho')).toBe('PEDRI');
+    expect(resultado.get('Will')).toBe('WILL');
+    expect(resultado.get('Willy')).toBe('WILLY');
+    // E quem não empata continua curto.
+    expect(resultado.get('Paty')).toBe('PA');
+  });
+
+  it('quem empata até a quinta fica igual, e o nome ao lado resolve', () => {
+    const resultado = siglas(['Ana Paula', 'Ana Clara']);
+
+    expect(resultado.get('Ana Paula')).toBe('ANA P');
+    expect(resultado.get('Ana Clara')).toBe('ANA C');
+  });
+
+  it('um nome mais curto que a sigla não inventa letras', () => {
+    const resultado = siglas(['Bo', 'Bob']);
+
+    expect(resultado.get('Bo')).toBe('BO');
+    expect(resultado.get('Bob')).toBe('BOB');
   });
 
   it('um nome só fica com uma letra', () => {

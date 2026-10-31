@@ -5,6 +5,7 @@ import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import {
   ActionBarComponent,
   BlueprintComponent,
+  DateFieldComponent,
   GenderBadgeComponent,
   IconComponent,
   InlineNoteComponent,
@@ -39,6 +40,7 @@ const MESSAGES: Record<ClaimFailure, string> = {
   imports: [
     ActionBarComponent,
     BlueprintComponent,
+    DateFieldComponent,
     GenderBadgeComponent,
     IconComponent,
     InlineNoteComponent,
@@ -111,16 +113,11 @@ const MESSAGES: Record<ClaimFailure, string> = {
             />
           </div>
 
-          <div class="field">
-            <label for="claim-own-date">Sua data de nascimento</label>
-            <input
-              id="claim-own-date"
-              class="input"
-              type="date"
-              [value]="birthDate()"
-              (input)="birthDate.set($any($event.target).value)"
-            />
-          </div>
+          <app-date-field
+            fieldId="claim-own-date"
+            label="Sua data de nascimento"
+            [(value)]="birthDate"
+          />
         } @else {
           <app-blueprint class="p-4">
             <p class="kicker">VOCÊ É</p>
@@ -147,16 +144,12 @@ const MESSAGES: Record<ClaimFailure, string> = {
             </p>
           </div>
 
-          <div class="field">
-            <label for="claim-new-date">Sua data de nascimento</label>
-            <input
-              id="claim-new-date"
-              class="input"
-              type="date"
-              autocomplete="bday"
-              aria-describedby="claim-new-date-help"
-              [value]="newBirthDate()"
-              (input)="newBirthDate.set($any($event.target).value)"
+          <div>
+            <app-date-field
+              fieldId="claim-new-date"
+              label="Sua data de nascimento"
+              describedBy="claim-new-date-help"
+              [(value)]="newBirthDate"
             />
             <p id="claim-new-date-help" class="mt-2 text-[12px] muted">
               Ela vira a sua chave neste vôlei: é ela que você digita para entrar num aparelho novo.

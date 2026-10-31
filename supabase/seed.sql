@@ -15,8 +15,10 @@
 --     Dono: Rafa. Entre como Raul para ver a tela de quem só joga.
 --
 --   VÔLEI TESTE   · código TESTE-VOLEI · senha do grupo "volei99"
---     Vazio de propósito, e Raul é o dono. Entre como Raul para ver a tela de
---     dono e montar uma sessão do zero.
+--     Sem jogo nenhum de propósito, e Raul é o dono. Entre como Raul para ver a
+--     tela de dono e montar uma sessão do zero. Os doze nomes incluem pares que
+--     empatam no começo (Pedro/Pedrinho, Will/Willy), que é o caso difícil da
+--     sigla do círculo.
 --
 -- Idempotente: pode rodar duas vezes seguidas e dá o mesmo banco.
 -- =============================================================================
@@ -180,11 +182,22 @@ insert into groups (id, name, join_password_hash) values
   ('00000000-0000-4000-8000-000000000002', 'Vôlei Teste',
    crypt('volei99', gen_salt('bf')));
 
+-- Nomes escolhidos para o teste doer: Pedro e Pedrinho empatam até a terceira
+-- letra, Will e Willy também, e Kaio existe para não se confundir com o Caio do
+-- outro vôlei.
 insert into players (id, group_id, name, gender) values
-  ('11000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', 'Raul',    'M'),
-  ('11000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Be',      'F'),
-  ('11000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000002', 'Caio',    'M'),
-  ('11000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000002', 'Vitória', 'F');
+  ('11000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', 'Raul',     'M'),
+  ('11000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Kaio',     'M'),
+  ('11000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000002', 'Pedro',    'M'),
+  ('11000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000002', 'Pedrinho', 'M'),
+  ('11000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000002', 'Laura',    'F'),
+  ('11000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000002', 'Matheus',  'M'),
+  ('11000000-0000-4000-8000-000000000007', '00000000-0000-4000-8000-000000000002', 'Paty',     'F'),
+  ('11000000-0000-4000-8000-000000000008', '00000000-0000-4000-8000-000000000002', 'Eliabe',   'M'),
+  ('11000000-0000-4000-8000-000000000009', '00000000-0000-4000-8000-000000000002', 'Will',     'M'),
+  ('11000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000002', 'Willy',    'M'),
+  ('11000000-0000-4000-8000-00000000000b', '00000000-0000-4000-8000-000000000002', 'Douglas',  'M'),
+  ('11000000-0000-4000-8000-00000000000c', '00000000-0000-4000-8000-000000000002', 'Beatriz',  'F');
 
 update groups set owner_player_id = '11000000-0000-4000-8000-000000000001'
 where id = '00000000-0000-4000-8000-000000000002';

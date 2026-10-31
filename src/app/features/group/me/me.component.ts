@@ -3,7 +3,12 @@ import { Router } from '@angular/router';
 import { BirthDateFailure, MembershipService } from '../../../core/identity';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { describeError } from '../../../shared/utils/error.util';
-import { BlueprintComponent, InlineNoteComponent, InnerHeaderComponent } from '../../../shared/ui';
+import {
+  BlueprintComponent,
+  DateFieldComponent,
+  InlineNoteComponent,
+  InnerHeaderComponent,
+} from '../../../shared/ui';
 
 const MOTIVOS: Record<BirthDateFailure, string> = {
   'wrong-current': 'A data atual não confere.',
@@ -24,7 +29,7 @@ const MOTIVOS: Record<BirthDateFailure, string> = {
  */
 @Component({
   selector: 'app-me',
-  imports: [BlueprintComponent, InlineNoteComponent, InnerHeaderComponent],
+  imports: [BlueprintComponent, DateFieldComponent, InlineNoteComponent, InnerHeaderComponent],
   template: `
     <app-inner-header context="VÔLEI" title="SEUS DADOS" (back)="back()" />
 
@@ -74,28 +79,14 @@ const MOTIVOS: Record<BirthDateFailure, string> = {
             a vê, nem quem é dono.
           </p>
 
-          <div class="field mt-3">
-            <label for="me-current">A data de agora</label>
-            <input
-              id="me-current"
-              class="input"
-              type="date"
-              [value]="atual()"
-              (input)="atual.set($any($event.target).value)"
-            />
-          </div>
+          <app-date-field
+            class="mt-3"
+            fieldId="me-current"
+            label="A data de agora"
+            [(value)]="atual"
+          />
 
-          <div class="field mt-3">
-            <label for="me-next">A data nova</label>
-            <input
-              id="me-next"
-              class="input"
-              type="date"
-              autocomplete="bday"
-              [value]="nova()"
-              (input)="nova.set($any($event.target).value)"
-            />
-          </div>
+          <app-date-field class="mt-3" fieldId="me-next" label="A data nova" [(value)]="nova" />
 
           <button
             type="button"

@@ -20,3 +20,4 @@ export * from './ladder/ladder.component';
 export * from './role-tag.component';
 export * from './focus-trap.directive';
 export * from './pull-to-refresh/pull-to-refresh.component';
+export * from './date-field/date-field.component';

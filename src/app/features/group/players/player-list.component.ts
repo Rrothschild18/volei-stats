@@ -240,6 +240,15 @@ export class PlayerListComponent implements OnInit {
     this.unclaimed.set(new Set(naoEntraram.map((player) => player.id)));
   }
 
+  /** Quanto mais letras, menor a fonte — o círculo não muda de tamanho. */
+  protected siglaClass(sigla: string): string {
+    if (sigla.length >= 5) return 'text-[9px] tracking-tight';
+    if (sigla.length === 4) return 'text-[10px]';
+    if (sigla.length === 3) return 'text-[11px]';
+    if (sigla.length === 2) return 'text-[13px]';
+    return 'text-[16px]';
+  }
+
   protected open(player: Player): void {
     void this.router.navigate(['/g', this.group.groupId(), 'jogadores', player.id]);
   }
