@@ -5,7 +5,9 @@ import {
   GroupMember,
   Match,
   Player,
+  PlayerStats,
   Session,
+  TeamStats,
   Tournament,
 } from '../../shared/models';
 
@@ -76,4 +78,19 @@ export abstract class MatchRepository {
   abstract getById(id: string): Promise<Match | undefined>;
   abstract save(match: Match): Promise<Match>;
   abstract delete(id: string): Promise<void>;
+}
+
+/**
+ * Os rankings do vôlei, somados por quem tem os dados.
+ *
+ * Existe separado dos outros repositórios porque não é leitura de tabela: no
+ * banco são views, que contam no servidor — uma consulta em vez de carregar
+ * todas as partidas do vôlei no navegador para somar aqui.
+ *
+ * O perfil de uma pessoa continua montado na tela, a partir dos jogos dela:
+ * ali o custo é pequeno e os números são os mesmos.
+ */
+export abstract class StatsRepository {
+  abstract playerStats(groupId: string): Promise<readonly PlayerStats[]>;
+  abstract teamStats(groupId: string): Promise<readonly TeamStats[]>;
 }

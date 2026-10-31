@@ -4,10 +4,10 @@
 
 **Blocked by:** 21
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Criar campeonato, fila ao vivo e avanço de fase contra o banco
-- [ ] Lançar placar e corrigir placar, com quem lançou e quem corrigiu assinados pelo servidor
-- [ ] Chave em escada e decisões de quadra persistidas
-- [ ] Classificação final lida do banco
-- [ ] A tela de quem está jogando aquela partida continua diferente da de quem está de fora
+- [x] Criar campeonato, fila ao vivo e avanço de fase contra o banco
+- [x] Lançar placar e corrigir placar, com quem lançou e quem corrigiu assinados pelo servidor
+- [x] Chave em escada e decisões de quadra persistidas
+- [x] Classificação final lida do banco
+- [x] A tela de quem está jogando aquela partida continua diferente da de quem está de fora

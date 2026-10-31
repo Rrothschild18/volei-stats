@@ -4,9 +4,9 @@
 
 **Blocked by:** 21
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Rankings de jogador e de dupla lidos das views do banco
-- [ ] Lista de jogadores, selo de dono e cadastro restritos a quem pode
-- [ ] Perfil do jogador montado dos jogos dele, sem laço por jogador no carregamento da lista
-- [ ] Inativar alguém tira o acesso dele, como o banco já faz
+- [x] Rankings de jogador e de dupla lidos das views do banco
+- [x] Lista de jogadores, selo de dono e cadastro restritos a quem pode
+- [x] Perfil do jogador montado dos jogos dele, sem laço por jogador no carregamento da lista
+- [x] Inativar alguém tira o acesso dele, como o banco já faz

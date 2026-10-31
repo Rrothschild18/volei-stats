@@ -133,7 +133,23 @@ export class AppFacade {
     return sessions.find((session) => session.date === today);
   }
 
+  /**
+   * Abre a sessão do dia, ou entra na que já existe.
+   *
+   * Um dia tem UMA sessão por vôlei — é índice único no banco. Duas pessoas
+   * marcando a presença ao mesmo tempo na beira da quadra é o caso comum, não a
+   * exceção: sem isto, a segunda levava um erro de chave repetida em vez de
+   * cair na mesma sessão da primeira.
+   */
   async createSession(groupId: string, playerIds: string[]): Promise<Session> {
+    const existing = await this.getTodaySession(groupId);
+    if (existing) {
+      // A presença da outra pessoa não é jogada fora: quem chegou depois soma
+      // os nomes dele aos que já estavam marcados.
+      const merged = [...new Set([...existing.playerIds, ...playerIds])];
+      return this.#sessionRepo.save({ ...existing, playerIds: merged });
+    }
+
     const session: Session = {
       id: crypto.randomUUID(),
       groupId,
