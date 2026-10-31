@@ -155,11 +155,12 @@ auditoria (esperas contadas em triplo), porque contam apenas sorteios
 `selected`. A view **`my_groups`** entrega a primeira tela do app numa
 requisição.
 
-Schema completo em [`supabase/schema.sql`](../supabase/schema.sql), com testes
-em [`supabase/tests/`](../supabase/tests/) — rodam num Postgres descartável,
-sem precisar de conta no Supabase. O terceiro arquivo, `03-brechas.sql`, existe
-por causa de uma revisão que achou nove furos reais neste modelo: cada um tem
-ali o teste que faltava.
+Schema completo em [`supabase/migrations/`](../supabase/migrations/), que é a
+única definição dele: o que o `supabase start` aplica é exatamente o que os
+testes de [`supabase/tests/`](../supabase/tests/) verificam, num Postgres
+descartável e sem conta no Supabase. O terceiro arquivo, `03-brechas.sql`,
+existe por causa de uma revisão que achou nove furos reais neste modelo: cada
+um tem ali o teste que faltava.
 
 ```bash
 ./supabase/tests/run.sh
@@ -194,9 +195,15 @@ sem rede e sem banco, pra demonstrar e pra testar.
 ### Fase 0 — Desenvolvimento local (sem credencial nenhuma)
 
 ```bash
-supabase start                      # Postgres, Auth e Studio em Docker
-psql "$DB_URL" -f supabase/schema.sql
+supabase start      # Postgres, Auth e Studio em Docker, com o schema aplicado
+supabase db reset   # refaz o banco do zero e recarrega o cenário de exemplo
 ```
+
+O `supabase/seed.sql` carrega dois vôleis para clicar: **Vôlei Segunda**
+(código `SEGUNDA`, oito jogadores, a sessão de hoje em andamento e a da semana
+passada encerrada) e **Vôlei Teste** (código `TESTE-VOLEI`, vazio, com Raul
+como dono). Nos dois a data inicial é **01/01/1990** e ninguém está
+reivindicado — é digitando o código e tocando num nome que você entra.
 
 O `supabase/config.toml` já liga **Anonymous sign-ins**: a sessão anônima é o
 modelo de acesso, e com ela desligada `signInAnonymously()` devolve 422 e o app
@@ -226,7 +233,7 @@ Criar vôlei, cadastrar os amigos, o link, a lista de nomes, a troca de data, o
 
 1. Criar projeto em supabase.com (grátis). Guardar **Project URL** e a chave
    publicável.
-2. SQL Editor → colar `supabase/schema.sql` → Run.
+2. SQL Editor → colar a migration de `supabase/migrations/` → Run.
 3. Authentication → Providers → ligar **Anonymous sign-ins**.
 4. _(recomendado)_ Attack Protection → ligar **Captcha (Turnstile)**.
    O endpoint anônimo é aberto; sem captcha, alguém pode inflar a tabela de

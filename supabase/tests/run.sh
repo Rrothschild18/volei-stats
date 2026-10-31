@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Aplica o schema num Postgres descartável e roda os testes.
+# Aplica as migrations num Postgres descartável e roda os testes.
+#
+# As migrations são a única definição do schema: o que o `supabase start` aplica
+# é exatamente o que os testes verificam.
 #
 # Usa o Postgres local se a máquina tiver os binários de servidor; senão usa
 # Docker, com a mesma imagem que o `supabase start` usa. Em nenhum dos dois
@@ -84,7 +87,9 @@ for suite in 01-acesso 02-regras 03-brechas 04-convite-codigo; do
   db="test_${suite//-/_}"
   fresh_db "$db"
   psql_run "$db" "$HERE/00-supabase-shim.sql"
-  psql_run "$db" "$ROOT/supabase/schema.sql"
+  for migration in "$ROOT"/supabase/migrations/*.sql; do
+    psql_run "$db" "$migration"
+  done
   psql_run "$db" "$HERE/$suite.sql"
 done
 
