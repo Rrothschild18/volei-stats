@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { IndexedDbService } from '../database/indexed-db.service';
 import { InMemoryDbService } from './in-memory-db.service';
+import { provideDemoData } from './mock-data.providers';
 import {
   buildMockData,
   GROUP_SEGUNDA,
@@ -29,9 +29,9 @@ describe('cenário de exemplo do redesign', () => {
     // Cada teste parte do cenário limpo, sem o estado guardado pelo anterior.
     sessionStorage.clear();
 
-    TestBed.configureTestingModule({
-      providers: [InMemoryDbService, { provide: IndexedDbService, useExisting: InMemoryDbService }],
-    });
+    // Os mesmos provedores do modo demonstração: é esse cenário que o teste
+    // verifica, e os repositórios saem dele, não de uma montagem à parte.
+    TestBed.configureTestingModule({ providers: [provideDemoData()] });
 
     TestBed.inject(InMemoryDbService).load(buildMockData(), 'spec');
     facade = TestBed.inject(AppFacade);
@@ -54,9 +54,7 @@ describe('cenário de exemplo do redesign', () => {
 
     // Mandar é outra pergunta, e a resposta é a coluna do vôlei.
     expect((await facade.getGroupById(GROUP_SEGUNDA))!.ownerPlayerId).toBe(GROUP_SEGUNDA_OWNER);
-    expect((await facade.getGroupById(GROUP_TRABALHO))!.ownerPlayerId).toBe(
-      GROUP_TRABALHO_OWNER,
-    );
+    expect((await facade.getGroupById(GROUP_TRABALHO))!.ownerPlayerId).toBe(GROUP_TRABALHO_OWNER);
     expect(GROUP_TRABALHO_OWNER).toBe(MOCK_USER_PLAYER_ID);
   });
 

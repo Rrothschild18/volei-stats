@@ -53,8 +53,8 @@ import {
       @if (isNew()) {
         <app-inline-note tone="event" icon="lock">
           A pessoa entra pelo link do vôlei com a
-          <strong class="font-semibold">data inicial do grupo</strong> e troca pela data dela —
-          que passa a ser a senha dela. Você não escolhe, e não vê.
+          <strong class="font-semibold">data inicial do grupo</strong> e troca pela data dela — que
+          passa a ser a senha dela. Você não escolhe, e não vê.
         </app-inline-note>
       }
 
@@ -178,8 +178,9 @@ export class PlayerFormComponent implements OnInit {
           await this.facade.updatePlayer({ ...player, name, gender, active: this.active() });
         }
       } else {
-        const created = await this.facade.createPlayer(name, gender);
-        await this.facade.addGroupMember(groupId, created.id);
+        // Cadastrar não cria associação: o jogador nasce como um nome por
+        // reivindicar, e quem o reivindica é a própria pessoa, com a data.
+        await this.facade.createPlayer(groupId, name, gender);
       }
 
       await this.group.enter(groupId);

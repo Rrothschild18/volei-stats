@@ -52,7 +52,11 @@ interface Shortcut {
   ],
   template: `
     <app-root-header [context]="context()" [title]="title()" (switchGroup)="toGroups()">
-      <app-role-tag slot="role" [isOwner]="group.isOwner()" [playerName]="group.me()?.name ?? null" />
+      <app-role-tag
+        slot="role"
+        [isOwner]="group.isOwner()"
+        [playerName]="group.me()?.name ?? null"
+      />
     </app-root-header>
 
     <div class="flex flex-col gap-5 pb-6">
@@ -398,8 +402,8 @@ export class HomeComponent implements OnInit {
       if (!match.winnerId) {
         continue;
       }
-      const mine = [match.teamAId, match.teamBId].find((teamId) =>
-        teams.get(teamId)?.includes(playerId),
+      const mine = [match.teamAId, match.teamBId].find(
+        (teamId) => playerId !== null && teams.get(teamId)?.includes(playerId),
       );
       if (!mine) {
         continue;
@@ -410,7 +414,7 @@ export class HomeComponent implements OnInit {
       }
     }
 
-    const waits = this.sessionStore.waitCounts().get(playerId) ?? 0;
+    const waits = (playerId && this.sessionStore.waitCounts().get(playerId)) ?? 0;
 
     return [
       { value: games, label: games === 1 ? 'jogo' : 'jogos' },
@@ -421,7 +425,7 @@ export class HomeComponent implements OnInit {
 
   protected readonly waitNote = computed(() => {
     const playerId = this.group.playerId();
-    const waits = this.sessionStore.waitCounts().get(playerId) ?? 0;
+    const waits = (playerId && this.sessionStore.waitCounts().get(playerId)) ?? 0;
     if (waits === 0) {
       return null;
     }
@@ -475,7 +479,10 @@ export class HomeComponent implements OnInit {
   }
 
   protected openProfile(): void {
-    this.go(['jogadores', this.group.playerId()]);
+    const playerId = this.group.playerId();
+    if (playerId) {
+      this.go(['jogadores', playerId]);
+    }
   }
 
   protected go(segments: string[]): void {

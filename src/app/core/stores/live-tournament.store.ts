@@ -126,7 +126,7 @@ export class LiveTournamentStore {
       return null;
     }
     const alive = tournament.teams.filter((team) => !team.eliminated);
-    return alive.find((team) => team.playerIds.includes(playerId)) ?? null;
+    return alive.find((team) => playerId !== null && team.playerIds.includes(playerId)) ?? null;
   });
 
   readonly ladder = computed<LadderStep[]>(() => this.buildLadder());
@@ -333,8 +333,11 @@ export class LiveTournamentStore {
     return this.tournament()?.teams.find((team) => team.id === teamId) ?? null;
   }
 
-  teamHas(teamId: string | null, playerId: string): boolean {
-    return teamId ? !!this.team(teamId)?.playerIds.includes(playerId) : false;
+  /** `playerId` nulo é o visitante: nenhuma dupla é dele. */
+  teamHas(teamId: string | null, playerId: string | null): boolean {
+    return teamId !== null && playerId !== null
+      ? !!this.team(teamId)?.playerIds.includes(playerId)
+      : false;
   }
 
   /** Partida já salva para esta vaga da chave. */

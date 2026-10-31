@@ -1,12 +1,13 @@
 import { Injectable, inject } from '@angular/core';
-import { GroupRepository } from '../repositories/group.repository';
-import { PlayerRepository } from '../repositories/player.repository';
-import { SessionRepository } from '../repositories/session.repository';
-import { DrawRepository } from '../repositories/draw.repository';
-import { TournamentRepository } from '../repositories/tournament.repository';
-import { MatchRepository } from '../repositories/match.repository';
+import {
+  DrawRepository,
+  GroupRepository,
+  MatchRepository,
+  PlayerRepository,
+  SessionRepository,
+  TournamentRepository,
+} from '../repositories';
 import { StatisticsService, StatsScope } from '../services/statistics.service';
-import { IndexedDbService } from '../database/indexed-db.service';
 import {
   Group,
   GroupMember,
@@ -30,7 +31,6 @@ export class AppFacade {
   readonly #tournamentRepo = inject(TournamentRepository);
   readonly #matchRepo = inject(MatchRepository);
   readonly #statsService = inject(StatisticsService);
-  readonly #dbService = inject(IndexedDbService);
 
   // Groups
   async getGroups(): Promise<Group[]> {
@@ -50,8 +50,8 @@ export class AppFacade {
     return this.#groupRepo.getMembersByGroupId(groupId);
   }
 
-  /** Cadastra alguém no vôlei. Quem entra por convite começa espectador. */
-  async addGroupMember(
+  /** Muda o papel de quem já participa. */
+  async saveGroupMember(
     groupId: string,
     playerId: string,
     role: GroupRole = 'player',
@@ -91,21 +91,13 @@ export class AppFacade {
     return this.#playerRepo.getById(id);
   }
 
-  async createPlayer(
-    name: string,
-    gender: Gender,
-    birthDate: string | null = null,
-  ): Promise<Player> {
-    const player: Player = {
-      id: crypto.randomUUID(),
-      name,
-      gender,
-      birthDate,
-      active: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    return this.#playerRepo.save(player);
+  /**
+   * Cadastra alguém no vôlei. A data de nascimento não aparece aqui de
+   * propósito: ela é senha, e quem a define é o banco, copiando a data inicial
+   * do grupo. A tela de quem cadastra nunca precisa saber dela.
+   */
+  async createPlayer(groupId: string, name: string, gender: Gender): Promise<Player> {
+    return this.#playerRepo.create(groupId, name, gender);
   }
 
   async updatePlayer(player: Player): Promise<Player> {
@@ -131,17 +123,14 @@ export class AppFacade {
   }
 
   async getSessionsByGroupId(groupId: string): Promise<Session[]> {
-    const sessions = await this.#sessionRepo.getAll();
-    return sessions
-      .filter((session) => session.groupId === groupId)
-      .sort((a, b) => b.date.localeCompare(a.date));
+    return this.#sessionRepo.getByGroupId(groupId);
   }
 
   /** A sessão de hoje do grupo, se alguém já a abriu. */
   async getTodaySession(groupId: string): Promise<Session | undefined> {
     const today = this.getLocalDateString();
-    const sessions = await this.#sessionRepo.getAll();
-    return sessions.find((session) => session.groupId === groupId && session.date === today);
+    const sessions = await this.#sessionRepo.getByGroupId(groupId);
+    return sessions.find((session) => session.date === today);
   }
 
   async createSession(groupId: string, playerIds: string[]): Promise<Session> {
@@ -242,27 +231,20 @@ export class AppFacade {
    * Sem isso, quem joga em dois vôleis apareceria com os números somados.
    */
   async getGroupScope(groupId: string): Promise<StatsScope> {
-    const [sessions, members] = await Promise.all([
+    const [sessions, players] = await Promise.all([
       this.getSessionsByGroupId(groupId),
-      this.#groupRepo.getMembersByGroupId(groupId),
+      this.#playerRepo.getByGroupId(groupId),
     ]);
 
     return {
       sessionIds: new Set(sessions.map((session) => session.id)),
-      playerIds: new Set(members.map((member) => member.playerId)),
+      playerIds: new Set(players.map((player) => player.id)),
     };
   }
 
   /** Jogadores de um grupo, numa leitura só (§7.12). */
   async getPlayersByGroupId(groupId: string): Promise<Player[]> {
-    const [members, players] = await Promise.all([
-      this.#groupRepo.getMembersByGroupId(groupId),
-      this.#playerRepo.getAll(),
-    ]);
-    const memberIds = new Set(members.map((member) => member.playerId));
-    return players
-      .filter((player) => memberIds.has(player.id))
-      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    return this.#playerRepo.getByGroupId(groupId);
   }
 
   private getLocalDateString(date = new Date()): string {
@@ -300,7 +282,14 @@ export class AppFacade {
 
   // Export
   async exportData(): Promise<string> {
-    const data = await this.#dbService.exportAll();
-    return JSON.stringify(data, null, 2);
+    const [groups, players, sessions, draws, tournaments, matches] = await Promise.all([
+      this.#groupRepo.getAll(),
+      this.#playerRepo.getAll(),
+      this.#sessionRepo.getAll(),
+      this.#drawRepo.getAll(),
+      this.#tournamentRepo.getAll(),
+      this.#matchRepo.getAll(),
+    ]);
+    return JSON.stringify({ groups, players, sessions, draws, tournaments, matches }, null, 2);
   }
 }

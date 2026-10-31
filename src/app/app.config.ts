@@ -3,14 +3,14 @@ import { provideRouter, TitleStrategy, withComponentInputBinding } from '@angula
 
 import { routes } from './app.routes';
 import { AppTitleStrategy } from './shared/services/title-strategy';
-import { provideMockData } from './core/mock/mock-data.providers';
+import { provideData } from './core/data.providers';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
-    // Cenário de exemplo em memória enquanto o Supabase não entra (ticket 18).
-    provideMockData(),
+    // Banco ou cenário de exemplo: quem decide é src/environments.
+    provideData(),
     {
       provide: TitleStrategy,
       useClass: AppTitleStrategy,

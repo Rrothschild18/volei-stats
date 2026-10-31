@@ -56,7 +56,11 @@ interface MatchGroup {
   ],
   template: `
     <app-root-header [context]="context()" title="RANKINGS" (switchGroup)="toGroups()">
-      <app-role-tag slot="role" [isOwner]="group.isOwner()" [playerName]="group.me()?.name ?? null" />
+      <app-role-tag
+        slot="role"
+        [isOwner]="group.isOwner()"
+        [playerName]="group.me()?.name ?? null"
+      />
     </app-root-header>
 
     <app-segmented
@@ -265,7 +269,7 @@ export class RankingsComponent implements OnInit {
         key: [...stats.playerIds].sort().join('|'),
         label: stats.playerNames.join(' + '),
         stats,
-        isMine: stats.playerIds.includes(me),
+        isMine: me !== null && stats.playerIds.includes(me),
       }));
   });
 

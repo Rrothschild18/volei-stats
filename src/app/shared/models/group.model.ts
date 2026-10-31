@@ -29,6 +29,10 @@ export type GroupRole = 'player' | 'viewer';
 export interface GroupMember {
   id: string;
   groupId: string;
-  playerId: string;
+  /**
+   * Nulo enquanto a pessoa não disse quem é: ela abriu o link, entrou como
+   * visitante, e ainda não reivindicou um nome.
+   */
+  playerId: string | null;
   role: GroupRole;
 }

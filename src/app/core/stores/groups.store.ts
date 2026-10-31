@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { AppFacade } from '../facade/app.facade';
+import { IdentityService, MyGroup } from '../identity';
 import { TournamentService } from '../services/tournament.service';
 import { phaseLabel } from '../rules/bracket-phases';
 import { Group, GroupRole, Session, Tournament } from '../../shared/models';
@@ -8,6 +9,8 @@ import { todayDateString } from '../../shared/utils/date.util';
 export interface GroupSummary {
   readonly group: Group;
   readonly role: GroupRole;
+  /** Criou o vôlei, ou o recebeu. Vem do banco, não de comparação na tela. */
+  readonly isOwner: boolean;
   readonly playerCount: number;
   readonly gamesPlayed: number;
   /** Posição no ranking do grupo por aproveitamento, 1-based. */
@@ -28,19 +31,21 @@ export interface GroupSummary {
 @Injectable({ providedIn: 'root' })
 export class GroupsStore {
   private readonly facade = inject(AppFacade);
+  private readonly identity = inject(IdentityService);
   private readonly tournamentService = inject(TournamentService);
 
   readonly summaries = signal<readonly GroupSummary[]>([]);
   readonly loading = signal(false);
 
-  async loadForPlayer(playerId: string): Promise<void> {
+  /** Os vôleis de quem está usando o app, com o papel de cada um. */
+  async load(): Promise<void> {
     this.loading.set(true);
     try {
-      const memberships = await this.facade.getMembershipsByPlayerId(playerId);
+      const mine = await this.identity.myGroups();
       const summaries: GroupSummary[] = [];
 
-      for (const membership of memberships) {
-        const summary = await this.buildSummary(membership.groupId, membership.role, playerId);
+      for (const membership of mine) {
+        const summary = await this.buildSummary(membership);
         if (summary) {
           summaries.push(summary);
         }
@@ -52,14 +57,14 @@ export class GroupsStore {
     }
   }
 
-  private async buildSummary(
-    groupId: string,
-    role: GroupRole,
-    playerId: string,
-  ): Promise<GroupSummary | null> {
-    const [group, members, sessions] = await Promise.all([
+  private async buildSummary(membership: MyGroup): Promise<GroupSummary | null> {
+    const groupId = membership.groupId;
+    // Visitante não tem jogador: abriu o link e ainda não disse quem é. Ele vê
+    // o vôlei, e nenhum número é dele.
+    const playerId = membership.playerId;
+
+    const [group, sessions] = await Promise.all([
       this.facade.getGroupById(groupId),
-      this.facade.getGroupMembers(groupId),
       this.facade.getSessionsByGroupId(groupId),
     ]);
 
@@ -75,21 +80,21 @@ export class GroupsStore {
     const liveTournament =
       tournaments.find((tournament) => tournament.status === 'in-progress') ?? null;
 
-    const { gamesPlayed, rankingPosition } = await this.playerStandingInGroup(
-      sessions,
-      members.map((member) => member.playerId),
-      playerId,
-    );
+    const { gamesPlayed, rankingPosition } = playerId
+      ? await this.playerStandingInGroup(sessions, groupId, playerId)
+      : { gamesPlayed: 0, rankingPosition: null };
 
     return {
       group,
-      role,
-      playerCount: members.length,
+      role: membership.role,
+      isOwner: membership.isOwner,
+      playerCount: membership.playerCount,
       gamesPlayed,
       rankingPosition,
       liveSession: liveTournament ? todaySession : null,
       liveTournament,
-      myNextMatch: liveTournament ? await this.myNextMatch(liveTournament, playerId) : null,
+      myNextMatch:
+        liveTournament && playerId ? await this.myNextMatch(liveTournament, playerId) : null,
       nextSessionDate: todaySession ? null : (sessions[0]?.date ?? null),
     };
   }
@@ -130,10 +135,11 @@ export class GroupsStore {
    */
   private async playerStandingInGroup(
     sessions: readonly Session[],
-    memberIds: readonly string[],
+    groupId: string,
     playerId: string,
   ): Promise<{ gamesPlayed: number; rankingPosition: number | null }> {
     const sessionIds = new Set(sessions.map((session) => session.id));
+    const memberIds = (await this.facade.getPlayersByGroupId(groupId)).map((player) => player.id);
     const [allMatches, allTournaments] = await Promise.all([
       this.facade.getMatches(),
       this.facade.getTournaments(),

@@ -275,7 +275,7 @@ export class StandingsComponent implements OnInit {
               : team?.eliminatedDirectly
                 ? 'eliminação direta'
                 : null,
-          isMine: !!team?.playerIds.includes(playerId),
+          isMine: playerId !== null && !!team?.playerIds.includes(playerId),
         };
       });
   });
