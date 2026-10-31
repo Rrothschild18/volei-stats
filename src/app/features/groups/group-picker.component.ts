@@ -2,6 +2,7 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AppFacade } from '../../core/facade/app.facade';
 import { GroupsStore, GroupSummary } from '../../core/stores/groups.store';
+import { MembershipService } from '../../core/identity';
 import { MockIdentityService } from '../../core/mock/mock-identity.service';
 import { Player } from '../../shared/models';
 import { formatShortDate } from '../../shared/utils/date.util';
@@ -23,16 +24,12 @@ import {
   selector: 'app-group-picker',
   imports: [BlueprintComponent, HeroFieldComponent, IconComponent, StatGridComponent],
   template: `
+    <!--
+      Sem saudação com nome: o nome é por vôlei. A mesma pessoa é "Raul" num e
+      "Raulzinho" no outro, e não existe um nome dela fora deles.
+    -->
     <header class="px-4 pt-6 pb-4">
-      <div class="flex items-center gap-3">
-        <span
-          class="flex size-9 items-center justify-center border border-divider font-heading text-[18px] font-semibold"
-          aria-hidden="true"
-          >{{ initial() }}</span
-        >
-        <p class="kicker">OLÁ, {{ me()?.name?.toUpperCase() }}</p>
-      </div>
-      <h1 class="title-xl mt-2">SEUS VÔLEIS</h1>
+      <h1 class="title-xl">SEUS VÔLEIS</h1>
     </header>
 
     <div class="flex flex-col gap-4 px-4">
@@ -124,29 +121,34 @@ import {
           Em todos os seus vôleis você marca presença, tira sorteio e lança placar. Dono é quem
           criou o vôlei: só ele cadastra gente e apaga coisa.
         </p>
-        <p>Para entrar em outro vôlei, peça o link a quem é dono dele.</p>
       </div>
 
-      <app-blueprint class="mt-2 mb-8 p-4">
-        <p class="kicker">MOCK · SEM BACKEND</p>
-        <h2 class="font-heading text-[20px] font-semibold uppercase">Entrar como</h2>
-        <p class="mt-1 mb-3 text-[13px] muted">
-          Enquanto não há login, dá para assumir qualquer pessoa do cenário e ver o app pelos olhos
-          dela. Rafa é dono do Vôlei Segunda; Caio joga lá e é dono do Vôlei Trabalho.
-        </p>
-        <div class="flex flex-wrap gap-2">
-          @for (player of everyone(); track player.id) {
-            <button
-              type="button"
-              class="btn btn-secondary min-h-9 px-3 text-[13px] normal-case"
-              [class.btn-primary]="player.id === currentPlayerId()"
-              (click)="switchTo(player.id)"
-            >
-              {{ player.name }}
-            </button>
-          }
-        </div>
-      </app-blueprint>
+      <button type="button" class="btn btn-secondary min-h-12" (click)="join()">
+        ENTRAR EM OUTRO VÔLEI
+      </button>
+
+      @if (demoMode()) {
+        <app-blueprint class="mt-2 mb-8 p-4">
+          <p class="kicker">MODO DEMONSTRAÇÃO</p>
+          <h2 class="font-heading text-[20px] font-semibold uppercase">Entrar como</h2>
+          <p class="mt-1 mb-3 text-[13px] muted">
+            Enquanto não há login, dá para assumir qualquer pessoa do cenário e ver o app pelos
+            olhos dela. Rafa é dono do Vôlei Segunda; Caio joga lá e é dono do Vôlei Trabalho.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            @for (player of everyone(); track player.id) {
+              <button
+                type="button"
+                class="btn btn-secondary min-h-9 px-3 text-[13px] normal-case"
+                [class.btn-primary]="player.id === currentPlayerId()"
+                (click)="switchTo(player.id)"
+              >
+                {{ player.name }}
+              </button>
+            }
+          </div>
+        </app-blueprint>
+      }
     </div>
   `,
   host: { class: 'block min-h-dvh' },
@@ -154,6 +156,7 @@ import {
 export class GroupPickerComponent implements OnInit {
   private readonly facade = inject(AppFacade);
   private readonly identity = inject(MockIdentityService);
+  private readonly membership = inject(MembershipService);
   private readonly groups = inject(GroupsStore);
   private readonly router = inject(Router);
 
@@ -161,13 +164,14 @@ export class GroupPickerComponent implements OnInit {
   protected readonly loading = this.groups.loading;
   protected readonly currentPlayerId = this.identity.playerId;
   protected readonly everyone = signal<readonly Player[]>([]);
-  protected readonly me = computed(
-    () => this.everyone().find((player) => player.id === this.currentPlayerId()) ?? null,
-  );
-  protected readonly initial = computed(() => this.me()?.name.charAt(0).toUpperCase() ?? '?');
+  /** O trocador de pessoa só existe sem banco: ele é a identidade de mentira. */
+  protected readonly demoMode = computed(() => !this.membership.available);
 
   async ngOnInit(): Promise<void> {
-    this.everyone.set(await this.facade.getPlayers());
+    // A lista de pessoas só serve ao trocador do modo demonstração.
+    if (this.demoMode()) {
+      this.everyone.set(await this.facade.getPlayers());
+    }
     await this.groups.load();
   }
 
@@ -192,6 +196,10 @@ export class GroupPickerComponent implements OnInit {
 
   protected liveStats(summary: GroupSummary) {
     return this.groupStats(summary);
+  }
+
+  protected join(): void {
+    void this.router.navigate(['/entrar']);
   }
 
   protected enter(summary: GroupSummary): void {

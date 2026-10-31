@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { memberGuard } from './core/guards/group.guards';
+import { hasGroupsGuard, memberGuard, ownerGuard } from './core/guards/group.guards';
 
 /**
  * O app vive dentro de um grupo: `/g/:groupId` com as quatro abas. As rotas
@@ -13,8 +13,26 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
+    path: 'entrar',
+    title: 'Entrar num vôlei',
+    loadComponent: () => import('./features/entry/join.component').then((m) => m.JoinComponent),
+  },
+  {
+    // O link do convite: abre a tela com o código já preenchido.
+    path: 'entrar/:inviteCode',
+    title: 'Entrar num vôlei',
+    loadComponent: () => import('./features/entry/join.component').then((m) => m.JoinComponent),
+  },
+  {
+    path: 'criar',
+    title: 'Criar um vôlei',
+    loadComponent: () =>
+      import('./features/entry/create-group.component').then((m) => m.CreateGroupComponent),
+  },
+  {
     path: 'voleis',
     title: 'Seus vôleis',
+    canActivate: [hasGroupsGuard],
     loadComponent: () =>
       import('./features/groups/group-picker.component').then((m) => m.GroupPickerComponent),
   },
@@ -25,6 +43,19 @@ export const routes: Routes = [
       import('./features/group/group-shell.component').then((m) => m.GroupShellComponent),
     children: [
       { path: '', redirectTo: 'inicio', pathMatch: 'full' },
+      {
+        path: 'sou-quem',
+        title: 'Quem você é?',
+        loadComponent: () =>
+          import('./features/group/claim/claim.component').then((m) => m.ClaimComponent),
+      },
+      {
+        path: 'convite',
+        title: 'Convite',
+        canActivate: [ownerGuard],
+        loadComponent: () =>
+          import('./features/group/invite/invite.component').then((m) => m.InviteComponent),
+      },
       {
         path: 'inicio',
         title: 'Início',

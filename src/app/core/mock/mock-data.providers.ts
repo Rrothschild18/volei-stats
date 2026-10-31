@@ -24,8 +24,9 @@ import {
   LocalSessionRepository,
   LocalTournamentRepository,
 } from '../repositories/local';
-import { IdentityService } from '../identity';
+import { IdentityService, MembershipService } from '../identity';
 import { DemoIdentityService } from '../identity/demo-identity.service';
+import { DemoMembershipService } from '../identity/demo-membership.service';
 
 /**
  * Modo demonstração: roda o app contra o cenário de exemplo, sem banco nenhum.
@@ -43,6 +44,7 @@ export function provideDemoData(): EnvironmentProviders {
     { provide: TournamentRepository, useClass: LocalTournamentRepository },
     { provide: MatchRepository, useClass: LocalMatchRepository },
     { provide: IdentityService, useClass: DemoIdentityService },
+    { provide: MembershipService, useClass: DemoMembershipService },
     InMemoryDbService,
     { provide: IndexedDbService, useExisting: InMemoryDbService },
     provideAppInitializer(() => {

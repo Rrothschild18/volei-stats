@@ -103,7 +103,11 @@ type Filter = 'active' | 'inactive' | 'all';
     </ul>
 
     @if (group.isOwner()) {
-      <app-action-bar [withTabBar]="true">
+      <app-action-bar [withTabBar]="true" [pair]="true">
+        <button type="button" class="btn btn-secondary h-13" (click)="invite()">
+          <app-icon name="send" [size]="20" />
+          CONVITE
+        </button>
         <button type="button" class="btn btn-primary blueprint h-13" (click)="create()">
           <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>
           <i class="corner br"></i>
@@ -193,6 +197,10 @@ export class PlayerListComponent implements OnInit {
 
   protected open(player: Player): void {
     void this.router.navigate(['/g', this.group.groupId(), 'jogadores', player.id]);
+  }
+
+  protected invite(): void {
+    void this.router.navigate(['/g', this.group.groupId(), 'convite']);
   }
 
   protected create(): void {
