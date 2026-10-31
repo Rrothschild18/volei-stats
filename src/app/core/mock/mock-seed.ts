@@ -72,31 +72,30 @@ interface PlayerSpec {
   readonly id: string;
   readonly name: string;
   readonly gender: Gender;
-  readonly birthDate: string;
   readonly active?: boolean;
 }
 
 const PLAYER_SPECS: readonly PlayerSpec[] = [
-  { id: 'p-rafa', name: 'Rafa', gender: Gender.MALE, birthDate: '1992-03-14' },
-  { id: 'p-bia', name: 'Bia', gender: Gender.FEMALE, birthDate: '1995-07-02' },
-  { id: 'p-duda', name: 'Duda', gender: Gender.FEMALE, birthDate: '1993-11-23' },
-  { id: 'p-leo', name: 'Léo', gender: Gender.MALE, birthDate: '1990-01-30' },
-  { id: 'p-carol', name: 'Carol', gender: Gender.FEMALE, birthDate: '1997-05-19' },
-  { id: 'p-thiago', name: 'Thiago', gender: Gender.MALE, birthDate: '1988-09-08' },
-  { id: 'p-nina', name: 'Nina', gender: Gender.FEMALE, birthDate: '1999-02-27' },
-  { id: 'p-gui', name: 'Gui', gender: Gender.MALE, birthDate: '1994-12-11' },
-  { id: 'p-paty', name: 'Paty', gender: Gender.FEMALE, birthDate: '1991-06-05' },
-  { id: 'p-caio', name: 'Caio', gender: Gender.MALE, birthDate: '1996-10-21' },
-  { id: 'p-malu', name: 'Malu', gender: Gender.FEMALE, birthDate: '2000-04-16' },
-  { id: 'p-dani', name: 'Dani', gender: Gender.FEMALE, birthDate: '1993-08-09' },
-  { id: 'p-edu', name: 'Edu', gender: Gender.MALE, birthDate: '1989-03-03' },
-  { id: 'p-tati', name: 'Tati', gender: Gender.FEMALE, birthDate: '1998-11-28' },
-  { id: 'p-rogerio', name: 'Rogério', gender: Gender.MALE, birthDate: '1985-02-14', active: false },
-  { id: 'p-sil', name: 'Sil', gender: Gender.FEMALE, birthDate: '1987-07-30', active: false },
-  { id: 'p-vivi', name: 'Vivi', gender: Gender.FEMALE, birthDate: '1994-09-17' },
-  { id: 'p-juca', name: 'Juca', gender: Gender.MALE, birthDate: '1991-12-01' },
-  { id: 'p-bruno', name: 'Bruno', gender: Gender.MALE, birthDate: '1990-05-24' },
-  { id: 'p-le', name: 'Lê', gender: Gender.FEMALE, birthDate: '1996-01-12' },
+  { id: 'p-rafa', name: 'Rafa', gender: Gender.MALE },
+  { id: 'p-bia', name: 'Bia', gender: Gender.FEMALE },
+  { id: 'p-duda', name: 'Duda', gender: Gender.FEMALE },
+  { id: 'p-leo', name: 'Léo', gender: Gender.MALE },
+  { id: 'p-carol', name: 'Carol', gender: Gender.FEMALE },
+  { id: 'p-thiago', name: 'Thiago', gender: Gender.MALE },
+  { id: 'p-nina', name: 'Nina', gender: Gender.FEMALE },
+  { id: 'p-gui', name: 'Gui', gender: Gender.MALE },
+  { id: 'p-paty', name: 'Paty', gender: Gender.FEMALE },
+  { id: 'p-caio', name: 'Caio', gender: Gender.MALE },
+  { id: 'p-malu', name: 'Malu', gender: Gender.FEMALE },
+  { id: 'p-dani', name: 'Dani', gender: Gender.FEMALE },
+  { id: 'p-edu', name: 'Edu', gender: Gender.MALE },
+  { id: 'p-tati', name: 'Tati', gender: Gender.FEMALE },
+  { id: 'p-rogerio', name: 'Rogério', gender: Gender.MALE, active: false },
+  { id: 'p-sil', name: 'Sil', gender: Gender.FEMALE, active: false },
+  { id: 'p-vivi', name: 'Vivi', gender: Gender.FEMALE },
+  { id: 'p-juca', name: 'Juca', gender: Gender.MALE },
+  { id: 'p-bruno', name: 'Bruno', gender: Gender.MALE },
+  { id: 'p-le', name: 'Lê', gender: Gender.FEMALE },
 ];
 
 export const GROUP_SEGUNDA = 'g-segunda';
@@ -626,6 +625,10 @@ function seedTodaySession(draft: Draft): void {
 }
 
 /** Monta o conjunto inicial no formato dos stores do banco. */
+function firstGroupOf(playerId: string): string {
+  return SEGUNDA_MEMBERS.some(([id]) => id === playerId) ? GROUP_SEGUNDA : GROUP_TRABALHO;
+}
+
 export function buildMockData(): Record<string, unknown[]> {
   const draft: Draft = {
     players: [],
@@ -637,12 +640,19 @@ export function buildMockData(): Record<string, unknown[]> {
     matches: [],
   };
 
+  // No banco um jogador pertence a UM vôlei. Aqui, seis pessoas estão nos dois
+  // — é o que faz o cenário mostrar as duas visões com uma identidade só. Então
+  // `groupId` recebe o primeiro vôlei da pessoa, e é a lista de membros que
+  // responde "quem joga neste vôlei" no modo demonstração.
+  //
+  // A diferença existe porque a identidade de mentira é um jogador, e não uma
+  // sessão de navegador. Ela some com ela, no ticket 30.
   for (const spec of PLAYER_SPECS) {
     draft.players.push({
       id: spec.id,
+      groupId: firstGroupOf(spec.id),
       name: spec.name,
       gender: spec.gender,
-      birthDate: spec.birthDate,
       active: spec.active ?? true,
       createdAt: timestamp(200, 10),
       updatedAt: timestamp(200, 10),

@@ -231,6 +231,11 @@ create table draws (
   waiting_player_id uuid,
   score             int not null default 0,
   selected          boolean not null default false,
+  -- Os selos da proposta ("mesmo sexo", "dupla repetida", "tem prioridade").
+  -- Ficam em jsonb de propósito: são o que o gerador ACHOU no momento do
+  -- sorteio, e a tela os mostra do jeito que foram vistos. Normalizá-los daria
+  -- uma tabela que nunca é consultada por nada além de desenhar o card.
+  badges            jsonb not null default '[]'::jsonb,
   created_at        timestamptz not null default now(),
   unique (id, group_id),
   foreign key (session_id, group_id)        references sessions(id, group_id) on delete cascade,
@@ -322,6 +327,11 @@ create table tiebreak_decisions (
   tournament_id  uuid not null,
   group_id       uuid not null,
   kind           tiebreak_kind not null,
+  -- As duplas que empataram, na ordem em que foram apresentadas. Não é enfeite:
+  -- a leitura da rodada 1 (src/app/core/rules/round-1-outcome.ts) só aplica a
+  -- decisão ao par exato que a gerou, então sem esta lista o desempate se perde
+  -- ao recarregar a tela.
+  team_ids       uuid[] not null default '{}',
   winner_team_id uuid not null,
   decided_by     uuid,
   decided_at     timestamptz not null default now(),
@@ -595,6 +605,41 @@ begin
   returning invites.token, invites.code into new_token, new_code;
 
   return query select new_group, new_player, new_token, new_code;
+end $$;
+
+/**
+ * O dono cadastra alguém no vôlei.
+ *
+ * É função, e não insert do cliente, por uma razão só: `players.birth_date` é a
+ * senha de primeiro acesso, e quem a define é o banco, copiando a data inicial
+ * do grupo. Se o cadastro fosse um insert comum, o dono escolheria a data de
+ * cada um — e o privilégio de escrever naquela coluna teria de existir.
+ */
+create or replace function add_player(
+  p_group_id uuid,
+  p_name     text,
+  p_gender   char(1)
+)
+returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  new_player uuid;
+  initial    date;
+begin
+  if not is_group_owner(p_group_id) then
+    raise exception 'Só o dono cadastra gente no vôlei' using errcode = '42501';
+  end if;
+  if coalesce(trim(p_name), '') = '' then
+    raise exception 'O jogador precisa de um nome' using errcode = '22023';
+  end if;
+
+  select initial_birth_date into initial from groups where id = p_group_id;
+
+  insert into players (group_id, name, gender, birth_date)
+  values (p_group_id, trim(p_name), p_gender, initial)
+  returning id into new_player;
+
+  return new_player;
 end $$;
 
 /**
@@ -950,6 +995,11 @@ grant select (id, group_id, name, gender, birth_date_changed, active,
 -- senha dela mudou.
 revoke update on players from authenticated, anon;
 grant update (name, gender, active) on players to authenticated, anon;
+
+-- E não insere: cadastrar é add_player(), que copia a data inicial do grupo.
+-- Com insert liberado, quem cadastra escolheria a senha de primeiro acesso de
+-- cada pessoa — e poderia cadastrar um nome já sabendo a data dele.
+revoke insert on players from authenticated, anon;
 
 -- O vôlei em si: membro lê, dono renomeia. Criação só via create_group().
 create policy groups_select_member on groups

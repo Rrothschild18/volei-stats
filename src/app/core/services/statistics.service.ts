@@ -1,8 +1,10 @@
 import { Injectable, inject } from '@angular/core';
-import { MatchRepository } from '../repositories/match.repository';
-import { PlayerRepository } from '../repositories/player.repository';
-import { TournamentRepository } from '../repositories/tournament.repository';
-import { DrawRepository } from '../repositories/draw.repository';
+import {
+  DrawRepository,
+  MatchRepository,
+  PlayerRepository,
+  TournamentRepository,
+} from '../repositories';
 import { DrawProposal, Match, PlayerStats, TeamStats, Tournament } from '../../shared/models';
 
 /**

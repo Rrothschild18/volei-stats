@@ -23,9 +23,9 @@ const NAMES = [
 function players(count: number): Player[] {
   return NAMES.slice(0, count).map((name, index) => ({
     id: `p-${name.toLowerCase()}`,
+    groupId: 'g-1',
     name,
     gender: index % 2 === 0 ? Gender.MALE : Gender.FEMALE,
-    birthDate: null,
     active: true,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',

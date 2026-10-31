@@ -4,12 +4,12 @@
 
 **Blocked by:** 20
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Cliente do Supabase configurado por ambiente, com a URL e a chave publicável
-- [ ] Sessão anônima criada na primeira visita e reaproveitada nas seguintes
-- [ ] Tipos do banco gerados, e as leituras tipadas por eles
-- [ ] Repositórios contra o banco atrás da mesma fachada que as telas já usam
-- [ ] Uma escolha de origem de dados: banco ou dados de exemplo em memória
-- [ ] "Seus vôleis" e o papel em cada um vindos das views, com uma consulta por tela e não uma por jogador
-- [ ] Quem é dono aparece como dono sem nenhum papel vindo de stub local
+- [x] Cliente do Supabase configurado por ambiente, com a URL e a chave publicável
+- [x] Sessão anônima criada na primeira visita e reaproveitada nas seguintes
+- [x] Tipos do banco gerados, e as leituras tipadas por eles
+- [x] Repositórios contra o banco atrás da mesma fachada que as telas já usam
+- [x] Uma escolha de origem de dados: banco ou dados de exemplo em memória
+- [x] "Seus vôleis" e o papel em cada um vindos das views, com uma consulta por tela e não uma por jogador
+- [x] Quem é dono aparece como dono sem nenhum papel vindo de stub local

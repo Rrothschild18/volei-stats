@@ -6,6 +6,10 @@ const angular = require('angular-eslint');
 
 module.exports = defineConfig([
   {
+    // Gerado pelo `supabase gen types`: a forma é do gerador, não nossa.
+    ignores: ['src/app/core/supabase/database.types.ts'],
+  },
+  {
     files: ['**/*.ts'],
     extends: [
       eslint.configs.recommended,

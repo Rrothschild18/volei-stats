@@ -193,7 +193,6 @@ export class ScoreSheetComponent {
   /** Preenchido depois de salvar: a tela vira "placar travado". */
   protected readonly saved = signal<Match | null>(null);
 
-
   protected readonly pointLimit = computed(() => this.store.tournament()?.pointLimit ?? 12);
 
   protected readonly sheetTitle = computed(() => {

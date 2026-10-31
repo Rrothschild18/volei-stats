@@ -168,11 +168,11 @@ export class GroupPickerComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.everyone.set(await this.facade.getPlayers());
-    await this.groups.loadForPlayer(this.currentPlayerId());
+    await this.groups.load();
   }
 
   protected roleLabel(summary: GroupSummary): string {
-    if (summary.group.ownerPlayerId === this.currentPlayerId()) {
+    if (summary.isOwner) {
       return 'DONO';
     }
     return summary.role === 'player' ? 'JOGADOR' : 'VISITANTE';
@@ -200,6 +200,6 @@ export class GroupPickerComponent implements OnInit {
 
   protected async switchTo(playerId: string): Promise<void> {
     this.identity.setPlayerId(playerId);
-    await this.groups.loadForPlayer(playerId);
+    await this.groups.load();
   }
 }

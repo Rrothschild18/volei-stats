@@ -1,19 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { StatisticsService } from './statistics.service';
-import { MatchRepository } from '../repositories/match.repository';
-import { PlayerRepository } from '../repositories/player.repository';
-import { TournamentRepository } from '../repositories/tournament.repository';
-import { DrawRepository } from '../repositories/draw.repository';
+import {
+  DrawRepository,
+  MatchRepository,
+  PlayerRepository,
+  TournamentRepository,
+} from '../repositories';
 import { DrawProposal, Match, Player, Tournament } from '../../shared/models';
 import { Gender } from '../../shared/enums';
 
 function player(id: string, name: string): Player {
   return {
     id,
+    groupId: 'g-1',
     name,
     gender: Gender.MALE,
-    birthDate: null,
     active: true,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',

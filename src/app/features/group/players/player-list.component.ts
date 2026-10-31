@@ -29,7 +29,11 @@ type Filter = 'active' | 'inactive' | 'all';
   ],
   template: `
     <app-root-header [context]="context()" title="JOGADORES" (switchGroup)="toGroups()">
-      <app-role-tag slot="role" [isOwner]="group.isOwner()" [playerName]="group.me()?.name ?? null" />
+      <app-role-tag
+        slot="role"
+        [isOwner]="group.isOwner()"
+        [playerName]="group.me()?.name ?? null"
+      />
     </app-root-header>
 
     <div class="px-4 pt-4">

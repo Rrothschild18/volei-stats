@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { AppFacade } from '../facade/app.facade';
-import { MockIdentityService } from '../mock/mock-identity.service';
+import { IdentityService } from '../identity';
 import { Group, GroupRole, Player } from '../../shared/models';
 
 /**
@@ -14,13 +14,14 @@ import { Group, GroupRole, Player } from '../../shared/models';
  *   `isOwner` — criou o vôlei (ou o recebeu)? Então cadastra gente, gera o
  *               link e apaga coisa.
  *
- * Quem está usando vem do mock de identidade até o ticket 20 ligar o
- * `auth.uid()` do Supabase.
+ * Quem está usando vem de `IdentityService`: no banco, da sessão anônima deste
+ * navegador cruzada com `group_members`; no modo demonstração, da pessoa
+ * escolhida no trocador.
  */
 @Injectable({ providedIn: 'root' })
 export class CurrentGroupStore {
   private readonly facade = inject(AppFacade);
-  private readonly identity = inject(MockIdentityService);
+  private readonly identity = inject(IdentityService);
 
   readonly group = signal<Group | null>(null);
   readonly role = signal<GroupRole | null>(null);
@@ -31,45 +32,48 @@ export class CurrentGroupStore {
   private loadedFor: string | null = null;
 
   readonly groupId = computed(() => this.group()?.id ?? null);
-  readonly playerId = computed(() => this.identity.playerId());
+  /** Quem eu sou NESTE vôlei. Nulo se ainda não disse. */
+  readonly playerId = computed(() => this.me()?.id ?? null);
 
   /** Já reivindicou um nome: faz o jogo inteiro. */
   readonly canPlay = computed(() => this.role() === 'player');
 
   /** É o dono: cadastra quem existe e apaga o que desaparece. */
-  readonly isOwner = computed(() => {
-    const me = this.me();
-    const group = this.group();
-    return !!me && !!group && me.id === group.ownerPlayerId;
-  });
+  readonly isOwner = signal(false);
 
   /** "Rafa", para os textos que falam de quem cadastra e quem apaga. */
   readonly ownerName = computed(() => this.owner()?.name ?? 'o dono');
 
   /** Carrega o vôlei e resolve o papel. Devolve `false` se não for membro. */
   async enter(groupId: string): Promise<boolean> {
-    const playerId = this.identity.playerId();
+    const membership = await this.identity.myGroup(groupId);
+    if (!membership) {
+      this.clear();
+      return false;
+    }
 
-    if (this.group()?.id === groupId && this.loadedFor === playerId) {
+    // Trocar de pessoa invalida o que já estava carregado, e "a mesma pessoa"
+    // inclui o caso de ela ainda não ter dito quem é.
+    const key = `${groupId}:${membership.playerId ?? 'visitante'}`;
+    if (this.loadedFor === key) {
       return true;
     }
-    const [group, members, players] = await Promise.all([
-      this.facade.getGroupById(groupId),
-      this.facade.getGroupMembers(groupId),
-      this.facade.getPlayers(),
-    ]);
 
-    const membership = members.find((member) => member.playerId === playerId);
-    if (!group || !membership) {
+    const [group, players] = await Promise.all([
+      this.facade.getGroupById(groupId),
+      this.facade.getPlayersByGroupId(groupId),
+    ]);
+    if (!group) {
       this.clear();
       return false;
     }
 
     const byId = new Map(players.map((player) => [player.id, player]));
-    this.loadedFor = playerId;
+    this.loadedFor = key;
     this.group.set(group);
     this.role.set(membership.role);
-    this.me.set(byId.get(playerId) ?? null);
+    this.isOwner.set(membership.isOwner);
+    this.me.set(membership.playerId ? (byId.get(membership.playerId) ?? null) : null);
     this.owner.set(byId.get(group.ownerPlayerId) ?? null);
 
     return true;
@@ -79,6 +83,7 @@ export class CurrentGroupStore {
     this.loadedFor = null;
     this.group.set(null);
     this.role.set(null);
+    this.isOwner.set(false);
     this.owner.set(null);
     this.me.set(null);
   }
