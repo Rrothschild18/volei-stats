@@ -109,15 +109,76 @@ create index group_members_player_idx on group_members (player_id);
 -- Reutilizável de propósito: um link no grupo do WhatsApp serve pra todos, e
 -- a mesma pessoa usa no celular e no tablet.
 -- -----------------------------------------------------------------------------
+/**
+ * Um código curto que dá para ditar no telefone.
+ *
+ * O alfabeto tira O/0 e I/1: o código nasce para ser lido em voz alta e
+ * digitado errado. São 32 símbolos em 6 casas, ~1 bilhão de combinações — e é
+ * a entropia, não a trava de tentativas, que torna adivinhar inútil (ver
+ * redeem_invite_code).
+ */
+create or replace function new_invite_code()
+returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  candidate text;
+begin
+  loop
+    candidate := '';
+    for _ in 1..6 loop
+      candidate := candidate || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
+    end loop;
+    exit when not exists (select 1 from invites where code = candidate);
+  end loop;
+  return candidate;
+end $$;
+
 create table invites (
   token      uuid primary key default gen_random_uuid(),
   group_id   uuid not null references groups(id) on delete cascade,
+  -- O que a pessoa digita. O gerado tem 6 casas; o dono pode trocar por um
+  -- escolhido, mais longo ("TESTE-VOLEI"), desde que ninguém mais o use.
+  code       text not null unique default new_invite_code()
+               constraint invites_code_shape check (code ~ '^[A-Z0-9][A-Z0-9-]{2,23}$'),
   label      text,
   expires_at timestamptz,
   revoked_at timestamptz,
   created_at timestamptz not null default now()
 );
 create index invites_group_idx on invites (group_id);
+
+-- O código é comparado como foi guardado, e é guardado de um jeito só: sem
+-- espaço nas pontas e em maiúsculas. Assim "teste-volei " entra.
+create or replace function normalize_invite_code()
+returns trigger
+language plpgsql set search_path = public as $$
+begin
+  new.code := upper(trim(new.code));
+  return new;
+end $$;
+
+create trigger invites_normalize_code
+  before insert or update of code on invites
+  for each row execute function normalize_invite_code();
+
+-- -----------------------------------------------------------------------------
+-- Tentativas de resgatar um convite por código.
+--
+-- Serve para barrar um laço bobo varrendo códigos. É honestamente uma segunda
+-- linha: a sessão anônima nova é grátis, então a trava por sessão se contorna.
+-- O que de fato protege é o tamanho do espaço de códigos — e o fato de que
+-- acertar um só rende VISITANTE, nunca identidade (essa exige nome + data).
+-- -----------------------------------------------------------------------------
+create table invite_redeem_attempts (
+  id             bigserial primary key,
+  user_id        uuid references auth.users(id) on delete set null,
+  attempted_code text not null,
+  succeeded      boolean not null,
+  attempted_at   timestamptz not null default now()
+);
+create index invite_redeem_attempts_rate_idx
+  on invite_redeem_attempts (user_id, attempted_at desc);
 
 -- -----------------------------------------------------------------------------
 -- Tentativas de se reconhecer por nome + data.
@@ -494,12 +555,13 @@ create or replace function create_group(
   p_owner_birth_date   date,
   p_initial_birth_date date
 )
-returns table (group_id uuid, player_id uuid, invite_token uuid)
+returns table (group_id uuid, player_id uuid, invite_token uuid, invite_code text)
 language plpgsql security definer set search_path = public as $$
 declare
   new_group  uuid;
   new_player uuid;
   new_token  uuid;
+  new_code   text;
 begin
   if auth.uid() is null then
     raise exception 'É preciso uma sessão para criar um vôlei' using errcode = '28000';
@@ -530,9 +592,9 @@ begin
   values (new_group, auth.uid(), new_player, 'player');
 
   insert into invites (group_id, label) values (new_group, 'Link do vôlei')
-  returning invites.token into new_token;
+  returning invites.token, invites.code into new_token, new_code;
 
-  return query select new_group, new_player, new_token;
+  return query select new_group, new_player, new_token, new_code;
 end $$;
 
 /**
@@ -568,6 +630,32 @@ end $$;
 revoke execute on function enter_group(uuid) from public, anon, authenticated;
 
 /**
+ * O que acontece depois de achar o convite, seja pelo link ou pelo código.
+ *
+ * ⚠️ INTERNA, por um motivo diferente de enter_group(): ela recebe a LINHA do
+ * convite, e um composto de `invites` carrega o token. Deixá-la aberta daria
+ * ao cliente um jeito de passar uma linha inventada.
+ */
+create or replace function accept_invite(inv invites)
+returns table (group_id uuid, group_name text)
+language plpgsql security definer set search_path = public as $$
+begin
+  if inv.revoked_at is not null then
+    raise exception 'Este convite foi cancelado' using errcode = 'P0001';
+  end if;
+  if inv.expires_at is not null and inv.expires_at < now() then
+    raise exception 'Este convite expirou' using errcode = 'P0001';
+  end if;
+
+  perform enter_group(inv.group_id);
+
+  -- Devolve só o que a tela precisa: nada de composto de `groups`.
+  return query select g.id, g.name from groups g where g.id = inv.group_id;
+end $$;
+
+revoke execute on function accept_invite(invites) from public, anon, authenticated;
+
+/**
  * Link de convite: autoriza entrar no vôlei, e nada mais.
  *
  * Não cria jogador nem concede identidade — quem a pessoa é, ela diz em
@@ -586,17 +674,48 @@ begin
   if not found then
     raise exception 'Convite inválido' using errcode = 'P0002';
   end if;
-  if inv.revoked_at is not null then
-    raise exception 'Este convite foi cancelado' using errcode = 'P0001';
-  end if;
-  if inv.expires_at is not null and inv.expires_at < now() then
-    raise exception 'Este convite expirou' using errcode = 'P0001';
+
+  return query select * from accept_invite(inv);
+end $$;
+
+/**
+ * O mesmo convite, digitado em vez de clicado.
+ *
+ * A mensagem de "não existe" é a mesma do link: o código não diz se há um
+ * vôlei do outro lado.
+ */
+create or replace function redeem_invite_code(p_code text)
+returns table (group_id uuid, group_name text)
+language plpgsql security definer set search_path = public as $$
+declare
+  inv             invites;
+  recent_failures int;
+  wanted          text := upper(trim(coalesce(p_code, '')));
+begin
+  if auth.uid() is null then
+    raise exception 'É preciso uma sessão para usar o convite' using errcode = '28000';
   end if;
 
-  perform enter_group(inv.group_id);
+  select count(*) into recent_failures
+  from invite_redeem_attempts
+  where user_id = auth.uid()
+    and not succeeded
+    and attempted_at > now() - interval '15 minutes';
 
-  -- Devolve só o que a tela precisa: nada de composto de `groups`.
-  return query select g.id, g.name from groups g where g.id = inv.group_id;
+  if recent_failures >= 10 then
+    raise exception 'Muitas tentativas. Espere alguns minutos.' using errcode = 'P0001';
+  end if;
+
+  select * into inv from invites where code = wanted;
+
+  insert into invite_redeem_attempts (user_id, attempted_code, succeeded)
+  values (auth.uid(), wanted, inv.token is not null);
+
+  if inv.token is null then
+    raise exception 'Código inválido' using errcode = 'P0002';
+  end if;
+
+  return query select * from accept_invite(inv);
 end $$;
 
 /**
@@ -769,6 +888,7 @@ alter table groups                      enable row level security;
 alter table group_members               enable row level security;
 alter table invites                     enable row level security;
 alter table player_claim_attempts       enable row level security;
+alter table invite_redeem_attempts      enable row level security;
 alter table players                     enable row level security;
 alter table sessions                    enable row level security;
 alter table session_players             enable row level security;
@@ -854,6 +974,10 @@ create policy group_members_write_owner on group_members
 -- A escrita acontece dentro de claim_player(), que é security definer.
 create policy claim_attempts_owner_only on player_claim_attempts
   for select to authenticated using (is_group_owner(group_id));
+
+-- Tentativas de resgate por código: ninguém lê pelo cliente. Não tem política
+-- de propósito — não é informação de ninguém, e saber quais códigos foram
+-- tentados é justamente o que não se quer dar.
 
 -- Convites: SÓ o dono enxerga. Quem recebe o link usa redeem_invite(), que
 -- roda como security definer e não precisa de leitura na tabela.
