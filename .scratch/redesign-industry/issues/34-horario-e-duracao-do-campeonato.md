@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately). Ver a nota sobre o ticket 33 abaixo.
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Os dois carimbos já existem
 
@@ -32,10 +32,10 @@ E `formatTime()` já existe para escrever `20:08`.
 
 Hoje a fila oferece a final **antes** da disputa de 3º, então "até a final" exclui o último jogo que realmente aconteceu — a duração sai curta. Com o ticket 33 a final volta a ser o último jogo, e aí "até a final" e "até o fim" passam a ser a mesma coisa. Este ticket pode ser feito antes; só é preciso saber que o número fica certo de verdade depois do 33.
 
-- [ ] A sessão do dia mostra, por campeonato, a hora de início e a duração
-- [ ] O histórico de dias anteriores mostra o mesmo
-- [ ] A classificação de um campeonato encerrado traz início e duração
-- [ ] Campeonato em andamento mostra o início e há quanto tempo está rolando
-- [ ] Campeonato que nunca teve final diz isso, e não mostra duração
-- [ ] A duração não muda quando um placar é corrigido depois
-- [ ] O cenário de demonstração tem horários plausíveis, para a metade sem banco poder testar isto
+- [x] A sessão do dia mostra, por campeonato, a hora de início e a duração
+- [x] O histórico de dias anteriores mostra o mesmo
+- [x] A classificação de um campeonato encerrado traz início e duração
+- [x] Campeonato em andamento mostra o início e há quanto tempo está rolando
+- [x] Campeonato que nunca teve final diz isso, e não mostra duração
+- [x] A duração não muda quando um placar é corrigido depois
+- [x] O cenário de demonstração tem horários plausíveis, para a metade sem banco poder testar isto

@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## O que está errado
 
@@ -45,17 +45,17 @@ Quatro das cinco linhas estão erradas, e continuam erradas para sempre. A causa
 
 Hoje ela usa `tag-neutral`, o mesmo cinza de "fora" e de "desfeita no encaixe". A paleta já tem `--color-danger-*`, e sair do campeonato antes de jogar de novo é a informação mais dura da tela.
 
-### 4. A conferir com quem relatou
+### 4. A conferir com quem relatou (NÃO reproduzido)
 
 Foi relatado que a chave chega a dizer que **falta um jogo para a final quando a final já aconteceu**. Com 5 duplas isso não se reproduziu: encerrado, a escada diz "4 de 4 jogos" e a final aparece como jogada. Pode ser o sintoma 1 visto da cadeira de quem foi eliminado — ou outro formato. Confirmar o número de duplas e se havia disputa de 3º antes de fechar este item.
 
 Durante a reprodução apareceu também um erro de concordância: **"Faltam 1 vitórias para o título"**.
 
-- [ ] A chave mostra a vaga já decidida: um lado com a dupla, o outro "aguarda", em vez de dois "VENCEDOR"
-- [ ] Quem se classificou direto é avisado de que está na final, como quem vai jogar a próxima
-- [ ] Vale para 3, 5, 6 e 7 duplas, com e sem encaixe do avulso
-- [ ] Perder uma partida marca a dupla como fora, e a aba Duplas diz de que jogo ela saiu
-- [ ] Campeã e vice aparecem como tais, não como "em jogo"
-- [ ] A etiqueta de eliminação direta usa o vermelho da paleta
-- [ ] "Falta 1 vitória", no singular
-- [ ] Teste de unidade do chaveamento cobrindo a vaga meio decidida, e teste de ponta a ponta percorrendo as cinco duplas até o fim
+- [x] A chave mostra a vaga já decidida: um lado com a dupla, o outro "aguarda", em vez de dois "VENCEDOR"
+- [x] Quem se classificou direto é avisado de que está na final, como quem vai jogar a próxima
+- [x] Vale para 3, 5, 6 e 7 duplas, com e sem encaixe do avulso
+- [x] Perder uma partida marca a dupla como fora, e a aba Duplas diz de que jogo ela saiu
+- [x] Campeã e vice aparecem como tais, não como "em jogo"
+- [x] A etiqueta de eliminação direta usa o vermelho da paleta
+- [x] "Falta 1 vitória", no singular
+- [x] Teste de unidade do chaveamento cobrindo a vaga meio decidida, e teste de ponta a ponta percorrendo as cinco duplas até o fim

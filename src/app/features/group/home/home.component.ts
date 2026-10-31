@@ -7,6 +7,7 @@ import { SessionStore } from '../../../core/stores/session.store';
 import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
 import { StatisticsService } from '../../../core/services/statistics.service';
 import { BracketMatch } from '../../../core/services/tournament.service';
+import { phaseLabel } from '../../../core/rules/bracket-phases';
 import { formatShortDate, todayDateString } from '../../../shared/utils/date.util';
 import {
   BlueprintComponent,
@@ -284,6 +285,16 @@ export class HomeComponent implements OnInit {
    */
   private readonly myBracket = computed(() => this.liveStore.myMatch());
 
+  /**
+   * A minha vaga quando ela já é um JOGO. A vaga pela metade — eu classificado,
+   * adversário ainda indefinido — não serve para lançar placar nem para montar
+   * a quadra, mas serve para me avisar, e é isso que `heroKicker` faz com ela.
+   */
+  private readonly myPlayableBracket = computed(() => {
+    const slot = this.myBracket();
+    return slot && slot.teamBId !== null ? { ...slot, teamBId: slot.teamBId } : null;
+  });
+
   protected readonly title = computed(() => (this.myBracket() ? 'SEU JOGO' : 'INÍCIO'));
 
   /** Quem joga vê o jogo dele; quem não joga vê o que está em quadra. */
@@ -291,12 +302,19 @@ export class HomeComponent implements OnInit {
     if (this.liveStore.paused()) {
       return null;
     }
-    return this.myBracket() ?? this.liveStore.currentMatch();
+    return this.myPlayableBracket() ?? this.liveStore.currentMatch();
   });
 
   protected readonly heroKicker = computed(() => {
-    if (!this.myBracket()) {
+    const minha = this.myBracket();
+    if (!minha) {
       return 'AGORA EM QUADRA';
+    }
+
+    // Classificado e esperando adversário: antes isto não existia, e quem
+    // vencia por mais pontos via "AGORA EM QUADRA" como quem está de fora.
+    if (minha.teamBId === null) {
+      return `VOCÊ ESTÁ NA ${phaseLabel(minha.phase).toUpperCase()}`;
     }
 
     const bracket = this.currentMatch();

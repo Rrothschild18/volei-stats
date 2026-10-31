@@ -18,6 +18,28 @@ export interface BracketMatch {
   teamBId: string;
 }
 
+/**
+ * Uma vaga da chave. Pode estar só pela METADE.
+ *
+ * `teamBId` nulo é uma vaga reservada: alguém já se classificou e o adversário
+ * ainda não existe. É o caso da dupla que vence por mais pontos e vai direto à
+ * final — a informação existe no instante em que a rodada 1 fecha, e antes
+ * disto ela simplesmente não era publicada: a chave desenhava os dois lados
+ * vazios, e quem se classificou via a tela de quem está assistindo.
+ *
+ * A fila do que dá para JOGAR continua sendo só de vagas inteiras.
+ */
+export interface BracketSlot {
+  phase: MatchPhase;
+  teamAId: string;
+  teamBId: string | null;
+}
+
+/** Uma vaga inteira é uma partida que dá para jogar agora. */
+function jogavel(slot: BracketSlot): slot is BracketMatch {
+  return slot.teamBId !== null;
+}
+
 export const TOURNAMENT_NAMES = [
   'Escola Raul de forehand',
   'Escola vitoria tira casaco',
@@ -275,7 +297,20 @@ export class TournamentService {
     return this.facade.saveTournament(tournament);
   }
 
+  /**
+   * O que dá para JOGAR agora: só vagas inteiras.
+   *
+   * As vagas pela metade — alguém classificado esperando adversário — ficam de
+   * fora daqui de propósito: elas não são partida, e quem lê esta lista está
+   * perguntando "qual é o próximo jogo?". Quem quer desenhar a chave pergunta
+   * a `getNextSlots`.
+   */
   async getNextMatches(tournament: Tournament): Promise<BracketMatch[]> {
+    return (await this.getNextSlots(tournament)).filter(jogavel);
+  }
+
+  /** As vagas da chave, inteiras e pela metade. */
+  async getNextSlots(tournament: Tournament): Promise<BracketSlot[]> {
     this.normalizeTournament(tournament);
     const matches = await this.facade.getMatchesByTournamentId(tournament.id);
     const completedMatches = matches.filter((match) => match.winnerId !== null);
@@ -592,7 +627,7 @@ export class TournamentService {
     return { placementSource, directElimination };
   }
 
-  private getNextOdd3Team(tournament: Tournament, completed: Match[]): BracketMatch[] {
+  private getNextOdd3Team(tournament: Tournament, completed: Match[]): BracketSlot[] {
     const round1 = completed.filter((match) => match.phase === 'round-1');
     if (round1.length !== 1 || !tournament.oddPlayerPlacement) {
       return [];
@@ -618,7 +653,7 @@ export class TournamentService {
     return [];
   }
 
-  private getNextOdd4Team(tournament: Tournament, completed: Match[]): BracketMatch[] {
+  private getNextOdd4Team(tournament: Tournament, completed: Match[]): BracketSlot[] {
     const round1 = completed.filter((match) => match.phase === 'round-1');
     if (round1.length !== 2 || !tournament.oddPlayerPlacement) {
       return [];
@@ -650,7 +685,7 @@ export class TournamentService {
     return [];
   }
 
-  private getNextOdd5Team(tournament: Tournament, completed: Match[]): BracketMatch[] {
+  private getNextOdd5Team(tournament: Tournament, completed: Match[]): BracketSlot[] {
     const round1 = completed.filter((match) => match.phase === 'round-1');
     if (round1.length !== 2 || !tournament.oddPlayerPlacement) {
       return [];
@@ -670,15 +705,19 @@ export class TournamentService {
           teamAId: tournament.oddPlayerPlacement.encaixeTeamId,
           teamBId: byeTeam.id,
         },
+        ...this.vagaNaFinal(directToFinal, completed),
       ];
     }
 
     if (semifinalSeed && semiBye.length === 1 && semis.length === 0) {
-      return [{ phase: 'semifinal', teamAId: semifinalSeed, teamBId: semiBye[0].winnerId! }];
+      return [
+        { phase: 'semifinal', teamAId: semifinalSeed, teamBId: semiBye[0].winnerId! },
+        ...this.vagaNaFinal(directToFinal, completed),
+      ];
     }
 
     if (directToFinal && semis.length === 1) {
-      const next: BracketMatch[] = [];
+      const next: BracketSlot[] = [];
 
       if (!completed.some((match) => match.phase === 'final')) {
         next.push({ phase: 'final', teamAId: directToFinal, teamBId: semis[0].winnerId! });
@@ -701,7 +740,7 @@ export class TournamentService {
 
     return [];
   }
-  private getNext3Team(tournament: Tournament, completed: Match[]): BracketMatch[] {
+  private getNext3Team(tournament: Tournament, completed: Match[]): BracketSlot[] {
     const round1 = completed.filter((match) => match.phase === 'round-1');
     if (round1.length !== 1) {
       return [];
@@ -713,7 +752,10 @@ export class TournamentService {
     const repechage = completed.filter((match) => match.phase === 'semifinal');
 
     if (byeTeam && round1[0].loserId && repechage.length === 0) {
-      return [{ phase: 'semifinal', teamAId: round1[0].loserId, teamBId: byeTeam.id }];
+      return [
+        { phase: 'semifinal', teamAId: round1[0].loserId, teamBId: byeTeam.id },
+        ...this.vagaNaFinal(round1[0].winnerId ?? undefined, completed),
+      ];
     }
 
     if (
@@ -740,10 +782,10 @@ export class TournamentService {
     );
   }
 
-  private getNext4Team(tournament: Tournament, completed: Match[]): BracketMatch[] {
+  private getNext4Team(tournament: Tournament, completed: Match[]): BracketSlot[] {
     const semis = completed.filter((match) => match.phase === 'semifinal');
     if (semis.length === 2) {
-      const next: BracketMatch[] = [];
+      const next: BracketSlot[] = [];
       if (!completed.some((match) => match.phase === 'final')) {
         next.push({ phase: 'final', teamAId: semis[0].winnerId!, teamBId: semis[1].winnerId! });
       }
@@ -758,7 +800,7 @@ export class TournamentService {
     return [];
   }
 
-  private getNext5Team(tournament: Tournament, completed: Match[]): BracketMatch[] {
+  private getNext5Team(tournament: Tournament, completed: Match[]): BracketSlot[] {
     const round1 = completed.filter((match) => match.phase === 'round-1');
 
     if (round1.length === 2) {
@@ -772,12 +814,15 @@ export class TournamentService {
       );
 
       if (byeTeam && !completed.some((match) => match.phase === 'semifinal-bye')) {
-        return [{ phase: 'semifinal-bye', teamAId: smallerDiffWinner, teamBId: byeTeam.id }];
+        return [
+          { phase: 'semifinal-bye', teamAId: smallerDiffWinner, teamBId: byeTeam.id },
+          ...this.vagaNaFinal(directToFinal, completed),
+        ];
       }
 
       const semiBye = completed.filter((match) => match.phase === 'semifinal-bye');
       if (semiBye.length === 1) {
-        const next: BracketMatch[] = [];
+        const next: BracketSlot[] = [];
 
         if (!completed.some((match) => match.phase === 'final')) {
           next.push({ phase: 'final', teamAId: directToFinal, teamBId: semiBye[0].winnerId! });
@@ -797,7 +842,7 @@ export class TournamentService {
     return [];
   }
 
-  private getNext6Team(tournament: Tournament, completed: Match[]): BracketMatch[] {
+  private getNext6Team(tournament: Tournament, completed: Match[]): BracketSlot[] {
     const round1 = completed.filter((match) => match.phase === 'round-1');
 
     if (round1.length === 3) {
@@ -805,12 +850,15 @@ export class TournamentService {
       const losers = this.getRound1LosersByDiff(round1, tournament);
 
       if (!completed.some((match) => match.phase === 'semifinal')) {
-        return [{ phase: 'semifinal', teamAId: winners[1].id, teamBId: winners[2].id }];
+        return [
+          { phase: 'semifinal', teamAId: winners[1].id, teamBId: winners[2].id },
+          ...this.vagaNaFinal(winners[0]?.id, completed),
+        ];
       }
 
       const semis = completed.filter((match) => match.phase === 'semifinal');
       if (semis.length === 1) {
-        const next: BracketMatch[] = [];
+        const next: BracketSlot[] = [];
 
         if (!completed.some((match) => match.phase === 'final')) {
           next.push({ phase: 'final', teamAId: winners[0].id, teamBId: semis[0].winnerId! });
@@ -830,7 +878,7 @@ export class TournamentService {
     return [];
   }
 
-  private getNext7Team(tournament: Tournament, completed: Match[]): BracketMatch[] {
+  private getNext7Team(tournament: Tournament, completed: Match[]): BracketSlot[] {
     const round1 = completed.filter((match) => match.phase === 'round-1');
 
     if (round1.length === 3) {
@@ -840,17 +888,23 @@ export class TournamentService {
       );
 
       if (byeTeam && !completed.some((match) => match.phase === 'semifinal-bye')) {
-        return [{ phase: 'semifinal-bye', teamAId: winners[1].id, teamBId: byeTeam.id }];
+        return [
+          { phase: 'semifinal-bye', teamAId: winners[1].id, teamBId: byeTeam.id },
+          ...this.vagaNaFinal(winners[0]?.id, completed),
+        ];
       }
 
       const semiBye = completed.filter((match) => match.phase === 'semifinal-bye');
       if (semiBye.length === 1 && !completed.some((match) => match.phase === 'semifinal')) {
-        return [{ phase: 'semifinal', teamAId: semiBye[0].winnerId!, teamBId: winners[2].id }];
+        return [
+          { phase: 'semifinal', teamAId: semiBye[0].winnerId!, teamBId: winners[2].id },
+          ...this.vagaNaFinal(winners[0]?.id, completed),
+        ];
       }
 
       const semis = completed.filter((match) => match.phase === 'semifinal');
       if (semiBye.length === 1 && semis.length === 1) {
-        const next: BracketMatch[] = [];
+        const next: BracketSlot[] = [];
 
         if (!completed.some((match) => match.phase === 'final')) {
           next.push({ phase: 'final', teamAId: winners[0].id, teamBId: semis[0].winnerId! });
@@ -909,7 +963,22 @@ export class TournamentService {
    * lembrar da regra: ela se aplica sozinha. A ordenação é estável, então as
    * outras fases mantêm a ordem em que o chaveamento as gerou.
    */
-  private finalLast(next: BracketMatch[]): BracketMatch[] {
+  /**
+   * A vaga que a dupla já tem na final, enquanto o adversário não existe.
+   *
+   * Publicar isto é o ponto: a informação está decidida desde que a rodada 1
+   * fecha, e sem ela a chave desenhava "VENCEDOR × VENCEDOR" numa final que já
+   * tinha dono de um dos lados — e quem se classificou via a tela de quem está
+   * assistindo, sem saber que ia jogar.
+   */
+  private vagaNaFinal(teamId: string | undefined, completed: Match[]): BracketSlot[] {
+    if (!teamId || completed.some((match) => match.phase === 'final')) {
+      return [];
+    }
+    return [{ phase: 'final', teamAId: teamId, teamBId: null }];
+  }
+
+  private finalLast(next: BracketSlot[]): BracketSlot[] {
     return [...next].sort((a, b) => Number(a.phase === 'final') - Number(b.phase === 'final'));
   }
 

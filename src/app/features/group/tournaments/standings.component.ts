@@ -5,6 +5,8 @@ import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { TournamentPriorityEntry } from '../../../shared/models';
+import { formatTime } from '../../../shared/utils/date.util';
+import { formatDuration, tournamentTiming } from '../../../core/rules/tournament-timing';
 import {
   ActionBarComponent,
   BlueprintComponent,
@@ -80,6 +82,8 @@ interface StandingRow {
           </p>
         </app-hero-field>
       }
+
+      <p class="text-[13px] tnum muted">{{ timing() }}</p>
 
       <section>
         <table class="w-full border-collapse">
@@ -389,6 +393,27 @@ export class StandingsComponent implements OnInit {
     await this.facade.deleteTournament(this.tournamentId());
     void this.router.navigate(['/g', this.group.groupId(), 'campeonatos']);
   }
+
+  /** "Começou 20:08 · durou 48 min". */
+  protected readonly timing = computed(() => {
+    const tournament = this.store.tournament();
+    if (!tournament) {
+      return '';
+    }
+
+    const t = tournamentTiming(
+      tournament.createdAt,
+      this.store.matches(),
+      new Date().toISOString(),
+    );
+    if (t.finished && t.minutes !== null) {
+      return `Começou ${formatTime(t.startedAt)} · durou ${formatDuration(t.minutes)}`;
+    }
+    if (t.abandoned) {
+      return `Começou ${formatTime(t.startedAt)} · não terminou`;
+    }
+    return `Começou ${formatTime(t.startedAt)} · ainda rolando`;
+  });
 
   /**
    * Volta para a lista de partidas do campeonato.

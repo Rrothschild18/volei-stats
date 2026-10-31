@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { AppFacade } from '../facade/app.facade';
-import { BracketMatch, TournamentService } from '../services/tournament.service';
+import { BracketMatch, BracketSlot, TournamentService } from '../services/tournament.service';
 import { CurrentGroupStore } from './current-group.store';
 import { findFormat } from '../rules/tournament-formats';
 import { phaseLabel, plannedPhases } from '../rules/bracket-phases';
@@ -67,6 +67,12 @@ export class LiveTournamentStore {
   readonly tournament = signal<Tournament | null>(null);
   readonly matches = signal<readonly Match[]>([]);
   readonly pending = signal<readonly BracketMatch[]>([]);
+  /**
+   * As vagas da chave, incluindo as pela METADE — quem já se classificou e
+   * espera adversário. A fila do que dá para jogar (`pending`) só tem vagas
+   * inteiras; a escada desenha as duas coisas.
+   */
+  readonly slots = signal<readonly BracketSlot[]>([]);
   readonly players = signal<readonly Player[]>([]);
   readonly loading = signal(false);
 
@@ -112,8 +118,8 @@ export class LiveTournamentStore {
   readonly myMatch = computed(() => {
     const playerId = this.group.playerId();
     return (
-      this.pending().find((match) =>
-        [match.teamAId, match.teamBId].some((teamId) => this.teamHas(teamId, playerId)),
+      this.slots().find((slot) =>
+        [slot.teamAId, slot.teamBId].some((teamId) => this.teamHas(teamId, playerId)),
       ) ?? null
     );
   });
@@ -158,6 +164,7 @@ export class LiveTournamentStore {
       this.matches.set(matches);
       this.players.set(players);
       this.pending.set(await this.resolvePending(tournament));
+      this.slots.set(await this.resolveSlots(tournament));
     } finally {
       this.loading.set(false);
     }
@@ -169,6 +176,15 @@ export class LiveTournamentStore {
    */
   private async resolvePending(tournament: Tournament): Promise<BracketMatch[]> {
     return this.tournaments.getPendingMatches(tournament);
+  }
+
+  /** O mesmo que a fila, mais as vagas já reservadas por quem se classificou. */
+  private async resolveSlots(tournament: Tournament): Promise<BracketSlot[]> {
+    const inicial = this.tournaments
+      .generateInitialMatches(tournament)
+      .filter((bracket) => !this.findSavedMatch(bracket));
+
+    return [...inicial, ...(await this.tournaments.getNextSlots(tournament))];
   }
 
   async reload(): Promise<void> {
@@ -376,7 +392,6 @@ export class LiveTournamentStore {
 
     const steps: LadderStep[] = [];
     const played = this.completedMatches();
-    const pending = this.pending();
 
     for (const match of played) {
       steps.push({
@@ -388,18 +403,25 @@ export class LiveTournamentStore {
       });
     }
 
-    pending.forEach((bracket, index) => {
+    // A escada desenha as VAGAS, não só a fila: a vaga pela metade — "RAFA +
+    // BIA × aguarda" — é a que estava faltando, e é ela que conta a quem já se
+    // classificou que ele está na final.
+    const slots = this.slots();
+    slots.forEach((slot, index) => {
       steps.push({
-        phase: bracket.phase,
-        phaseLabel: phaseLabel(bracket.phase),
-        state: index === 0 ? 'now' : 'next',
-        a: this.side(bracket.teamAId, null, this.outcomeNote(bracket.teamAId)),
-        b: this.side(bracket.teamBId, null, this.outcomeNote(bracket.teamBId)),
+        phase: slot.phase,
+        phaseLabel: phaseLabel(slot.phase),
+        state: slot.teamBId === null ? 'later' : index === 0 ? 'now' : 'next',
+        a: this.side(slot.teamAId, null, this.outcomeNote(slot.teamAId)),
+        b:
+          slot.teamBId === null
+            ? this.waitingSide()
+            : this.side(slot.teamBId, null, this.outcomeNote(slot.teamBId)),
       });
     });
 
     // Degraus que o formato ainda prevê e que nem vaga têm: "VENCEDOR".
-    const remaining = this.remainingPhases(format, [...played, ...pending]);
+    const remaining = this.remainingPhases(format, [...played, ...slots]);
     for (const phase of remaining) {
       steps.push({
         phase,
@@ -448,6 +470,11 @@ export class LiveTournamentStore {
 
   private emptySide(): LadderSide {
     return { teamId: null, label: UNDEFINED_SLOT, note: null, score: null, isMine: false };
+  }
+
+  /** O lado de uma vaga pela metade: alguém já está ali, falta o adversário. */
+  private waitingSide(): LadderSide {
+    return { teamId: null, label: 'aguarda', note: null, score: null, isMine: false };
   }
 
   /** "venceu por 2", "encaixe", "bye da rodada 1". */

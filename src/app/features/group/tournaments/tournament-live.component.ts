@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { TeamState, teamStates } from '../../../core/rules/team-state';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
 import { BracketMatch } from '../../../core/services/tournament.service';
@@ -345,7 +346,12 @@ export class TournamentLiveComponent implements OnInit {
     const partner = this.store.playerName(partnerId ?? null);
     const remaining = this.store.ladder().filter((step) => step.state !== 'done').length;
 
-    return `Você está com ${partner}. ${remaining === 0 ? 'Acabou.' : `Faltam ${remaining} vitórias para o título.`}`;
+    if (remaining === 0) {
+      return `Você está com ${partner}. Acabou.`;
+    }
+
+    const faltam = remaining === 1 ? 'Falta 1 vitória' : `Faltam ${remaining} vitórias`;
+    return `Você está com ${partner}. ${faltam} para o título.`;
   });
 
   protected readonly encaixeNote = computed(() => {
@@ -403,26 +409,33 @@ export class TournamentLiveComponent implements OnInit {
     }
 
     const placement = tournament.oddPlayerPlacement;
+    // O estado vem das PARTIDAS, não da marca guardada: `eliminated` só é
+    // escrito na eliminação direta e na dupla desfeita pelo encaixe, então
+    // perder um jogo não marcava nada e a aba dizia "em jogo" para a campeã.
+    const estados = teamStates(tournament.teams, this.store.matches(), placement);
+
+    const rotulos: Record<TeamState, { state: string; tagClass: string }> = {
+      campea: { state: 'campeã', tagClass: 'tag-accent' },
+      vice: { state: 'vice', tagClass: 'tag-neutral' },
+      // A informação mais dura da tela: sair antes de jogar de novo.
+      'eliminada-direto': { state: 'eliminada direto', tagClass: 'tag-danger' },
+      desfeita: { state: 'desfeita no encaixe', tagClass: 'tag-neutral' },
+      fora: { state: 'fora', tagClass: 'tag-neutral' },
+      'em-jogo': { state: 'em jogo', tagClass: 'tag-accent' },
+    };
 
     return tournament.teams.map((team) => {
-      let state = 'em jogo';
-      let tagClass = 'tag-accent';
+      const rotulo =
+        team.id === placement?.encaixeTeamId
+          ? { state: 'encaixe', tagClass: 'tag-accent' }
+          : rotulos[estados.get(team.id) ?? 'em-jogo'];
 
-      if (team.id === placement?.encaixeTeamId) {
-        state = 'encaixe';
-        tagClass = 'tag-accent';
-      } else if (team.id === placement?.sourceTeamId) {
-        state = 'desfeita no encaixe';
-        tagClass = 'tag-neutral';
-      } else if (team.eliminatedDirectly) {
-        state = 'eliminada direto';
-        tagClass = 'tag-neutral';
-      } else if (team.eliminated) {
-        state = 'fora';
-        tagClass = 'tag-neutral';
-      }
-
-      return { teamId: team.id, label: this.store.teamLabel(team.id), state, tagClass };
+      return {
+        teamId: team.id,
+        label: this.store.teamLabel(team.id),
+        state: rotulo.state,
+        tagClass: rotulo.tagClass,
+      };
     });
   });
 

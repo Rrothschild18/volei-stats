@@ -448,3 +448,58 @@ describe('TournamentService · a final fecha a noite', () => {
     expect(await service.isTournamentComplete(cincoDuplas(), jogadas)).toBe(true);
   });
 });
+
+/**
+ * A vaga que já tem dono de um lado.
+ *
+ * Antes disto a chave desenhava "VENCEDOR × VENCEDOR" numa final que já estava
+ * meio decidida, e quem se classificou direto via a tela de quem está
+ * assistindo — sem saber que ia jogar.
+ */
+describe('TournamentService · a vaga já reservada na final', () => {
+  const cinco = () =>
+    tournament({
+      formatId: 'knockout-5',
+      teams: [
+        team('ta', ['p1', 'p2']),
+        team('tb', ['p3', 'p4']),
+        team('tc', ['p5', 'p6']),
+        team('td', ['p7', 'p8']),
+        team('te', ['p9', 'p10']),
+      ],
+    });
+
+  const rodada1 = [
+    match('m1', 'round-1', 'ta', 'tb', 12, 6), // ta vence por 6
+    match('m2', 'round-1', 'tc', 'td', 12, 10), // tc vence por 2
+  ];
+
+  it('quem vence por mais pontos aparece na final, com o adversário em aberto', async () => {
+    const { service } = setup(rodada1);
+
+    const slots = await service.getNextSlots(cinco());
+
+    expect(slots).toEqual([
+      { phase: 'semifinal-bye', teamAId: 'tc', teamBId: 'te' },
+      { phase: 'final', teamAId: 'ta', teamBId: null },
+    ]);
+  });
+
+  it('mas ela não entra na fila do que dá para jogar', async () => {
+    const { service } = setup(rodada1);
+
+    const jogaveis = await service.getNextMatches(cinco());
+
+    expect(jogaveis).toEqual([{ phase: 'semifinal-bye', teamAId: 'tc', teamBId: 'te' }]);
+  });
+
+  it('e some quando a final de fato acontece', async () => {
+    const { service } = setup([
+      ...rodada1,
+      match('m3', 'semifinal-bye', 'tc', 'te', 12, 8),
+      match('m4', 'final', 'ta', 'tc', 12, 9),
+    ]);
+
+    expect(await service.getNextSlots(cinco())).toEqual([]);
+  });
+});

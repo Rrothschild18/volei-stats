@@ -7,7 +7,17 @@ import { SessionStore } from '../../../core/stores/session.store';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { phaseLabel } from '../../../core/rules/bracket-phases';
 import { Player, Session, Tournament } from '../../../shared/models';
-import { formatDayMonth, formatShortDate, todayDateString } from '../../../shared/utils/date.util';
+import {
+  formatDayMonth,
+  formatShortDate,
+  formatTime,
+  todayDateString,
+} from '../../../shared/utils/date.util';
+import {
+  formatDuration,
+  TournamentTiming,
+  tournamentTiming,
+} from '../../../core/rules/tournament-timing';
 import {
   ActionBarComponent,
   BlueprintComponent,
@@ -25,6 +35,8 @@ interface TodayRow {
   readonly live: boolean;
   readonly champions: boolean;
   readonly target: unknown[];
+  /** "20:08 · 48 min". */
+  readonly timing: string;
 }
 
 interface PastRow {
@@ -34,6 +46,18 @@ interface PastRow {
 }
 
 /** A aba Campeonatos: o dia de hoje e os dias anteriores (1d). */
+/** "20:08 · 48 min", "20:08 · rolando há 25 min", "20:08 · não terminou". */
+function describeTiming(timing: TournamentTiming): string {
+  const inicio = formatTime(timing.startedAt);
+  if (timing.finished && timing.minutes !== null) {
+    return `${inicio} · ${formatDuration(timing.minutes)}`;
+  }
+  if (timing.abandoned) {
+    return `${inicio} · não terminou`;
+  }
+  return `${inicio} · rolando há ${formatDuration(timing.minutes ?? 0)}`;
+}
+
 @Component({
   selector: 'app-tournament-list',
   imports: [
@@ -111,6 +135,7 @@ interface PastRow {
                       }
                       {{ row.detail }}
                     </span>
+                    <span class="block text-[12px] tnum muted">{{ row.timing }}</span>
                   </span>
                   <app-icon name="chevron-right" [size]="18" class="muted" />
                 </button>
@@ -225,6 +250,7 @@ export class TournamentListComponent implements OnInit {
 
     const groupId = this.group.groupId();
     const rows: TodayRow[] = [];
+    const agora = new Date().toISOString();
     const names = new Map(this.allPlayers().map((player) => [player.id, player.name]));
 
     this.sessionStore
@@ -248,14 +274,23 @@ export class TournamentListComponent implements OnInit {
               : 'Finalizado',
           live,
           champions: !live && !!championTeam,
+          timing: describeTiming(
+            tournamentTiming(tournament.createdAt, this.sessionStore.matches(), agora),
+          ),
           target: live
             ? ['/g', groupId, 'campeonatos', tournament.id]
             : ['/g', groupId, 'campeonatos', tournament.id, 'classificacao'],
         });
       });
 
-    // O mais recente primeiro, com a sessão sempre no topo.
-    return [rows[0], ...rows.slice(1).reverse()];
+    // O mais recente primeiro. A numeração (01, 02) segue a ordem em que foram
+    // jogados, então ela não se inverte junto.
+    //
+    // Isto já foi `[rows[0], ...rows.slice(1).reverse()]`, de quando a sessão
+    // do dia era a primeira linha desta lista e precisava ficar presa no topo.
+    // Depois que ela virou um card à parte, a sessão sem campeonato nenhum
+    // devolvia `[undefined]` — e a tela estourava no `track`.
+    return rows.reverse();
   });
 
   protected readonly pastRows = computed<PastRow[]>(() => {
