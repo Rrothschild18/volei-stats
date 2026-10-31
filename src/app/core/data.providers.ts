@@ -1,7 +1,8 @@
 import { EnvironmentProviders, makeEnvironmentProviders } from '@angular/core';
 import { environment } from '../../environments/environment';
-import { IdentityService } from './identity';
+import { IdentityService, MembershipService } from './identity';
 import { SupabaseIdentityService } from './identity/supabase-identity.service';
+import { SupabaseMembershipService } from './identity/supabase-membership.service';
 import { provideDemoData } from './mock/mock-data.providers';
 import {
   DrawRepository,
@@ -39,5 +40,6 @@ export function provideSupabaseData(): EnvironmentProviders {
     { provide: TournamentRepository, useClass: SupabaseTournamentRepository },
     { provide: MatchRepository, useClass: SupabaseMatchRepository },
     { provide: IdentityService, useClass: SupabaseIdentityService },
+    { provide: MembershipService, useClass: SupabaseMembershipService },
   ]);
 }

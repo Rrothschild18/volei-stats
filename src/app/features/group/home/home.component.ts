@@ -60,6 +60,27 @@ interface Shortcut {
     </app-root-header>
 
     <div class="flex flex-col gap-5 pb-6">
+      @if (!group.canPlay()) {
+        <!--
+          Visitante: entrou pelo código e ainda não disse quem é. Ele lê tudo e
+          não escreve nada — inclusive não aparece na presença. Então a primeira
+          coisa na tela é o caminho de resolver isso.
+        -->
+        <app-blueprint class="mx-4 mt-4 p-4">
+          <p class="kicker">VOCÊ ESTÁ SÓ OLHANDO</p>
+          <h2 class="mt-1 font-heading text-[22px] leading-none font-semibold uppercase">
+            Diga quem você é
+          </h2>
+          <p class="mt-2 text-[13px] muted">
+            Enquanto não disser, você não entra na presença nem lança placar. Toque no seu nome e
+            use a data que o grupo combinou.
+          </p>
+          <button type="button" class="btn btn-primary mt-3 min-h-12 w-full" (click)="claim()">
+            SOU UM DELES
+          </button>
+        </app-blueprint>
+      }
+
       @if (!sessionStore.session()) {
         <app-hero-field class="mt-4" kicker="HOJE">
           <p class="font-heading text-[28px] leading-none font-semibold uppercase">
@@ -476,6 +497,10 @@ export class HomeComponent implements OnInit {
     if (live) {
       this.go(['campeonatos', live.id]);
     }
+  }
+
+  protected claim(): void {
+    this.go(['sou-quem']);
   }
 
   protected openProfile(): void {

@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AppFacade } from '../../../core/facade/app.facade';
+import { MembershipService } from '../../../core/identity';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { StatisticsService } from '../../../core/services/statistics.service';
 import { phaseLabel } from '../../../core/rules/bracket-phases';
@@ -9,6 +10,7 @@ import { formatDayMonthFromIso, formatTime } from '../../../shared/utils/date.ut
 import {
   BlueprintComponent,
   IconComponent,
+  InlineNoteComponent,
   InnerHeaderComponent,
   SectionBandComponent,
 } from '../../../shared/ui';
@@ -27,7 +29,13 @@ interface RecentMatch {
 /** Perfil do jogador: os números dele, os parceiros e as últimas partidas (1z). */
 @Component({
   selector: 'app-player-detail',
-  imports: [BlueprintComponent, IconComponent, InnerHeaderComponent, SectionBandComponent],
+  imports: [
+    BlueprintComponent,
+    IconComponent,
+    InlineNoteComponent,
+    InnerHeaderComponent,
+    SectionBandComponent,
+  ],
   template: `
     <app-inner-header context="JOGADORES" [title]="player()?.name ?? ''" (back)="back()">
       @if (group.isOwner()) {
@@ -99,6 +107,47 @@ interface RecentMatch {
           }
         </app-blueprint>
       </section>
+
+      @if (group.isOwner() && !isMe()) {
+        <section class="border-t border-divider pt-5">
+          <p class="kicker">COISAS DE DONO</p>
+
+          <p class="mt-3 text-[13px] muted">
+            Se {{ player()?.name }} travou por errar a data, devolva a data para a inicial do grupo
+            — e mande a data combinada de novo. Ninguém vê data de ninguém, nem você.
+          </p>
+          <button
+            type="button"
+            class="btn btn-secondary mt-3 min-h-12 w-full"
+            [disabled]="busy()"
+            (click)="resetDate()"
+          >
+            DEVOLVER A DATA PARA A INICIAL
+          </button>
+
+          <p class="mt-5 text-[13px] muted">
+            Passar o vôlei para {{ player()?.name }} faz dele o dono, e você deixa de ser. O vôlei
+            nunca fica sem dono.
+          </p>
+          <button
+            type="button"
+            class="btn btn-secondary mt-3 min-h-12 w-full"
+            [disabled]="busy()"
+            (click)="transfer()"
+          >
+            PASSAR O VÔLEI
+          </button>
+
+          <div class="mt-3" aria-live="polite">
+            @if (notice()) {
+              <app-inline-note tone="event">{{ notice() }}</app-inline-note>
+            }
+            @if (error()) {
+              <app-inline-note tone="error">{{ error() }}</app-inline-note>
+            }
+          </div>
+        </section>
+      }
     </div>
   `,
   host: { class: 'block' },
@@ -106,6 +155,7 @@ interface RecentMatch {
 export class PlayerDetailComponent implements OnInit {
   private readonly facade = inject(AppFacade);
   private readonly statistics = inject(StatisticsService);
+  private readonly membership = inject(MembershipService);
   private readonly router = inject(Router);
   protected readonly group = inject(CurrentGroupStore);
 
@@ -118,6 +168,12 @@ export class PlayerDetailComponent implements OnInit {
   private readonly teamStats = signal<readonly TeamStats[]>([]);
   private readonly ranking = signal<number | null>(null);
   protected readonly recent = signal<readonly RecentMatch[]>([]);
+  protected readonly notice = signal<string | null>(null);
+  protected readonly error = signal<string | null>(null);
+  protected readonly busy = signal(false);
+
+  /** O dono não reseta a própria data nem passa o vôlei para si mesmo. */
+  protected readonly isMe = computed(() => this.playerId() === this.group.playerId());
 
   protected readonly stats = computed(() => {
     const entry = this.playerStats();
@@ -209,6 +265,40 @@ export class PlayerDetailComponent implements OnInit {
         won: match.winnerId === myTeamId,
       };
     });
+  }
+
+  protected async resetDate(): Promise<void> {
+    await this.run(
+      () => this.membership.resetBirthDate(this.playerId()),
+      'Data devolvida para a inicial do grupo.',
+    );
+  }
+
+  protected async transfer(): Promise<void> {
+    const groupId = this.group.groupId();
+    if (!groupId) {
+      return;
+    }
+    await this.run(async () => {
+      await this.membership.transferOwnership(groupId, this.playerId());
+      // Quem manda mudou: o papel carregado é de antes.
+      this.group.clear();
+      await this.group.enter(groupId);
+    }, 'Vôlei passado.');
+  }
+
+  private async run(action: () => Promise<void>, done: string): Promise<void> {
+    this.busy.set(true);
+    this.notice.set(null);
+    this.error.set(null);
+    try {
+      await action();
+      this.notice.set(done);
+    } catch (cause) {
+      this.error.set(cause instanceof Error ? cause.message : 'Não deu certo.');
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected edit(): void {

@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, Router, UrlTree } from '@angular/router';
+import { IdentityService } from '../identity';
 import { CurrentGroupStore } from '../stores/current-group.store';
 
 /** Entra no vôlei da rota e resolve o papel. */
@@ -19,7 +20,21 @@ async function enterGroup(route: ActivatedRouteSnapshot): Promise<boolean> {
 /** Só entra nas telas do vôlei quem é membro dele. */
 export const memberGuard: CanActivateFn = async (route): Promise<boolean | UrlTree> => {
   const router = inject(Router);
-  return (await enterGroup(route)) ? true : router.createUrlTree(['/voleis']);
+  return (await enterGroup(route)) ? true : router.createUrlTree(['/entrar']);
+};
+
+/**
+ * Quem não tem vôlei nenhum não tem lista para ver: cai na tela de entrar.
+ *
+ * É só isto que decide a primeira tela do app — `/` manda para `/voleis`, e
+ * daqui a pessoa segue para a lista ou para a porta. A tela de entrar continua
+ * aberta a quem já participa de algo: entrar num SEGUNDO vôlei é o caso normal.
+ */
+export const hasGroupsGuard: CanActivateFn = async (): Promise<boolean | UrlTree> => {
+  const identity = inject(IdentityService);
+  const router = inject(Router);
+  const mine = await identity.myGroups();
+  return mine.length > 0 ? true : router.createUrlTree(['/entrar']);
 };
 
 /**
