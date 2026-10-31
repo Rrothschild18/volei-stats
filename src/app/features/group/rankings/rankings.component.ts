@@ -2,7 +2,7 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
-import { StatisticsService } from '../../../core/services/statistics.service';
+import { StatsRepository } from '../../../core/repositories';
 import { phaseLabel } from '../../../core/rules/bracket-phases';
 import { Match, Player, PlayerStats, Session, TeamStats, Tournament } from '../../../shared/models';
 import {
@@ -205,7 +205,7 @@ interface MatchGroup {
 })
 export class RankingsComponent implements OnInit {
   private readonly facade = inject(AppFacade);
-  private readonly statistics = inject(StatisticsService);
+  private readonly stats = inject(StatsRepository);
   private readonly router = inject(Router);
   protected readonly group = inject(CurrentGroupStore);
 
@@ -371,16 +371,17 @@ export class RankingsComponent implements OnInit {
       return;
     }
 
-    const scope = await this.facade.getGroupScope(groupId);
-    const [players, groupPlayers, playerStats, teamStats, sessions] = await Promise.all([
-      this.facade.getPlayers(),
+    // Os rankings vêm somados do banco: as views contam lá, por vôlei. Carregar
+    // todas as partidas aqui para somar no navegador era o que o §7.12 pedia
+    // para parar de fazer.
+    const [groupPlayers, playerStats, teamStats, sessions] = await Promise.all([
       this.facade.getPlayersByGroupId(groupId),
-      this.statistics.getAllPlayerStats({ scope }),
-      this.statistics.getTeamStats(scope),
+      this.stats.playerStats(groupId),
+      this.stats.teamStats(groupId),
       this.facade.getSessionsByGroupId(groupId),
     ]);
 
-    this.players.set(players);
+    this.players.set(groupPlayers);
     this.groupPlayerIds.set(new Set(groupPlayers.map((player) => player.id)));
     this.playerStats.set(playerStats);
     this.teamStats.set(teamStats);

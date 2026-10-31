@@ -14,6 +14,7 @@ import {
   MatchRepository,
   PlayerRepository,
   SessionRepository,
+  StatsRepository,
   TournamentRepository,
 } from '../repositories';
 import {
@@ -22,6 +23,7 @@ import {
   LocalMatchRepository,
   LocalPlayerRepository,
   LocalSessionRepository,
+  LocalStatsRepository,
   LocalTournamentRepository,
 } from '../repositories/local';
 import { IdentityService, MembershipService } from '../identity';
@@ -43,6 +45,7 @@ export function provideDemoData(): EnvironmentProviders {
     { provide: DrawRepository, useClass: LocalDrawRepository },
     { provide: TournamentRepository, useClass: LocalTournamentRepository },
     { provide: MatchRepository, useClass: LocalMatchRepository },
+    { provide: StatsRepository, useClass: LocalStatsRepository },
     { provide: IdentityService, useClass: DemoIdentityService },
     { provide: MembershipService, useClass: DemoMembershipService },
     InMemoryDbService,

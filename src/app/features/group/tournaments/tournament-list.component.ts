@@ -273,8 +273,8 @@ export class TournamentListComponent implements OnInit {
 
     const live = this.sessionStore.liveTournament();
     if (live) {
-      const next = await this.tournamentService.getNextMatches(live);
-      this.liveNextMatch.set(next[0] ? phaseLabel(next[0].phase) : 'chave pausada');
+      const pending = await this.tournamentService.getPendingMatches(live);
+      this.liveNextMatch.set(pending[0] ? phaseLabel(pending[0].phase) : 'chave pausada');
     }
   }
 

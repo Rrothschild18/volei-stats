@@ -322,6 +322,30 @@ export class TournamentService {
   }
 
   /**
+   * O que ainda falta jogar: a rodada inicial sem placar, mais o que o
+   * chaveamento gera depois dela.
+   *
+   * Existe porque `getNextMatches` responde a outra pergunta — "o que vem DEPOIS
+   * do que já saiu" — e não inclui as partidas da rodada inicial, que o
+   * chaveamento monta de uma vez. Com uma semifinal jogada e a outra não,
+   * `getNextMatches` devolve vazio, e quem lesse isso como "nada a jogar"
+   * anunciaria uma chave pausada que não está pausada.
+   */
+  async getPendingMatches(tournament: Tournament): Promise<BracketMatch[]> {
+    const matches = await this.facade.getMatchesByTournamentId(tournament.id);
+    const played = (bracket: BracketMatch) =>
+      matches.some(
+        (match) =>
+          match.phase === bracket.phase &&
+          ((match.teamAId === bracket.teamAId && match.teamBId === bracket.teamBId) ||
+            (match.teamAId === bracket.teamBId && match.teamBId === bracket.teamAId)),
+      );
+
+    const initial = this.generateInitialMatches(tournament).filter((bracket) => !played(bracket));
+    return [...initial, ...(await this.getNextMatches(tournament))];
+  }
+
+  /**
    * Empate de diferença na posição que decide (REGRAS.md §9.3). Enquanto houver
    * um, a chave fica pausada: o app não escolhe no lugar das duplas.
    */

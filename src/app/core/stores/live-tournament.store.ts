@@ -164,17 +164,11 @@ export class LiveTournamentStore {
   }
 
   /**
-   * A fila: as partidas da rodada inicial que ainda não têm placar, mais a
-   * próxima que o chaveamento gera. Com a chave pausada por uma decisão de
+   * A fila: o que ainda falta jogar. Com a chave pausada por uma decisão de
    * quadra, não há próxima (REGRAS.md §9.3).
    */
   private async resolvePending(tournament: Tournament): Promise<BracketMatch[]> {
-    const initial = this.tournaments
-      .generateInitialMatches(tournament)
-      .filter((bracket) => !this.findSavedMatch(bracket));
-
-    const next = await this.tournaments.getNextMatches(tournament);
-    return [...initial, ...next];
+    return this.tournaments.getPendingMatches(tournament);
   }
 
   async reload(): Promise<void> {

@@ -10,6 +10,7 @@ import {
   MatchRepository,
   PlayerRepository,
   SessionRepository,
+  StatsRepository,
   TournamentRepository,
 } from './repositories';
 import {
@@ -18,6 +19,7 @@ import {
   SupabaseMatchRepository,
   SupabasePlayerRepository,
   SupabaseSessionRepository,
+  SupabaseStatsRepository,
   SupabaseTournamentRepository,
 } from './repositories/supabase';
 
@@ -39,6 +41,7 @@ export function provideSupabaseData(): EnvironmentProviders {
     { provide: DrawRepository, useClass: SupabaseDrawRepository },
     { provide: TournamentRepository, useClass: SupabaseTournamentRepository },
     { provide: MatchRepository, useClass: SupabaseMatchRepository },
+    { provide: StatsRepository, useClass: SupabaseStatsRepository },
     { provide: IdentityService, useClass: SupabaseIdentityService },
     { provide: MembershipService, useClass: SupabaseMembershipService },
   ]);

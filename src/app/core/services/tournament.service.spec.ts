@@ -294,3 +294,60 @@ describe('TournamentService.closeRound1 depois de uma correção', () => {
     ]);
   });
 });
+
+/**
+ * "O que falta jogar" não é "o que vem depois".
+ *
+ * Quatro duplas: o chaveamento monta as DUAS semifinais de uma vez. Com uma
+ * jogada e a outra não, `getNextMatches` devolve vazio — ele responde o que vem
+ * depois da rodada inicial — e quem lesse isso como "nada a jogar" anunciaria
+ * uma chave pausada que não está pausada.
+ */
+describe('TournamentService · o que ainda falta jogar', () => {
+  function fourTeams(): Tournament {
+    return tournament({
+      formatId: 'knockout-4',
+      thirdPlaceEnabled: true,
+      teams: [
+        team('ta', ['p1', 'p2']),
+        team('tb', ['p3', 'p4']),
+        team('tc', ['p5', 'p6']),
+        team('td', ['p7', 'p8']),
+      ],
+    });
+  }
+
+  it('com uma semifinal jogada, a que falta ainda está na fila', async () => {
+    const jogada = match('m1', 'semifinal', 'ta', 'tb', 15, 13);
+    const { service } = setup([jogada]);
+    const entry = fourTeams();
+
+    expect(await service.getNextMatches(entry)).toEqual([]);
+
+    const pending = await service.getPendingMatches(entry);
+    expect(pending.length).toBe(1);
+    expect(pending[0]).toEqual({ phase: 'semifinal', teamAId: 'tc', teamBId: 'td' });
+  });
+
+  it('com as duas jogadas, a fila passa a ser a final e a disputa de 3º', async () => {
+    const { service } = setup([
+      match('m1', 'semifinal', 'ta', 'tb', 15, 13),
+      match('m2', 'semifinal', 'tc', 'td', 15, 9),
+    ]);
+
+    const pending = await service.getPendingMatches(fourTeams());
+
+    expect(pending.map((bracket) => bracket.phase)).toEqual(['final', 'third-place']);
+  });
+
+  it('sem nenhum placar, a fila é a rodada inicial inteira', async () => {
+    const { service } = setup([]);
+
+    const pending = await service.getPendingMatches(fourTeams());
+
+    expect(pending).toEqual([
+      { phase: 'semifinal', teamAId: 'ta', teamBId: 'tb' },
+      { phase: 'semifinal', teamAId: 'tc', teamBId: 'td' },
+    ]);
+  });
+});
