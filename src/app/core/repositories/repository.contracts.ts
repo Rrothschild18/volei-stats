@@ -24,13 +24,9 @@ import {
  * deixariam.
  */
 export abstract class GroupRepository {
-  abstract getAll(): Promise<Group[]>;
   abstract getById(id: string): Promise<Group | undefined>;
-  abstract save(group: Group): Promise<Group>;
-  abstract getAllMembers(): Promise<GroupMember[]>;
   abstract getMembersByGroupId(groupId: string): Promise<GroupMember[]>;
   abstract getMembershipsByPlayerId(playerId: string): Promise<GroupMember[]>;
-  abstract saveMember(member: GroupMember): Promise<GroupMember>;
 }
 
 export abstract class PlayerRepository {
@@ -44,7 +40,6 @@ export abstract class PlayerRepository {
   abstract getByGroupId(groupId: string): Promise<Player[]>;
   abstract getById(id: string): Promise<Player | undefined>;
   abstract save(player: Player): Promise<Player>;
-  abstract delete(id: string): Promise<void>;
 }
 
 export abstract class SessionRepository {
@@ -52,7 +47,6 @@ export abstract class SessionRepository {
   abstract getByGroupId(groupId: string): Promise<Session[]>;
   abstract getById(id: string): Promise<Session | undefined>;
   abstract save(session: Session): Promise<Session>;
-  abstract delete(id: string): Promise<void>;
 }
 
 export abstract class DrawRepository {

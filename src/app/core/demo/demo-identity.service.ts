@@ -1,21 +1,20 @@
 import { Injectable, inject } from '@angular/core';
 import { AppFacade } from '../facade/app.facade';
-import { MockIdentityService } from '../mock/mock-identity.service';
+import { DEMO_PLAYER_ID } from './demo-seed';
 import { todayDateString } from '../../shared/utils/date.util';
-import { IdentityService, MyGroup } from './identity.service';
+import { IdentityService, MyGroup } from '../identity';
 
 /**
- * Quem este navegador é no modo demonstração: a pessoa escolhida no trocador.
+ * Quem você é no modo demonstração: uma pessoa fixa do cenário.
  *
  * Monta à mão o que a view `my_groups` entrega pronta no banco.
  */
 @Injectable()
 export class DemoIdentityService implements IdentityService {
   private readonly facade = inject(AppFacade);
-  private readonly mock = inject(MockIdentityService);
 
   async myGroups(): Promise<readonly MyGroup[]> {
-    const playerId = this.mock.playerId();
+    const playerId = DEMO_PLAYER_ID;
     const memberships = await this.facade.getMembershipsByPlayerId(playerId);
     const groups: MyGroup[] = [];
 

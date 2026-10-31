@@ -1,22 +1,22 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { InMemoryDbService } from './in-memory-db.service';
-import { provideDemoData } from './mock-data.providers';
+import { DemoDbService } from './demo-db.service';
+import { provideDemoData } from './demo-data.providers';
 import {
-  buildMockData,
+  buildDemoData,
   GROUP_SEGUNDA,
   GROUP_SEGUNDA_OWNER,
   GROUP_TRABALHO,
   GROUP_TRABALHO_OWNER,
-  MOCK_USER_PLAYER_ID,
-} from './mock-seed';
+  DEMO_PLAYER_ID,
+} from './demo-seed';
 import { AppFacade } from '../facade/app.facade';
 import { DrawService } from '../services/draw.service';
 import { TournamentService } from '../services/tournament.service';
 import { Player } from '../../shared/models';
 
 /**
- * O cenário mockado é o das telas do handoff. Se ele deixar de bater, as telas
+ * O cenário de demonstração é o das telas do handoff. Se ele deixar de bater, as telas
  * param de mostrar o que foi desenhado — então vale travar aqui.
  */
 describe('cenário de exemplo do redesign', () => {
@@ -33,7 +33,7 @@ describe('cenário de exemplo do redesign', () => {
     // verifica, e os repositórios saem dele, não de uma montagem à parte.
     TestBed.configureTestingModule({ providers: [provideDemoData()] });
 
-    TestBed.inject(InMemoryDbService).load(buildMockData(), 'spec');
+    TestBed.inject(DemoDbService).load(buildDemoData(), 'spec');
     facade = TestBed.inject(AppFacade);
     tournaments = TestBed.inject(TournamentService);
     draws = TestBed.inject(DrawService);
@@ -45,7 +45,7 @@ describe('cenário de exemplo do redesign', () => {
   }
 
   it('o usuário joga nos dois vôleis, e é dono só do Vôlei Trabalho', async () => {
-    const memberships = await facade.getMembershipsByPlayerId(MOCK_USER_PLAYER_ID);
+    const memberships = await facade.getMembershipsByPlayerId(DEMO_PLAYER_ID);
     const roles = new Map(memberships.map((member) => [member.groupId, member.role]));
 
     // O papel diz só que ele já disse quem é — nos dois ele joga.
@@ -55,7 +55,7 @@ describe('cenário de exemplo do redesign', () => {
     // Mandar é outra pergunta, e a resposta é a coluna do vôlei.
     expect((await facade.getGroupById(GROUP_SEGUNDA))!.ownerPlayerId).toBe(GROUP_SEGUNDA_OWNER);
     expect((await facade.getGroupById(GROUP_TRABALHO))!.ownerPlayerId).toBe(GROUP_TRABALHO_OWNER);
-    expect(GROUP_TRABALHO_OWNER).toBe(MOCK_USER_PLAYER_ID);
+    expect(GROUP_TRABALHO_OWNER).toBe(DEMO_PLAYER_ID);
   });
 
   it('a sessão de hoje tem 11 presentes e dois campeonatos', async () => {

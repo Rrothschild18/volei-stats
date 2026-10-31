@@ -10,7 +10,7 @@ import { StatsRepository } from '../repository.contracts';
  * é onde a soma acontece.
  */
 @Injectable()
-export class LocalStatsRepository extends StatsRepository {
+export class DemoStatsRepository extends StatsRepository {
   private readonly statistics = inject(StatisticsService);
   private readonly facade = inject(AppFacade);
 

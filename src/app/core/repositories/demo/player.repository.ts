@@ -1,13 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { PlayerRepository } from '../repository.contracts';
-import { IndexedDbService } from '../../database/indexed-db.service';
-import { STORES } from '../../database/database.config';
+import { DemoDbService, STORES } from '../../demo/demo-db.service';
 import { Gender } from '../../../shared/enums';
 import { GroupMember, Player } from '../../../shared/models';
 
 @Injectable()
-export class LocalPlayerRepository extends PlayerRepository {
-  private db = inject(IndexedDbService);
+export class DemoPlayerRepository extends PlayerRepository {
+  private db = inject(DemoDbService);
 
   override async getAll(): Promise<Player[]> {
     return this.db.getAll<Player>(STORES.PLAYERS);
@@ -48,9 +47,5 @@ export class LocalPlayerRepository extends PlayerRepository {
 
   override async save(player: Player): Promise<Player> {
     return this.db.put<Player>(STORES.PLAYERS, player);
-  }
-
-  override async delete(id: string): Promise<void> {
-    return this.db.delete(STORES.PLAYERS, id);
   }
 }

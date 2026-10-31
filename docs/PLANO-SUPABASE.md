@@ -185,7 +185,7 @@ o botão diz "sem conexão · tentar de novo", mantém o que foi digitado e não
 perde nada — sem fila, sem "vai sincronizar depois". O importante é **não
 fingir que salvou**.
 
-O cenário mockado de hoje sobrevive como **modo demo**: um jeito de abrir o app
+O cenário de exemplo sobrevive como **modo demonstração**: um jeito de abrir o app
 sem rede e sem banco, pra demonstrar e pra testar.
 
 ---
@@ -245,7 +245,7 @@ Criar vôlei, cadastrar os amigos, o link, a lista de nomes, a troca de data, o
 - **Keepalive:** projetos grátis são pausados após ~7 dias sem acesso. Um cron
   no GitHub Actions faz um `select` trivial a cada 3 dias.
 
-### Fase 5 — Remover o IndexedDB (ticket 23)
+### Fase 5 — Remover o IndexedDB (ticket 30)
 
 Depois que os repositórios Supabase estiverem funcionando. Apagar antes
 deixaria o app sem camada de dados nenhuma.
@@ -280,7 +280,7 @@ foi descartado de propósito. O primeiro vôlei real nasce vazio.
 - **O jogo é de todos os jogadores**; o dono fica com cadastro e exclusão.
 - **A lista de nomes** mostra só quem ainda não entrou.
 - **Sem tempo real**: relê ao focar, após escrever e ao puxar. Sem SSE.
-- **Online-only**, sem offline-first; o mock sobrevive como modo demo.
+- **Online-only**, sem offline-first; o cenário de exemplo sobrevive como modo demonstração.
 - **Sem migração de dados.**
 - Estrutura multi-vôlei: a mesma pessoa participa de vários, e os jogadores de
   um não têm relação nenhuma com os de outro.

@@ -64,14 +64,6 @@ export class SupabasePlayerRepository extends SupabaseRepositoryBase implements 
       .single();
     return toPlayer(this.unwrap(data, error, 'Não foi possível salvar o jogador'));
   }
-
-  async delete(id: string): Promise<void> {
-    const table = await this.table('players');
-    const { error } = await table.delete().eq('id', id);
-    if (error) {
-      throw new Error(`Não foi possível apagar o jogador: ${error.message}`);
-    }
-  }
 }
 
 const COLUMNS = 'id, group_id, name, gender, active, created_at, updated_at';

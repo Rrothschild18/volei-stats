@@ -1,12 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { SessionRepository } from '../repository.contracts';
-import { IndexedDbService } from '../../database/indexed-db.service';
-import { STORES } from '../../database/database.config';
+import { DemoDbService, STORES } from '../../demo/demo-db.service';
 import { Session } from '../../../shared/models';
 
 @Injectable()
-export class LocalSessionRepository extends SessionRepository {
-  private db = inject(IndexedDbService);
+export class DemoSessionRepository extends SessionRepository {
+  private db = inject(DemoDbService);
 
   override async getAll(): Promise<Session[]> {
     return this.db.getAll<Session>(STORES.SESSIONS);
@@ -25,9 +24,5 @@ export class LocalSessionRepository extends SessionRepository {
 
   override async save(session: Session): Promise<Session> {
     return this.db.put<Session>(STORES.SESSIONS, session);
-  }
-
-  override async delete(id: string): Promise<void> {
-    return this.db.delete(STORES.SESSIONS, id);
   }
 }

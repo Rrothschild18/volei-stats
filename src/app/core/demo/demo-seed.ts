@@ -1,4 +1,4 @@
-import { STORES } from '../database/database.config';
+import { STORES } from './demo-db.service';
 import { Gender } from '../../shared/enums';
 import {
   DrawProposal,
@@ -108,8 +108,14 @@ export const GROUP_TRABALHO = 'g-trabalho';
 export const GROUP_SEGUNDA_OWNER = 'p-rafa';
 export const GROUP_TRABALHO_OWNER = 'p-caio';
 
-/** O usuário do mock: jogador no Vôlei Segunda, dono do Vôlei Trabalho. */
-export const MOCK_USER_PLAYER_ID = 'p-caio';
+/**
+ * Quem você é no modo demonstração.
+ *
+ * É fixo, e não escolhível: o trocador de pessoa saiu junto com a identidade de
+ * mentira. Caio é jogador no Vôlei Segunda e dono do Vôlei Trabalho — uma
+ * pessoa só que mostra as duas telas.
+ */
+export const DEMO_PLAYER_ID = 'p-caio';
 
 const SEGUNDA_MEMBERS: readonly (readonly [string, GroupRole])[] = [
   ['p-rafa', 'player'],
@@ -629,7 +635,7 @@ function firstGroupOf(playerId: string): string {
   return SEGUNDA_MEMBERS.some(([id]) => id === playerId) ? GROUP_SEGUNDA : GROUP_TRABALHO;
 }
 
-export function buildMockData(): Record<string, unknown[]> {
+export function buildDemoData(): Record<string, unknown[]> {
   const draft: Draft = {
     players: [],
     groups: [],
@@ -641,12 +647,10 @@ export function buildMockData(): Record<string, unknown[]> {
   };
 
   // No banco um jogador pertence a UM vôlei. Aqui, seis pessoas estão nos dois
-  // — é o que faz o cenário mostrar as duas visões com uma identidade só. Então
-  // `groupId` recebe o primeiro vôlei da pessoa, e é a lista de membros que
-  // responde "quem joga neste vôlei" no modo demonstração.
-  //
-  // A diferença existe porque a identidade de mentira é um jogador, e não uma
-  // sessão de navegador. Ela some com ela, no ticket 30.
+  // — e é de propósito: é o que faz uma pessoa fixa mostrar as duas telas, a de
+  // dono e a de quem só joga. Então `groupId` recebe o primeiro vôlei da
+  // pessoa, e é a lista de membros que responde "quem joga neste vôlei" no modo
+  // demonstração.
   for (const spec of PLAYER_SPECS) {
     draft.players.push({
       id: spec.id,

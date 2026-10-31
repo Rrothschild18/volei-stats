@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { AppFacade } from './app.facade';
-import { InMemoryDbService } from '../mock/in-memory-db.service';
-import { provideDemoData } from '../mock/mock-data.providers';
-import { buildMockData, GROUP_TRABALHO } from '../mock/mock-seed';
+import { DemoDbService } from '../demo/demo-db.service';
+import { provideDemoData } from '../demo/demo-data.providers';
+import { buildDemoData, GROUP_TRABALHO } from '../demo/demo-seed';
 
 /**
  * Um dia tem UMA sessão por vôlei, e isso é índice único no banco.
@@ -18,7 +18,7 @@ describe('AppFacade · a sessão do dia', () => {
     sessionStorage.clear();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [provideDemoData()] });
-    TestBed.inject(InMemoryDbService).load(buildMockData(), 'spec');
+    TestBed.inject(DemoDbService).load(buildDemoData(), 'spec');
     facade = TestBed.inject(AppFacade);
   });
 

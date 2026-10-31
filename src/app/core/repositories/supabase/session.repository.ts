@@ -100,14 +100,6 @@ export class SupabaseSessionRepository extends SupabaseRepositoryBase implements
     }
     return saved;
   }
-
-  async delete(id: string): Promise<void> {
-    const table = await this.table('sessions');
-    const { error } = await table.delete().eq('id', id);
-    if (error) {
-      throw new Error(`Não foi possível apagar a sessão: ${error.message}`);
-    }
-  }
 }
 
 const SELECT = `

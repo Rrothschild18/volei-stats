@@ -4,10 +4,10 @@
 
 **Blocked by:** 25, 29
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Nenhuma tela depende mais do banco do navegador
-- [ ] A identidade de mentira e o trocador de pessoa saem da interface
-- [ ] Modo de demonstração explícito, com os dados de exemplo em memória
-- [ ] Testes que dependiam do banco do navegador passam a rodar contra os dados de exemplo
-- [ ] Nada do caminho antigo fica morto no código
+- [x] Nenhuma tela depende mais do banco do navegador
+- [x] A identidade de mentira e o trocador de pessoa saem da interface
+- [x] Modo de demonstração explícito, com os dados de exemplo em memória
+- [x] Testes que dependiam do banco do navegador passam a rodar contra os dados de exemplo
+- [x] Nada do caminho antigo fica morto no código

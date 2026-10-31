@@ -12,22 +12,44 @@ pnpm start
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
-## Testando sem backend
+## Rodando contra o banco local
 
-Enquanto o Supabase não entra (ver `docs/PLANO-SUPABASE.md` e os tickets 18–21 em
-`.scratch/redesign-industry/`), o app roda contra um cenário de exemplo em memória,
-registrado em `src/app/core/mock/`. É o mesmo cenário das telas do redesign: o Vôlei
-Segunda com 11 presentes, um campeonato finalizado e outro ao vivo na semifinal do bye,
-mais alguns meses de histórico para os rankings terem números.
+O app fala com o Postgres. Em desenvolvimento ele é local, em Docker, e não
+precisa de conta no Supabase:
 
-- **Entre como quem quiser.** A tela "Seus vôleis" (`/voleis`) tem, no fim, um seletor de
-  identidade. Rafa e Duda são admins do Vôlei Segunda; Caio é jogador lá e admin no Vôlei
-  Trabalho — é assim que se vê a mesma tela pelos dois papéis.
-- **O que você fizer sobrevive a um F5**, porque o estado fica no `sessionStorage` da aba.
-  Fechar a aba, ou abrir outra, volta ao cenário inicial. Ele também se renova quando o dia
-  vira, porque as datas são relativas a hoje.
-- **As ações de admin não renderizam para jogador**, e as rotas de admin redirecionam — dá
-  para testar as duas coisas trocando de identidade.
+```bash
+supabase start      # Postgres, Auth e Studio, com o schema aplicado
+supabase db reset   # refaz o banco e recarrega o cenário de exemplo
+pnpm start
+```
+
+O `supabase/seed.sql` sobe dois vôleis para clicar, e em nenhum deles alguém
+está reivindicado — é digitando o código e tocando num nome que você entra:
+
+| Vôlei | Código | Data inicial | O que tem |
+| --- | --- | --- | --- |
+| Vôlei Segunda | `SEGUNDA` | 01/01/1990 | Oito jogadores, a sessão de hoje com um campeonato em andamento, a da semana passada encerrada. Dono: Rafa |
+| Vôlei Teste | `TESTE-VOLEI` | 01/01/1990 | Vazio de propósito, com Raul como dono |
+
+Entre como **Raul** nos dois: no Teste ele é dono (cadastra gente, gera o
+convite), na Segunda ele só joga. É assim que se vê as duas telas.
+
+A data inicial do grupo é a senha de primeiro acesso: você a digita uma vez e
+**troca pela sua** na mesma tela. Daquele momento em diante aquele navegador é
+aquela pessoa.
+
+### Modo demonstração, sem banco nenhum
+
+`dataSource: 'demo'` em `src/environments/environment.ts` roda o app contra um
+cenário em memória (`src/app/core/demo/`), para mostrar sem rede e para os
+testes. Nele você é uma pessoa fixa — Caio, jogador no Vôlei Segunda e dono do
+Vôlei Trabalho — e não há como entrar nem criar vôlei: entrar depende da data
+funcionar como senha dentro do servidor, e uma versão de mentira disso seria uma
+versão sem a parte que importa.
+
+O que você fizer sobrevive a um F5, porque o estado fica no `sessionStorage` da
+aba. Fechar a aba volta ao cenário inicial, e ele também se renova quando o dia
+vira, porque as datas são relativas a hoje.
 
 ## Code scaffolding
 

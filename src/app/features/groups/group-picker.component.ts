@@ -1,11 +1,7 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { RefreshService } from '../../core/refresh/refresh.service';
-import { AppFacade } from '../../core/facade/app.facade';
 import { GroupsStore, GroupSummary } from '../../core/stores/groups.store';
-import { MembershipService } from '../../core/identity';
-import { MockIdentityService } from '../../core/mock/mock-identity.service';
-import { Player } from '../../shared/models';
 import { formatShortDate } from '../../shared/utils/date.util';
 import {
   BlueprintComponent,
@@ -19,8 +15,6 @@ import {
  * Seus vôleis: um card por vôlei de que a pessoa participa (1b). O vôlei com
  * sessão ao vivo hoje aparece em destaque.
  *
- * A seção do fim é do mock: sem backend, é por ali que se assume outra pessoa
- * para ver o app pelos olhos dela. Ela sai no ticket 20.
  */
 @Component({
   selector: 'app-group-picker',
@@ -145,48 +139,18 @@ import {
       <button type="button" class="btn btn-secondary min-h-12" (click)="join()">
         ENTRAR EM OUTRO VÔLEI
       </button>
-
-      @if (demoMode()) {
-        <app-blueprint class="mt-2 mb-8 p-4">
-          <p class="kicker">MODO DEMONSTRAÇÃO</p>
-          <h2 class="font-heading text-[20px] font-semibold uppercase">Entrar como</h2>
-          <p class="mt-1 mb-3 text-[13px] muted">
-            Enquanto não há login, dá para assumir qualquer pessoa do cenário e ver o app pelos
-            olhos dela. Rafa é dono do Vôlei Segunda; Caio joga lá e é dono do Vôlei Trabalho.
-          </p>
-          <div class="flex flex-wrap gap-2">
-            @for (player of everyone(); track player.id) {
-              <button
-                type="button"
-                class="btn btn-secondary min-h-9 px-3 text-[13px] normal-case"
-                [class.btn-primary]="player.id === currentPlayerId()"
-                (click)="switchTo(player.id)"
-              >
-                {{ player.name }}
-              </button>
-            }
-          </div>
-        </app-blueprint>
-      }
     </div>
   `,
   host: { class: 'block min-h-dvh' },
 })
 export class GroupPickerComponent implements OnInit {
-  private readonly facade = inject(AppFacade);
   private readonly refresh = inject(RefreshService);
-  private readonly identity = inject(MockIdentityService);
-  private readonly membership = inject(MembershipService);
   private readonly groups = inject(GroupsStore);
   private readonly router = inject(Router);
 
   protected readonly summaries = this.groups.summaries;
   protected readonly loading = this.groups.loading;
   protected readonly error = this.groups.error;
-  protected readonly currentPlayerId = this.identity.playerId;
-  protected readonly everyone = signal<readonly Player[]>([]);
-  /** O trocador de pessoa só existe sem banco: ele é a identidade de mentira. */
-  protected readonly demoMode = computed(() => !this.membership.available);
 
   constructor() {
     // Voltar para o app, a rede voltar, ou puxar para atualizar: tudo cai aqui.
@@ -198,10 +162,6 @@ export class GroupPickerComponent implements OnInit {
   }
 
   private async load(): Promise<void> {
-    // A lista de pessoas só serve ao trocador do modo demonstração.
-    if (this.demoMode()) {
-      this.everyone.set(await this.facade.getPlayers());
-    }
     await this.groups.load();
   }
 
@@ -238,10 +198,5 @@ export class GroupPickerComponent implements OnInit {
 
   protected enter(summary: GroupSummary): void {
     void this.router.navigate(['/g', summary.group.id, 'inicio']);
-  }
-
-  protected async switchTo(playerId: string): Promise<void> {
-    this.identity.setPlayerId(playerId);
-    await this.groups.load();
   }
 }

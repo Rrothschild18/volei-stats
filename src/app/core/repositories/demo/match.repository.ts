@@ -1,12 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { MatchRepository } from '../repository.contracts';
-import { IndexedDbService } from '../../database/indexed-db.service';
-import { STORES } from '../../database/database.config';
+import { DemoDbService, STORES } from '../../demo/demo-db.service';
 import { Match } from '../../../shared/models';
 
 @Injectable()
-export class LocalMatchRepository extends MatchRepository {
-  private db = inject(IndexedDbService);
+export class DemoMatchRepository extends MatchRepository {
+  private db = inject(DemoDbService);
 
   override async getAll(): Promise<Match[]> {
     return this.db.getAll<Match>(STORES.MATCHES);

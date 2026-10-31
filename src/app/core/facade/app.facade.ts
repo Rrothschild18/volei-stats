@@ -11,7 +11,6 @@ import { StatisticsService, StatsScope } from '../services/statistics.service';
 import {
   Group,
   GroupMember,
-  GroupRole,
   Player,
   Session,
   DrawProposal,
@@ -32,11 +31,6 @@ export class AppFacade {
   readonly #matchRepo = inject(MatchRepository);
   readonly #statsService = inject(StatisticsService);
 
-  // Groups
-  async getGroups(): Promise<Group[]> {
-    return this.#groupRepo.getAll();
-  }
-
   async getGroupById(id: string): Promise<Group | undefined> {
     return this.#groupRepo.getById(id);
   }
@@ -48,33 +42,6 @@ export class AppFacade {
 
   async getGroupMembers(groupId: string): Promise<GroupMember[]> {
     return this.#groupRepo.getMembersByGroupId(groupId);
-  }
-
-  /** Muda o papel de quem já participa. */
-  async saveGroupMember(
-    groupId: string,
-    playerId: string,
-    role: GroupRole = 'player',
-  ): Promise<GroupMember> {
-    return this.#groupRepo.saveMember({ id: `${groupId}:${playerId}`, groupId, playerId, role });
-  }
-
-  /**
-   * Passa o vôlei para outra pessoa. Não existe "rebaixar o último admin":
-   * existe um dono, e ele muda de uma vez — o vôlei nunca fica sem.
-   */
-  async transferOwnership(groupId: string, playerId: string): Promise<Group> {
-    const group = await this.#groupRepo.getById(groupId);
-    if (!group) {
-      throw new Error(`Vôlei ${groupId} não encontrado`);
-    }
-
-    const members = await this.#groupRepo.getMembersByGroupId(groupId);
-    if (!members.some((member) => member.playerId === playerId && member.role === 'player')) {
-      throw new Error('O vôlei só pode ser passado para um jogador dele');
-    }
-
-    return this.#groupRepo.save({ ...group, ownerPlayerId: playerId });
   }
 
   // Players
@@ -101,14 +68,6 @@ export class AppFacade {
   }
 
   async updatePlayer(player: Player): Promise<Player> {
-    player.updatedAt = new Date().toISOString();
-    return this.#playerRepo.save(player);
-  }
-
-  async togglePlayerActive(id: string): Promise<Player | undefined> {
-    const player = await this.#playerRepo.getById(id);
-    if (!player) return undefined;
-    player.active = !player.active;
     player.updatedAt = new Date().toISOString();
     return this.#playerRepo.save(player);
   }
@@ -179,10 +138,6 @@ export class AppFacade {
 
   async saveDraw(draw: DrawProposal): Promise<DrawProposal> {
     return this.#drawRepo.save(draw);
-  }
-
-  async getAllDraws(): Promise<DrawProposal[]> {
-    return this.#drawRepo.getAll();
   }
 
   // Tournaments
@@ -294,18 +249,5 @@ export class AppFacade {
 
   async getDashboardData() {
     return this.#statsService.getDashboardData();
-  }
-
-  // Export
-  async exportData(): Promise<string> {
-    const [groups, players, sessions, draws, tournaments, matches] = await Promise.all([
-      this.#groupRepo.getAll(),
-      this.#playerRepo.getAll(),
-      this.#sessionRepo.getAll(),
-      this.#drawRepo.getAll(),
-      this.#tournamentRepo.getAll(),
-      this.#matchRepo.getAll(),
-    ]);
-    return JSON.stringify({ groups, players, sessions, draws, tournaments, matches }, null, 2);
   }
 }

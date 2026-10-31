@@ -1,20 +1,33 @@
 import { Injectable } from '@angular/core';
-import { IndexedDbService } from '../database/indexed-db.service';
 
-const STORAGE_KEY = 'volei-stats:mock-data';
+const STORAGE_KEY = 'volei-stats:demo-data';
+
+/** Os conjuntos do cenário de exemplo. */
+export const STORES = {
+  PLAYERS: 'players',
+  SESSIONS: 'sessions',
+  DRAWS: 'draws',
+  TOURNAMENTS: 'tournaments',
+  MATCHES: 'matches',
+  GROUPS: 'groups',
+  GROUP_MEMBERS: 'group_members',
+} as const;
 
 /**
- * Substituto do IndexedDB para rodar o app local com o cenário de exemplo do
- * redesign. É registrado por `provideMockData()`; o caminho de produção segue
- * no IndexedDB até a migração para o Supabase (ticket 18).
+ * O armazém do modo demonstração: mapas em memória.
  *
- * O que você faz testando sobrevive a um F5, porque o estado fica no
+ * Isto já foi o banco do app, no IndexedDB. Não é mais: os dados moram no
+ * Postgres, e o que sobrou aqui serve para mostrar o app sem rede e para os
+ * testes. Ele não abre banco de navegador nenhum — a troca foi deliberada,
+ * porque um banco local que não é a verdade só cria duas verdades.
+ *
+ * O que você faz demonstrando sobrevive a um F5, porque o estado fica no
  * `sessionStorage` da aba. Ele é descartado quando a aba fecha ou quando o dia
  * vira — o cenário é montado com datas relativas a hoje, e a "sessão de hoje"
  * precisa continuar sendo hoje.
  */
 @Injectable()
-export class InMemoryDbService extends IndexedDbService {
+export class DemoDbService {
   private readonly stores = new Map<string, Map<string, unknown>>();
   private day = '';
 
@@ -68,44 +81,36 @@ export class InMemoryDbService extends IndexedDbService {
       }
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ day: this.day, data }));
     } catch {
-      // Sem armazenamento, o mock segue só em memória.
+      // Sem armazenamento, a demonstração segue só em memória.
     }
   }
 
-  override async getDb(): Promise<IDBDatabase> {
-    throw new Error('O mock de dados não abre IndexedDB');
-  }
-
-  override async getAll<T>(storeName: string): Promise<T[]> {
+  async getAll<T>(storeName: string): Promise<T[]> {
     return [...this.store(storeName).values()].map((item) => structuredClone(item) as T);
   }
 
-  override async getById<T>(storeName: string, id: string): Promise<T | undefined> {
+  async getById<T>(storeName: string, id: string): Promise<T | undefined> {
     const item = this.store(storeName).get(id);
     return item === undefined ? undefined : (structuredClone(item) as T);
   }
 
-  override async getByIndex<T>(
-    storeName: string,
-    indexName: string,
-    value: IDBValidKey,
-  ): Promise<T[]> {
+  async getByIndex<T>(storeName: string, indexName: string, value: IDBValidKey): Promise<T[]> {
     const all = await this.getAll<Record<string, unknown>>(storeName);
     return all.filter((item) => item[indexName] === value) as T[];
   }
 
-  override async put<T>(storeName: string, item: T): Promise<T> {
+  async put<T>(storeName: string, item: T): Promise<T> {
     this.store(storeName).set(this.keyOf(item), structuredClone(item));
     this.persist();
     return item;
   }
 
-  override async delete(storeName: string, id: string): Promise<void> {
+  async delete(storeName: string, id: string): Promise<void> {
     this.store(storeName).delete(id);
     this.persist();
   }
 
-  override async exportAll(): Promise<Record<string, unknown[]>> {
+  async exportAll(): Promise<Record<string, unknown[]>> {
     const data: Record<string, unknown[]> = {};
     for (const [storeName, store] of this.stores) {
       data[storeName] = [...store.values()].map((item) => structuredClone(item));

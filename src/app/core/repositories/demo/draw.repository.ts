@@ -1,12 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { DrawRepository } from '../repository.contracts';
-import { IndexedDbService } from '../../database/indexed-db.service';
-import { STORES } from '../../database/database.config';
+import { DemoDbService, STORES } from '../../demo/demo-db.service';
 import { DrawProposal } from '../../../shared/models';
 
 @Injectable()
-export class LocalDrawRepository extends DrawRepository {
-  private db = inject(IndexedDbService);
+export class DemoDrawRepository extends DrawRepository {
+  private db = inject(DemoDbService);
 
   override async getAll(): Promise<DrawProposal[]> {
     return this.db.getAll<DrawProposal>(STORES.DRAWS);

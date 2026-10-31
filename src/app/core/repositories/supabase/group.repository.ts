@@ -13,12 +13,6 @@ import { Row, SupabaseRepositoryBase } from './supabase-repository.base';
  */
 @Injectable()
 export class SupabaseGroupRepository extends SupabaseRepositoryBase implements GroupRepository {
-  async getAll(): Promise<Group[]> {
-    const table = await this.table('groups');
-    const { data, error } = await table.select('id, name, owner_player_id, created_at');
-    return this.unwrap(data, error, 'Não foi possível ler os vôleis').map(toGroup);
-  }
-
   async getById(id: string): Promise<Group | undefined> {
     const table = await this.table('groups');
     const { data, error } = await table
@@ -29,23 +23,6 @@ export class SupabaseGroupRepository extends SupabaseRepositoryBase implements G
       throw new Error(`Não foi possível ler o vôlei: ${error.message}`);
     }
     return data ? toGroup(data) : undefined;
-  }
-
-  /** Renomear, e passar o vôlei para outra pessoa. Só o dono consegue. */
-  async save(group: Group): Promise<Group> {
-    const table = await this.table('groups');
-    const { data, error } = await table
-      .update({ name: group.name, owner_player_id: group.ownerPlayerId })
-      .eq('id', group.id)
-      .select('id, name, owner_player_id, created_at')
-      .single();
-    return toGroup(this.unwrap(data, error, 'Não foi possível salvar o vôlei'));
-  }
-
-  async getAllMembers(): Promise<GroupMember[]> {
-    const table = await this.table('group_members');
-    const { data, error } = await table.select('group_id, user_id, player_id, role');
-    return this.unwrap(data, error, 'Não foi possível ler quem participa').map(toMember);
   }
 
   async getMembersByGroupId(groupId: string): Promise<GroupMember[]> {
@@ -62,21 +39,6 @@ export class SupabaseGroupRepository extends SupabaseRepositoryBase implements G
       .select('group_id, user_id, player_id, role')
       .eq('player_id', playerId);
     return this.unwrap(data, error, 'Não foi possível ler os seus vôleis').map(toMember);
-  }
-
-  /**
-   * Quem é dono muda papel de alguém. Dizer quem a pessoa é, não: isso é
-   * `claim_player`, que compara a data dentro do servidor.
-   */
-  async saveMember(member: GroupMember): Promise<GroupMember> {
-    const table = await this.table('group_members');
-    const { data, error } = await table
-      .update({ role: member.role })
-      .eq('group_id', member.groupId)
-      .eq('player_id', member.playerId ?? '')
-      .select('group_id, user_id, player_id, role')
-      .single();
-    return toMember(this.unwrap(data, error, 'Não foi possível salvar o papel'));
   }
 }
 

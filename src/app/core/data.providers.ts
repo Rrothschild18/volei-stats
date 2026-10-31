@@ -3,7 +3,7 @@ import { environment } from '../../environments/environment';
 import { IdentityService, MembershipService } from './identity';
 import { SupabaseIdentityService } from './identity/supabase-identity.service';
 import { SupabaseMembershipService } from './identity/supabase-membership.service';
-import { provideDemoData } from './mock/mock-data.providers';
+import { provideDemoData } from './demo/demo-data.providers';
 import {
   DrawRepository,
   GroupRepository,

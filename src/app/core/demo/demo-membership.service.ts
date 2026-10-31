@@ -1,11 +1,5 @@
 import { Injectable } from '@angular/core';
-import {
-  ClaimResult,
-  CreatedGroup,
-  Invite,
-  MembershipService,
-  UnclaimedPlayer,
-} from './membership.service';
+import { ClaimResult, CreatedGroup, Invite, MembershipService, UnclaimedPlayer } from '../identity';
 
 /**
  * No modo demonstração não se entra em vôlei nenhum: o cenário de exemplo já

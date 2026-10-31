@@ -1,12 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { TournamentRepository } from '../repository.contracts';
-import { IndexedDbService } from '../../database/indexed-db.service';
-import { STORES } from '../../database/database.config';
+import { DemoDbService, STORES } from '../../demo/demo-db.service';
 import { Tournament } from '../../../shared/models';
 
 @Injectable()
-export class LocalTournamentRepository extends TournamentRepository {
-  private db = inject(IndexedDbService);
+export class DemoTournamentRepository extends TournamentRepository {
+  private db = inject(DemoDbService);
 
   override async getAll(): Promise<Tournament[]> {
     return this.db.getAll<Tournament>(STORES.TOURNAMENTS);
