@@ -2,6 +2,8 @@ import { Injectable, inject } from '@angular/core';
 import { Gender } from '../../shared/enums';
 import { SupabaseService } from '../supabase/supabase.service';
 import {
+  BirthDateFailure,
+  BirthDateResult,
   ClaimFailure,
   ClaimResult,
   CreatedGroup,
@@ -21,6 +23,13 @@ const CODE_FAILURES: Record<string, string> = {
   revoked: 'Este convite foi cancelado',
   expired: 'Este convite expirou',
   rate_limited: 'Muitas tentativas. Espere alguns minutos.',
+};
+
+/** Os motivos de `change_my_birth_date`, no vocabulário do app. */
+const BIRTH_DATE_FAILURES: Record<string, BirthDateFailure> = {
+  wrong_current: 'wrong-current',
+  same_as_group: 'same-as-group',
+  rate_limited: 'too-many-tries',
 };
 
 /** Os motivos que `claim_player` devolve, no vocabulário do app. */
@@ -125,6 +134,33 @@ export class SupabaseMembershipService implements MembershipService {
     return { ok: true, playerId: data.player_id };
   }
 
+  async renameMe(groupId: string, name: string): Promise<void> {
+    const client = await this.ready();
+    const { error } = await client.rpc('rename_me', { p_group_id: groupId, p_name: name });
+    if (error) {
+      throw new Error(this.readable(error.message));
+    }
+  }
+
+  async changeMyBirthDate(input: {
+    groupId: string;
+    current: string;
+    next: string;
+  }): Promise<BirthDateResult> {
+    const client = await this.ready();
+    const { data, error } = await client.rpc('change_my_birth_date', {
+      p_group_id: input.groupId,
+      p_current: input.current,
+      p_new: input.next,
+    });
+    if (error) {
+      throw new Error(this.readable(error.message));
+    }
+    return data === 'ok'
+      ? { ok: true }
+      : { ok: false, failure: BIRTH_DATE_FAILURES[data ?? ''] ?? 'wrong-current' };
+  }
+
   async invite(groupId: string): Promise<Invite | null> {
     const client = await this.ready();
     const { data, error } = await client
@@ -226,6 +262,9 @@ export class SupabaseMembershipService implements MembershipService {
    * repetido, que chega como violação de unicidade.
    */
   private readable(message: string): string {
+    if (message.includes('players_name_key')) {
+      return 'Já tem alguém com esse nome neste vôlei. Escolha outro.';
+    }
     if (message.includes('invites_code_key')) {
       return 'Esse código já está em uso por outro vôlei. Escolha outro.';
     }

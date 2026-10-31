@@ -38,6 +38,10 @@ A data inicial do grupo é a senha de primeiro acesso: você a digita uma vez e
 **troca pela sua** na mesma tela. Daquele momento em diante aquele navegador é
 aquela pessoa.
 
+Depois disso, o nome e a data são seus: em **Seus dados** (`/g/:id/eu`, pelo seu
+perfil) você ajusta como quer ser chamado neste vôlei — quem cadastrou digitou
+doze nomes de cabeça — e troca a data, sabendo a atual.
+
 ### Modo demonstração, sem banco nenhum
 
 `dataSource: 'demo'` em `src/environments/environment.ts` roda o app contra um

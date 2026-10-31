@@ -898,6 +898,99 @@ begin
 end $$;
 
 /**
+ * Trocar o PRÓPRIO nome.
+ *
+ * Existe porque o dono cadastra o nome grosso — ele está digitando doze nomes
+ * de cabeça — e é a própria pessoa quem sabe como quer ser chamada. Num vôlei
+ * com Raul, Raphael e Rafael, é assim que viram Raul, Rapha e Rafa.
+ *
+ * É função, e não um `update` com política de "eu mesmo", por uma razão: o
+ * privilégio de coluna em `players` vale para a tabela toda, e liberar `update`
+ * ao jogador liberaria também `active` — ele poderia se inativar e, pelo gatilho
+ * `players_inactive_drops_access`, derrubar o próprio acesso sem entender por
+ * quê. Aqui a superfície é exatamente "o meu nome".
+ */
+create or replace function rename_me(p_group_id uuid, p_name text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare me uuid;
+begin
+  me := my_player_id(p_group_id);
+  if me is null then
+    raise exception 'Diga quem você é antes de trocar o nome' using errcode = '42501';
+  end if;
+  if coalesce(trim(p_name), '') = '' then
+    raise exception 'O nome não pode ficar vazio' using errcode = '22023';
+  end if;
+
+  -- Nome repetido no vôlei bate no índice único e chega ao cliente como 23505.
+  update players set name = trim(p_name) where id = me;
+end $$;
+
+/**
+ * Trocar a PRÓPRIA data, sabendo a atual.
+ *
+ * A data atual é exigida por um motivo concreto: a sessão é a única credencial,
+ * e um celular emprestado já está dentro. Sem pedir a data velha, quem pegasse
+ * o aparelho trocaria a senha e trancaria a pessoa fora dos aparelhos dela —
+ * porque é a data que reivindica o nome num aparelho novo.
+ *
+ * Devolve MOTIVO em vez de lançar exceção, pelo mesmo que `claim_player`: um
+ * `raise` desfaz a transação e com ela o registro da tentativa, e a trava de
+ * força bruta nunca contaria nada.
+ */
+create or replace function change_my_birth_date(
+  p_group_id uuid,
+  p_current  date,
+  p_new      date
+)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  me              players;
+  initial         date;
+  recent_failures int;
+begin
+  select * into me from players where id = my_player_id(p_group_id);
+  if me.id is null then
+    raise exception 'Diga quem você é antes de trocar a data' using errcode = '42501';
+  end if;
+  if p_new is null then
+    raise exception 'Informe a data nova' using errcode = '22023';
+  end if;
+
+  select count(*) into recent_failures
+  from player_claim_attempts
+  where group_id = p_group_id
+    and user_id = auth.uid()
+    and not succeeded
+    and attempted_at > now() - interval '15 minutes';
+
+  if recent_failures >= 5 then
+    return 'rate_limited';
+  end if;
+
+  if me.birth_date <> p_current then
+    insert into player_claim_attempts (group_id, user_id, attempted_name, succeeded)
+    values (p_group_id, auth.uid(), me.name, false);
+    return 'wrong_current';
+  end if;
+
+  -- Voltar para a data combinada do grupo entregaria o nome a quem tem o
+  -- código: é a senha que todo mundo recebeu.
+  select initial_birth_date into initial from groups where id = p_group_id;
+  if p_new = initial then
+    return 'same_as_group';
+  end if;
+
+  update players
+  set birth_date = p_new, birth_date_changed = true
+  where id = me.id;
+
+  return 'ok';
+end $$;
+
+/**
  * O dono devolve a data de alguém para a inicial do grupo.
  *
  * É o caminho do "esqueci a minha data" / "troquei de celular e não lembro".

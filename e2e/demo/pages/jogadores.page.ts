@@ -28,4 +28,9 @@ export class JogadoresPage {
   get botaoConvite(): Locator {
     return this.page.getByRole('button', { name: /^CONVITE/i });
   }
+
+  /** O círculo da linha: é decorativo (`aria-hidden`), então vai por CSS. */
+  sigla(nome: string) {
+    return this.linha(nome).locator('span[aria-hidden="true"]').first();
+  }
 }

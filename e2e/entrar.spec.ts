@@ -15,6 +15,11 @@ function linha(page: Page, nome: string) {
   return page.getByRole('listitem').filter({ hasText: nome });
 }
 
+/** O círculo da linha: ele é decorativo (`aria-hidden`), então vai por CSS. */
+function sigla(page: Page, nome: string) {
+  return linha(page, nome).locator('span[aria-hidden="true"]').first();
+}
+
 /**
  * A porta do app: criar um vôlei, e alguém entrar nele.
  *
@@ -106,6 +111,76 @@ test.describe('entrar num vôlei', () => {
     await expect(dela.locator('span.tag', { hasText: 'JOGADOR' })).toBeVisible();
 
     await outro.close();
+  });
+
+  test('cada um ajusta o próprio nome, e a própria data', async ({ page, browser }) => {
+    const { codigo, groupId } = await criarVolei(page, nomeDeVolei('nomes'), 'Raul');
+    // O caso que motivou isto: três nomes que começam igual.
+    await cadastrar(page, groupId, 'Raphael');
+    await cadastrar(page, groupId, 'Rafael');
+
+    // A sigla do círculo cresce só até deixar de empatar.
+    await expect(sigla(page, 'RAUL')).toHaveText('RAU');
+    await expect(sigla(page, 'RAPHAEL')).toHaveText('RAP');
+    await expect(sigla(page, 'RAFAEL')).toHaveText('RAF');
+
+    const dele = await browser.newContext();
+    const ele = await dele.newPage();
+    await ele.goto(`/entrar/${codigo}`);
+    await ele.getByRole('button', { name: 'ENTRAR' }).click();
+    // Esperar a tela chegar, e não só o clique sair: `reivindicar` navega, e
+    // navegar antes de o resgate terminar faz o guard devolver para `/entrar`.
+    await expect(ele).toHaveURL(new RegExp(`/g/${groupId}/sou-quem$`));
+    await reivindicar(ele, groupId, 'Raphael', '1994-05-05');
+
+    // ===== o nome =====
+    await ele.goto(`/g/${groupId}/eu`);
+    await ele.fill('#me-name', 'Rapha');
+    await ele.getByRole('button', { name: 'SALVAR O NOME' }).click();
+    await expect(ele.getByText('Nome trocado.')).toBeVisible();
+
+    // Nome já usado no vôlei não passa: é único por vôlei.
+    await ele.fill('#me-name', 'Rafael');
+    await ele.getByRole('button', { name: 'SALVAR O NOME' }).click();
+    await expect(ele.getByText(/Já tem alguém com esse nome/)).toBeVisible();
+
+    // ===== a data =====
+    // A atual é exigida: um celular emprestado já está dentro do app.
+    await ele.fill('#me-current', '1900-01-01');
+    await ele.fill('#me-next', '1988-01-01');
+    await ele.getByRole('button', { name: 'SALVAR A DATA' }).click();
+    await expect(ele.getByText('A data atual não confere.')).toBeVisible();
+
+    // E a nova não pode ser a que o grupo combinou: é a senha de todo mundo.
+    await ele.fill('#me-current', '1994-05-05');
+    await ele.fill('#me-next', DATA_DO_GRUPO);
+    await ele.getByRole('button', { name: 'SALVAR A DATA' }).click();
+    await expect(ele.getByText(/não pode ser a data que o grupo combinou/)).toBeVisible();
+
+    await ele.fill('#me-current', '1994-05-05');
+    await ele.fill('#me-next', '1988-01-01');
+    await ele.getByRole('button', { name: 'SALVAR A DATA' }).click();
+    await expect(ele.getByText(/Data trocada/)).toBeVisible();
+
+    // O dono vê o nome novo, e a sigla acompanha.
+    await page.goto(`/g/${groupId}/jogadores`);
+    await expect(linha(page, 'RAPHA')).toBeVisible();
+    await expect(linha(page, 'RAPHA')).not.toContainText('NÃO ENTROU');
+
+    // E é a data nova que vale num aparelho novo.
+    const terceiro = await browser.newContext();
+    const tablet = await terceiro.newPage();
+    await tablet.goto(`/entrar/${codigo}`);
+    await tablet.getByRole('button', { name: 'ENTRAR' }).click();
+    await expect(tablet).toHaveURL(new RegExp(`/g/${groupId}/sou-quem$`));
+    await tablet.getByRole('button', { name: 'Já entrei antes, em outro aparelho' }).click();
+    await tablet.fill('#claim-name', 'Rapha');
+    await tablet.fill('#claim-own-date', '1988-01-01');
+    await tablet.getByRole('button', { name: 'SOU EU' }).click();
+    await expect(tablet).toHaveURL(new RegExp(`/g/${groupId}/inicio$`));
+
+    await dele.close();
+    await terceiro.close();
   });
 
   test('código que não existe não diz se o vôlei existe', async ({ page }) => {

@@ -426,3 +426,80 @@ select assert((select is_owner from my_groups),'Willy ve que e dono');
 commit;
 
 select 'TODOS OS TESTES DE ACESSO PASSARAM' as resultado;
+
+-- ===== 21. O NOME E A DATA SAO DA PROPRIA PESSOA =====
+-- Quem cadastra escreve o nome grosso; quem sabe como quer ser chamado e a
+-- pessoa. Num volei com Raul, Raphael e Rafael, e assim que eles se separam.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select rename_me((select group_id from ctx), 'Vivi');
+select assert(exists (select 1 from players where id=my_player_id((select group_id from ctx))
+  and name='Vivi'), 'a jogadora trocou o proprio nome');
+commit;
+
+-- Nome repetido no volei nao passa: o indice unico vale igual.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$
+declare passou boolean := false;
+begin
+  begin
+    perform rename_me((select group_id from ctx), 'willy');
+    passou := true;
+  exception when unique_violation then null; end;
+  if passou then raise exception 'FALHOU: dois jogadores com o mesmo nome'; end if;
+end $$;
+commit;
+
+-- Trocar a data exige a ATUAL: um celular emprestado ja esta dentro do app, e
+-- sem isso quem o pegasse trancaria a pessoa fora dos aparelhos dela.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select assert(change_my_birth_date((select group_id from ctx),'1900-01-01','1970-02-02')='wrong_current',
+  'data atual errada nao troca nada');
+select assert(change_my_birth_date((select group_id from ctx),'1995-07-02','2000-01-01')='same_as_group',
+  'nao da para voltar para a data combinada do grupo');
+select assert(change_my_birth_date((select group_id from ctx),'1995-07-02','1970-02-02')='ok',
+  'com a data atual certa, troca');
+commit;
+
+-- E a nova data e que vale dali em diante, num aparelho novo. O convite antigo
+-- foi cancelado no bloco 18, entao quem e dono agora gera outro.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
+create temp table convite2 as
+  with feito as (
+    insert into invites (group_id, label) values ((select group_id from ctx), 'Outro')
+    returning token
+  )
+  select token from feito;
+commit;
+
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '88888888-8888-8888-8888-888888888888';
+select redeem_invite((select token from convite2));
+select assert(not (claim_player((select group_id from ctx),'Vivi','1995-07-02')).ok,
+  'a data velha nao entra mais');
+select assert((claim_player((select group_id from ctx),'Vivi','1970-02-02')).ok,
+  'a data nova entra');
+commit;
+
+-- Quem nao disse quem e nao tem nome nem data para trocar.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$
+declare passou boolean := false;
+begin
+  begin
+    perform rename_me((select group_id from ctx), 'Intruso');
+    passou := true;
+  exception when insufficient_privilege then null; end;
+  if passou then raise exception 'FALHOU: visitante trocou nome'; end if;
+end $$;
+commit;

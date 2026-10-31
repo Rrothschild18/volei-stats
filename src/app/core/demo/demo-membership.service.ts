@@ -1,11 +1,19 @@
 import { Injectable, inject } from '@angular/core';
 import { Gender } from '../../shared/enums';
 import { AppFacade } from '../facade/app.facade';
-import { ClaimResult, CreatedGroup, Invite, MembershipService, UnclaimedPlayer } from '../identity';
+import { DEMO_PLAYER_ID } from './demo-seed';
+import {
+  BirthDateResult,
+  ClaimResult,
+  CreatedGroup,
+  Invite,
+  MembershipService,
+  UnclaimedPlayer,
+} from '../identity';
 
 /**
  * No modo demonstração não se entra em vôlei nenhum: o cenário de exemplo já
- * começa dentro de dois, e quem está usando é a pessoa escolhida no trocador.
+ * começa dentro de dois, e quem está usando é uma pessoa fixa.
  *
  * Não existe aqui uma imitação do fluxo de entrada de propósito: ele depende da
  * data funcionar como senha dentro do servidor, e uma versão de mentira disso
@@ -46,6 +54,23 @@ export class DemoMembershipService implements MembershipService {
     return this.unavailable();
   }
 
+  /**
+   * Trocar o nome funciona aqui: é escrita comum, e o cenário em memória a
+   * aceita. É o que deixa a tela "Seus dados" ser testada na metade rápida.
+   */
+  async renameMe(groupId: string, name: string): Promise<void> {
+    const eu = await this.facade.getPlayerById(this.euId(groupId));
+    if (!eu) {
+      throw new Error('Você ainda não disse quem é neste vôlei.');
+    }
+    await this.facade.updatePlayer({ ...eu, name });
+  }
+
+  /** A data é senha, e senha só existe contra o servidor. */
+  changeMyBirthDate(): Promise<BirthDateResult> {
+    return this.unavailable();
+  }
+
   invite(): Promise<Invite | null> {
     return Promise.resolve(null);
   }
@@ -64,6 +89,11 @@ export class DemoMembershipService implements MembershipService {
 
   transferOwnership(): Promise<void> {
     return this.unavailable();
+  }
+
+  private euId(groupId: string): string {
+    void groupId;
+    return DEMO_PLAYER_ID;
   }
 
   private unavailable(): never {

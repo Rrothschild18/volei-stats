@@ -28,6 +28,19 @@ export type ClaimFailure =
   /** Cinco erros em quinze minutos. */
   | 'too-many-tries';
 
+/** Por que a troca da própria data não deu certo. */
+export type BirthDateFailure =
+  /** A data atual informada não é a que está guardada. */
+  | 'wrong-current'
+  /** A nova não pode ser a que o grupo combinou: é a senha de todos. */
+  | 'same-as-group'
+  /** Cinco erros em quinze minutos. */
+  | 'too-many-tries';
+
+export type BirthDateResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly failure: BirthDateFailure };
+
 export type ClaimResult =
   | { readonly ok: true; readonly playerId: string }
   | { readonly ok: false; readonly failure: ClaimFailure };
@@ -64,6 +77,23 @@ export abstract class MembershipService {
     birthDate: string;
     newBirthDate: string | null;
   }): Promise<ClaimResult>;
+
+  /**
+   * Troca o meu nome neste vôlei. Quem cadastrou escreveu o nome grosso; quem
+   * sabe como quer ser chamado é a pessoa.
+   */
+  abstract renameMe(groupId: string, name: string): Promise<void>;
+
+  /**
+   * Troca a minha data, sabendo a atual. A velha é exigida porque a sessão é a
+   * única credencial: sem ela, um celular emprestado trancaria a pessoa fora
+   * dos aparelhos dela.
+   */
+  abstract changeMyBirthDate(input: {
+    groupId: string;
+    current: string;
+    next: string;
+  }): Promise<BirthDateResult>;
 
   /** O convite do vôlei: o que o dono manda no grupo do zap. */
   abstract invite(groupId: string): Promise<Invite | null>;

@@ -1096,6 +1096,10 @@ export type Database = {
         Args: { p_gender: string; p_group_id: string; p_name: string };
         Returns: string;
       };
+      change_my_birth_date: {
+        Args: { p_current: string; p_group_id: string; p_new: string };
+        Returns: string;
+      };
       claim_player: {
         Args: {
           p_birth_date: string;
@@ -1156,6 +1160,7 @@ export type Database = {
           reason: string;
         }[];
       };
+      rename_me: { Args: { p_group_id: string; p_name: string }; Returns: undefined };
       reset_player_birth_date: { Args: { p_player_id: string }; Returns: undefined };
       transfer_ownership: { Args: { p_group_id: string; p_player_id: string }; Returns: undefined };
       unclaimed_players: {

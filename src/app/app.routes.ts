@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { hasGroupsGuard, memberGuard, ownerGuard } from './core/guards/group.guards';
+import { hasGroupsGuard, memberGuard, ownerGuard, playerGuard } from './core/guards/group.guards';
 
 /**
  * O app vive dentro de um grupo: `/g/:groupId` com as quatro abas. As rotas
@@ -48,6 +48,12 @@ export const routes: Routes = [
         title: 'Quem você é?',
         loadComponent: () =>
           import('./features/group/claim/claim.component').then((m) => m.ClaimComponent),
+      },
+      {
+        path: 'eu',
+        title: 'Seus dados',
+        canActivate: [playerGuard],
+        loadComponent: () => import('./features/group/me/me.component').then((m) => m.MeComponent),
       },
       {
         path: 'convite',

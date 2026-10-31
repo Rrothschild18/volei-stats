@@ -109,6 +109,23 @@ interface RecentMatch {
         </app-blueprint>
       </section>
 
+      @if (isMe()) {
+        <section class="border-t border-divider pt-5">
+          <p class="kicker">É VOCÊ</p>
+          <p class="mt-1 text-[13px] muted">
+            O nome com que você aparece aqui e a sua data são seus — quem cadastrou escreveu o nome
+            de cabeça, e a data ninguém vê.
+          </p>
+          <button
+            type="button"
+            class="btn btn-secondary mt-3 min-h-12 w-full"
+            (click)="meusDados()"
+          >
+            TROCAR NOME OU DATA
+          </button>
+        </section>
+      }
+
       @if (group.isOwner() && !isMe()) {
         <section class="border-t border-divider pt-5">
           <p class="kicker">COISAS DE DONO</p>
@@ -300,6 +317,10 @@ export class PlayerDetailComponent implements OnInit {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  protected meusDados(): void {
+    void this.router.navigate(['/g', this.group.groupId(), 'eu']);
   }
 
   protected edit(): void {

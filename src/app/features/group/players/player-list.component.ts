@@ -7,6 +7,7 @@ import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { StatisticsService } from '../../../core/services/statistics.service';
 import { Player, PlayerStats } from '../../../shared/models';
 import { formatShortDate, todayDateString } from '../../../shared/utils/date.util';
+import { siglas } from '../../../shared/utils/initials.util';
 import {
   ActionBarComponent,
   GenderBadgeComponent,
@@ -77,9 +78,16 @@ type Filter = 'active' | 'inactive' | 'all';
             (click)="open(entry.player)"
           >
             <span
-              class="flex size-9 shrink-0 items-center justify-center border border-divider font-heading text-[16px] font-semibold"
+              class="flex size-9 shrink-0 items-center justify-center border border-divider font-heading font-semibold"
+              [class]="
+                entry.sigla.length > 2
+                  ? 'text-[11px]'
+                  : entry.sigla.length > 1
+                    ? 'text-[13px]'
+                    : 'text-[16px]'
+              "
               aria-hidden="true"
-              >{{ entry.player.name.charAt(0).toUpperCase() }}</span
+              >{{ entry.sigla }}</span
             >
             <span class="min-w-0 flex-1">
               <span class="flex items-center gap-2">
@@ -154,6 +162,9 @@ export class PlayerListComponent implements OnInit {
     const ownerId = this.group.group()?.ownerPlayerId ?? null;
     const statsById = new Map(this.playerStats().map((entry) => [entry.playerId, entry]));
     const naoEntraram = this.unclaimed();
+    // A sigla cresce só até deixar de empatar com as outras: Raul, Raphael e
+    // Rafael deixam de ser três círculos "R".
+    const siglasPorNome = siglas(this.players().map((player) => player.name));
 
     return this.players().map((player) => ({
       player,
@@ -165,6 +176,7 @@ export class PlayerListComponent implements OnInit {
        * relance quem ainda falta, para cobrar.
        */
       naoEntrou: naoEntraram.has(player.id),
+      sigla: siglasPorNome.get(player.name) ?? player.name.charAt(0).toLocaleUpperCase('pt-BR'),
       stats:
         statsById.get(player.id) ??
         ({

@@ -14,6 +14,20 @@ test.describe('jogadores', () => {
     await expect(jogadores.linha('BIA')).toContainText('28 J · 64%');
   });
 
+  test('a sigla do círculo cresce até deixar de empatar', async ({ page, grupo }) => {
+    await grupo.abrir('jogadores');
+    const jogadores = new JogadoresPage(page);
+
+    // Uma letra basta quando ninguém mais começa com ela.
+    await expect(jogadores.sigla('BIA')).toHaveText('B');
+    // Duas separam Duda de Dani.
+    await expect(jogadores.sigla('DUDA')).toHaveText('DU');
+    await expect(jogadores.sigla('DANI')).toHaveText('DA');
+    // Carol e Caio só se separam na terceira.
+    await expect(jogadores.sigla('CAROL')).toHaveText('CAR');
+    await expect(jogadores.sigla('CAIO')).toHaveText('CAI');
+  });
+
   test('a busca filtra a lista pelo nome', async ({ page, grupo }) => {
     await grupo.abrir('jogadores');
     const jogadores = new JogadoresPage(page);
