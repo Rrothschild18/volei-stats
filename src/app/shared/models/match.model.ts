@@ -11,6 +11,11 @@ export interface Match {
   loserId: string | null;
   pointDifference: number;
   playedAt: string;
+  /** Quem lançou o placar: o primeiro insert trava a partida. */
+  reportedBy: string | null;
+  /** Só admin corrige um placar já lançado. */
+  correctedBy: string | null;
+  correctedAt: string | null;
   createdAt: string;
 }
 

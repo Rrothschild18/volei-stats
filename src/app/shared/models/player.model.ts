@@ -4,6 +4,8 @@ export interface Player {
   id: string;
   name: string;
   gender: Gender;
+  /** Recupera o acesso junto com o nome (docs/PLANO-SUPABASE.md). */
+  birthDate: string | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;

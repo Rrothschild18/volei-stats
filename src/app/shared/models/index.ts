@@ -1,3 +1,4 @@
+export * from './group.model';
 export * from './player.model';
 export * from './session.model';
 export * from './draw.model';
