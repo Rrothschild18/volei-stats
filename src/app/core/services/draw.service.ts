@@ -1,12 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 import {
-  Player,
-  DrawProposal,
   DrawBadge,
+  DrawProposal,
+  Player,
   Team,
   TournamentPriorityEntry,
 } from '../../shared/models';
 import { AppFacade } from '../facade/app.facade';
+import { countWaitsInSession, waitingCandidates } from '../rules/waiting-rotation';
+import { dedupeProposals, proposalKey } from '../rules/draw-proposals';
 
 interface ScoredProposal {
   teams: Team[];
@@ -15,10 +17,26 @@ interface ScoredProposal {
   badges: DrawBadge[];
 }
 
+/** Tentativas de embaralhamento por avulso candidato. */
+const ATTEMPTS_PER_CANDIDATE = 100;
+
+/** Quantas propostas distintas o sorteio oferece, no máximo. */
+const MAX_PROPOSALS = 3;
+
 @Injectable({ providedIn: 'root' })
 export class DrawService {
   private facade = inject(AppFacade);
 
+  /**
+   * Gera até três propostas **distintas** (REGRAS.md §9.7).
+   *
+   * Com número ímpar, cada proposta tem um avulso diferente, escolhido pelo
+   * revezamento de espera do dia (§9.1); dentro de cada avulso, vale a melhor
+   * de 100 tentativas. Com número par, são as três melhores formações
+   * diferentes entre si.
+   *
+   * A pontuação continua ordenando as propostas, mas não vai para a tela.
+   */
   async generateProposals(
     sessionId: string,
     players: Player[],
@@ -27,81 +45,71 @@ export class DrawService {
   ): Promise<DrawProposal[]> {
     const priorityPlayerIds = priorityEntries.map((entry) => entry.playerId);
     const isOdd = players.length % 2 !== 0;
-    let waitingPlayerId: string | null = null;
-    let playersForDraw = [...players];
 
-    if (isOdd) {
-      waitingPlayerId = this.selectWaitingPlayer(players, priorityPlayerIds);
-      playersForDraw = players.filter((p) => p.id !== waitingPlayerId);
-    }
+    const candidates = isOdd
+      ? await this.waitingCandidatesForSession(sessionId, players, priorityPlayerIds)
+      : [null];
 
     const proposals: ScoredProposal[] = [];
-    const iterations = 100;
 
-    for (let i = 0; i < iterations; i++) {
-      const shuffled = this.shuffle([...playersForDraw]);
-      const teams = this.prioritizeTeams(this.formTeams(shuffled), priorityPlayerIds);
-      const { score, badges } = this.evaluateProposal(
-        teams,
+    for (const waitingPlayerId of this.shuffle([...candidates]).slice(0, MAX_PROPOSALS)) {
+      const playersForDraw = waitingPlayerId
+        ? players.filter((player) => player.id !== waitingPlayerId)
+        : [...players];
+
+      const best = this.bestOfAttempts(
+        playersForDraw,
+        players,
+        waitingPlayerId,
         existingPairsInSession,
         priorityEntries,
-        players,
+        isOdd ? ATTEMPTS_PER_CANDIDATE : ATTEMPTS_PER_CANDIDATE * MAX_PROPOSALS,
+        isOdd ? 1 : MAX_PROPOSALS,
       );
-      proposals.push({ teams, waitingPlayerId, score, badges });
+
+      proposals.push(...best);
     }
 
-    proposals.sort((a, b) => b.score - a.score);
+    // Com menos avulsos elegíveis do que propostas, mostra menos — melhor três
+    // opções de verdade do que três cópias (§9.7).
+    const unique = dedupeProposals(proposals).slice(0, MAX_PROPOSALS);
 
-    const top3 = proposals.slice(0, 3);
-    const result: DrawProposal[] = [];
-
-    for (let i = 0; i < top3.length; i++) {
-      const proposal = top3[i];
-      const draw: DrawProposal = {
-        id: crypto.randomUUID(),
-        sessionId,
-        teams: proposal.teams,
-        waitingPlayerId: proposal.waitingPlayerId,
-        score: proposal.score,
-        badges: proposal.badges,
-        selected: i === 0,
-        createdAt: new Date().toISOString(),
-      };
-      result.push(draw);
-    }
-
-    return result;
+    return unique.map((proposal, index) => ({
+      id: crypto.randomUUID(),
+      sessionId,
+      teams: proposal.teams,
+      waitingPlayerId: proposal.waitingPlayerId,
+      score: proposal.score,
+      badges: proposal.badges,
+      selected: index === 0,
+      createdAt: new Date().toISOString(),
+    }));
   }
 
-  selectWaitingPlayer(players: Player[], priorityPlayerIds: string[]): string {
-    const eligible = players.filter((p) => !priorityPlayerIds.includes(p.id));
-    const pool = eligible.length > 0 ? eligible : players;
-    const idx = Math.floor(Math.random() * pool.length);
-    return pool[idx].id;
+  /**
+   * Quem pode ficar de espera no próximo sorteio desta sessão: os presentes,
+   * menos os prioritários, restritos a quem esperou menos vezes hoje (§9.1).
+   */
+  async waitingCandidatesForSession(
+    sessionId: string,
+    players: Player[],
+    priorityPlayerIds: string[],
+  ): Promise<string[]> {
+    const waitCounts = await this.getWaitCountsInSession(sessionId);
+    return waitingCandidates(
+      players.map((player) => player.id),
+      priorityPlayerIds,
+      waitCounts,
+    );
   }
 
-  async getWaitingPlayerByHistory(players: Player[], priorityPlayerIds: string[]): Promise<string> {
-    const eligible = players.filter((p) => !priorityPlayerIds.includes(p.id));
-    const pool = eligible.length > 0 ? eligible : players;
-
-    const allDraws = await this.facade.getAllDraws();
-    const waitCounts = new Map<string, number>();
-
-    for (const p of pool) {
-      waitCounts.set(p.id, 0);
-    }
-
-    for (const draw of allDraws) {
-      if (draw.waitingPlayerId && waitCounts.has(draw.waitingPlayerId)) {
-        waitCounts.set(draw.waitingPlayerId, (waitCounts.get(draw.waitingPlayerId) || 0) + 1);
-      }
-    }
-
-    const minWaits = Math.min(...waitCounts.values());
-    const candidates = pool.filter((p) => (waitCounts.get(p.id) || 0) === minWaits);
-
-    const idx = Math.floor(Math.random() * candidates.length);
-    return candidates[idx].id;
+  /** Quantas vezes cada jogador já esperou nesta sessão. */
+  async getWaitCountsInSession(sessionId: string): Promise<Map<string, number>> {
+    const [draws, tournaments] = await Promise.all([
+      this.facade.getDrawsBySessionId(sessionId),
+      this.facade.getTournamentsBySessionId(sessionId),
+    ]);
+    return countWaitsInSession(draws, tournaments);
   }
 
   async getExistingPairsInSession(sessionId: string): Promise<Set<string>> {
@@ -126,7 +134,12 @@ export class DrawService {
     // inteiro (encaixe desativado), o que é representado pela entrada
     // 'waiting-player-not-used' gerada na criação do campeonato.
     const tournaments = await this.facade.getTournamentsBySessionId(sessionId);
-    const completed = tournaments.filter((t) => t.status === 'completed');
+    const completed = tournaments
+      .filter((t) => t.status === 'completed')
+      // A ordem de leitura do banco não é garantida: "o último campeonato" é o
+      // mais recente por data de criação (§7.9).
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
     if (completed.length > 0) {
       const lastTournament = completed[completed.length - 1];
       if ((lastTournament.priorityEntries ?? []).length > 0) {
@@ -146,6 +159,78 @@ export class DrawService {
     }
 
     return this.deduplicatePriorityEntries(entries);
+  }
+
+  /** Troca dois jogadores de lugar entre as duplas de uma proposta. */
+  swapPlayers(teams: Team[], playerA: string, playerB: string): Team[] {
+    return teams.map((team) => ({
+      ...team,
+      playerIds: team.playerIds.map((playerId) =>
+        playerId === playerA ? playerB : playerId === playerB ? playerA : playerId,
+      ) as [string, string],
+    }));
+  }
+
+  /** Duplas da proposta que já jogaram juntas hoje. */
+  repeatedPairs(teams: readonly Team[], existingPairs: ReadonlySet<string>): Team[] {
+    return teams.filter((team) =>
+      existingPairs.has(this.getPairKey(team.playerIds[0], team.playerIds[1])),
+    );
+  }
+
+  /** Quais das outras propostas evitam uma dupla — texto do aviso de repetição. */
+  proposalsAvoiding(proposals: readonly DrawProposal[], pairKey: string): number[] {
+    return proposals
+      .map((proposal, index) => ({ proposal, index }))
+      .filter(
+        ({ proposal }) =>
+          !proposal.teams.some(
+            (team) => this.getPairKey(team.playerIds[0], team.playerIds[1]) === pairKey,
+          ),
+      )
+      .map(({ index }) => index);
+  }
+
+  getPairKey(id1: string, id2: string): string {
+    return [id1, id2].sort().join('|');
+  }
+
+  /**
+   * Roda as tentativas de embaralhamento e devolve as melhores formações
+   * distintas para um mesmo avulso.
+   */
+  private bestOfAttempts(
+    playersForDraw: Player[],
+    allPlayers: Player[],
+    waitingPlayerId: string | null,
+    existingPairs: Set<string>,
+    priorityEntries: TournamentPriorityEntry[],
+    attempts: number,
+    keep: number,
+  ): ScoredProposal[] {
+    const seen = new Map<string, ScoredProposal>();
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const shuffled = this.shuffle([...playersForDraw]);
+      const teams = this.prioritizeTeams(
+        this.formTeams(shuffled),
+        priorityEntries.map((entry) => entry.playerId),
+      );
+      const { score, badges } = this.evaluateProposal(
+        teams,
+        existingPairs,
+        priorityEntries,
+        allPlayers,
+      );
+
+      const key = proposalKey(teams, waitingPlayerId);
+      const previous = seen.get(key);
+      if (!previous || previous.score < score) {
+        seen.set(key, { teams, waitingPlayerId, score, badges });
+      }
+    }
+
+    return [...seen.values()].sort((a, b) => b.score - a.score).slice(0, keep);
   }
 
   private formTeams(players: Player[]): Team[] {
@@ -234,10 +319,6 @@ export class DrawService {
     return { score, badges };
   }
 
-  private getPairKey(id1: string, id2: string): string {
-    return [id1, id2].sort().join('|');
-  }
-
   private deduplicatePriorityEntries(
     entries: TournamentPriorityEntry[],
   ): TournamentPriorityEntry[] {
@@ -256,8 +337,6 @@ export class DrawService {
 
   private getPriorityReasonLabel(reason: TournamentPriorityEntry['reason']): string {
     switch (reason) {
-      case 'waiting-draw':
-        return 'Prioridade: ficou em espera no sorteio anterior';
       case 'direct-elimination':
         return 'Prioridade: eliminado por maior diferença no campeonato passado';
       case 'coin-flip-loss':

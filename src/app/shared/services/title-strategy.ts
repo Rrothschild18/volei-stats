@@ -12,9 +12,9 @@ export class AppTitleStrategy extends TitleStrategy {
     const pageTitle = this.buildTitle(routerState);
 
     if (pageTitle) {
-      this.title.setTitle(pageTitle);
+      this.title.setTitle(`${pageTitle} · VoleiStats`);
     } else {
-      this.title.setTitle('My App');
+      this.title.setTitle('VoleiStats');
     }
   }
 }
