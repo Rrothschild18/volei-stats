@@ -46,7 +46,7 @@ interface StandingRow {
       [title]="store.tournament()?.name ?? ''"
       (back)="back()"
     >
-      @if (group.isAdmin()) {
+      @if (group.isOwner()) {
         <button
           type="button"
           class="btn btn-ghost btn-icon border-0"
@@ -60,7 +60,7 @@ interface StandingRow {
     </app-inner-header>
 
     <div class="flex flex-col gap-5 px-4 pb-6">
-      @if (group.isAdmin()) {
+      @if (myPosition() === null) {
         @if (champions(); as team) {
           <app-blueprint class="flex flex-col gap-1 p-4">
             <app-icon name="crown" [size]="34" class="text-accent-700" />
@@ -134,7 +134,7 @@ interface StandingRow {
         </section>
       }
 
-      @if (group.isAdmin() && menuOpen()) {
+      @if (group.isOwner() && menuOpen()) {
         <button
           type="button"
           class="flex items-center gap-2 self-start text-[13px] text-accent-700"
@@ -146,7 +146,7 @@ interface StandingRow {
       }
     </div>
 
-    @if (group.isAdmin()) {
+    @if (group.canPlay()) {
       <app-action-bar [pair]="true" [withTabBar]="true">
         <button type="button" class="btn btn-secondary h-13" (click)="share()">NO ZAP</button>
         <button

@@ -7,7 +7,7 @@ import { BottomSheetComponent, IconComponent } from '../../../shared/ui';
  *
  * A dupla que perdeu a rodada 1 por menos diferença manda um jogador para o
  * encaixe com o avulso; o outro sai e entra com prioridade no próximo sorteio.
- * O app não escolhe: o admin registra quem venceu na quadra, e a chave fica
+ * O app não escolhe: quem está na quadra registra quem venceu, e a chave fica
  * pausada até isso acontecer.
  */
 @Component({

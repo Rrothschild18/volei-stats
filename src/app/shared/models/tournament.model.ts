@@ -61,7 +61,7 @@ export type TournamentPriorityReason =
 
 /**
  * Desempate de diferença de pontos na fronteira que decide (REGRAS.md §9.3).
- * O app não escolhe sozinho: as duplas fazem par-ou-ímpar e o admin registra.
+ * O app não escolhe sozinho: as duplas fazem par-ou-ímpar e alguém registra.
  */
 export type TiebreakKind = 'losers' | 'winners';
 

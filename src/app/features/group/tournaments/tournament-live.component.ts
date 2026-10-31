@@ -25,7 +25,7 @@ type Tab = 'queue' | 'bracket' | 'teams';
 /**
  * Campeonato ao vivo: a fila (1k), a chave em escada (1l/1m) e as duplas.
  *
- * Quando falta uma decisão de quadra, a chave pausa: o admin vê o sheet para
+ * Quando falta uma decisão de quadra, a chave pausa: quem joga vê o sheet para
  * registrar, e o jogador vê que está pausada (1s).
  */
 @Component({
@@ -50,17 +50,17 @@ type Tab = 'queue' | 'bracket' | 'teams';
       [title]="store.tournament()?.name ?? ''"
       (back)="back()"
     >
-      <app-role-tag [role]="group.role()" [playerName]="group.me()?.name ?? null" />
+      <app-role-tag [isOwner]="group.isOwner()" [playerName]="group.me()?.name ?? null" />
     </app-inner-header>
 
     <app-segmented [options]="tabs" [value]="tab()" (valueChange)="tab.set($any($event))" />
 
-    @if (store.paused() && !group.isAdmin()) {
+    @if (store.paused() && !group.canPlay()) {
       <app-blueprint class="mx-4 mt-4 flex flex-col gap-2 p-4">
         <app-icon name="hand" [size]="26" class="text-accent-700" />
         <h2 class="font-heading text-[22px] font-semibold uppercase">Chave pausada</h2>
         <p class="font-heading text-[18px] font-semibold uppercase">{{ pausedLabel() }}</p>
-        <p class="text-[14px]">Um admin registra quem venceu. A tela atualiza sozinha.</p>
+        <p class="text-[14px]">Quem está jogando registra quem venceu. Puxe para atualizar.</p>
       </app-blueprint>
     }
 
@@ -89,11 +89,9 @@ type Tab = 'queue' | 'bracket' | 'teams';
                   <app-icon name="square-pen" [size]="20" />
                   LANÇAR PLACAR
                 </button>
-                @if (!group.isAdmin()) {
-                  <p class="text-[13px] text-accent-200">
-                    Qualquer jogador desta partida pode lançar. O primeiro placar salvo trava.
-                  </p>
-                }
+                <p class="text-[13px] text-accent-200">
+                  Qualquer jogador do vôlei pode lançar. O primeiro placar salvo trava.
+                </p>
               }
             </app-hero-field>
           }
@@ -154,7 +152,10 @@ type Tab = 'queue' | 'bracket' | 'teams';
                       result.loserScore
                     }}</span>
                   </div>
-                  @if (group.isAdmin()) {
+                  @if (result.correctedByName; as corrector) {
+                    <p class="px-3 pb-2 text-[12px] muted">Corrigido por {{ corrector }}</p>
+                  }
+                  @if (group.canPlay()) {
                     <button
                       type="button"
                       class="flex items-center gap-1 px-3 pb-2 text-[13px] text-accent-700"
@@ -224,9 +225,9 @@ type Tab = 'queue' | 'bracket' | 'teams';
       <app-score-sheet [bracket]="bracket" [correcting]="correcting()" (closed)="closeScore()" />
     }
 
-    @if (group.isAdmin() && store.tiebreak()) {
+    @if (group.canPlay() && store.tiebreak()) {
       <app-tiebreak-sheet (choose)="resolveTiebreak($event)" />
-    } @else if (group.isAdmin() && store.placementCandidate()) {
+    } @else if (group.canPlay() && store.placementCandidate()) {
       <app-placement-sheet (choose)="applyPlacement($event)" />
     }
   `,
@@ -277,13 +278,14 @@ export class TournamentLiveComponent implements OnInit {
     }));
   });
 
-  /** Admin lança qualquer partida; jogador, só a dele e só se ainda não houver placar. */
+  /** Qualquer jogador lança qualquer partida que ainda não tenha placar. */
   protected readonly canReport = computed(() => {
     const bracket = this.current();
     if (!bracket || this.store.findSavedMatch(bracket)) {
       return false;
     }
-    return this.group.isAdmin() || this.store.myMatch() === bracket;
+    // Qualquer jogador lança qualquer partida: o dono pode estar em quadra.
+    return this.group.canPlay();
   });
 
   protected readonly upcoming = computed(() => this.store.pending().slice(1));
@@ -323,12 +325,8 @@ export class TournamentLiveComponent implements OnInit {
     return '';
   });
 
-  /** A nota do jogador: com quem ele está e quantas vitórias faltam. */
+  /** A nota de quem joga: com quem está e quantas vitórias faltam. */
   protected readonly myTeamNote = computed(() => {
-    if (this.group.isAdmin()) {
-      return null;
-    }
-
     const team = this.store.myTeam();
     if (!team) {
       return null;
@@ -472,7 +470,7 @@ export class TournamentLiveComponent implements OnInit {
     }
   }
 
-  /** Corrigir é reabrir o placar da partida — só admin chega aqui. */
+  /** Corrigir é reabrir o placar da partida; qualquer jogador pode. */
   protected correct(matchId: string): void {
     const match = this.store.matches().find((candidate) => candidate.id === matchId);
     if (!match) {

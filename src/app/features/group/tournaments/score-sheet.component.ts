@@ -18,7 +18,7 @@ import {
  * Lançar placar (1n/1o/1p).
  *
  * Quem está na partida pode lançar, e **o primeiro placar salvo trava**: a
- * correção depois é só de admin. Empate e 0 × 0 não salvam; abaixo do limite, o
+ * correção depois é de qualquer jogador. Empate e 0 × 0 não salvam; abaixo do limite, o
  * app pede confirmação em vez de recusar.
  */
 @Component({
@@ -75,17 +75,20 @@ import {
             }
           </app-blueprint>
 
+          @if (correctorLabel(); as corrector) {
+            <p class="text-[14px] muted">Corrigido por {{ corrector }}.</p>
+          }
+
           <p class="text-[14px]">
-            Errou algum número? Só um admin corrige —
-            <strong class="font-semibold">{{ adminNames() }}</strong
-            >.
+            Errou algum número?
+            <strong class="font-semibold">Qualquer jogador do vôlei corrige</strong> — e fica
+            registrado quem foi.
           </p>
         } @else {
-          @if (!isAdmin()) {
+          @if (!correcting()) {
             <app-inline-note tone="event" icon="lock">
-              Você joga esta partida e pode lançar.
-              <strong class="font-semibold">O primeiro placar salvo trava</strong> — depois, só
-              {{ adminNames() }} ({{ adminWord() }}) corrigem.
+              <strong class="font-semibold">O primeiro placar salvo trava.</strong> Depois dele,
+              qualquer jogador corrige — e quem corrigir fica registrado na partida.
             </app-inline-note>
           }
 
@@ -138,9 +141,9 @@ import {
         </app-action-bar>
       } @else {
         <app-action-bar [pair]="true">
-          <button type="button" class="btn btn-secondary h-13" (click)="notifyAdmin()">
+          <button type="button" class="btn btn-secondary h-13" (click)="shareScore()">
             <app-icon name="send" [size]="18" />
-            AVISAR ADMIN
+            NO ZAP
           </button>
           <button
             type="button"
@@ -179,7 +182,7 @@ export class ScoreSheetComponent {
   private readonly group = inject(CurrentGroupStore);
 
   readonly bracket = input.required<BracketMatch>();
-  /** Partida já lançada que o admin está corrigindo. */
+  /** Partida já lançada que está sendo corrigida. */
   readonly correcting = input<Match | null>(null);
   readonly closed = output<void>();
 
@@ -190,11 +193,6 @@ export class ScoreSheetComponent {
   /** Preenchido depois de salvar: a tela vira "placar travado". */
   protected readonly saved = signal<Match | null>(null);
 
-  protected readonly isAdmin = this.group.isAdmin;
-  protected readonly adminNames = this.group.adminNames;
-  protected readonly adminWord = computed(() =>
-    this.group.admins().length > 1 ? 'admins' : 'admin',
-  );
 
   protected readonly pointLimit = computed(() => this.store.tournament()?.pointLimit ?? 12);
 
@@ -306,6 +304,17 @@ export class ScoreSheetComponent {
       : (this.store.playerName(match.reportedBy) ?? 'alguém');
   });
 
+  /** Quem corrigiu, quando alguém corrigiu. Corrigir é de qualquer jogador. */
+  protected readonly correctorLabel = computed(() => {
+    const match = this.saved();
+    if (!match?.correctedBy) {
+      return null;
+    }
+    return match.correctedBy === this.group.playerId()
+      ? 'você'
+      : (this.store.playerName(match.correctedBy) ?? 'alguém');
+  });
+
   protected time(iso: string): string {
     return formatTime(iso);
   }
@@ -350,7 +359,7 @@ export class ScoreSheetComponent {
       // Outro aparelho chegou primeiro: mostra o placar que já está salvo.
       const match = result.existing ?? this.store.findSavedMatch(this.bracket());
 
-      if (this.isAdmin() && result.saved) {
+      if (this.correcting() && result.saved) {
         this.closed.emit();
         return;
       }
@@ -362,7 +371,7 @@ export class ScoreSheetComponent {
   }
 
   /** Manda o resultado pelo WhatsApp, com o texto pronto. */
-  protected notifyAdmin(): void {
+  protected shareScore(): void {
     const match = this.saved();
     if (!match) {
       return;

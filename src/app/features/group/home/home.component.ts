@@ -29,9 +29,9 @@ interface Shortcut {
 }
 
 /**
- * Início do grupo (1a para admin, 1c para jogador).
+ * Início do vôlei (1a e 1c).
  *
- * Responde "o que está acontecendo agora": o admin vê o jogo em quadra e os
+ * Responde "o que está acontecendo agora": quem não está jogando vê o jogo em quadra e os
  * atalhos do dia; o jogador vê o jogo dele, o que acontece se vencer e o dia
  * dele.
  */
@@ -52,7 +52,7 @@ interface Shortcut {
   ],
   template: `
     <app-root-header [context]="context()" [title]="title()" (switchGroup)="toGroups()">
-      <app-role-tag slot="role" [role]="group.role()" [playerName]="group.me()?.name ?? null" />
+      <app-role-tag slot="role" [isOwner]="group.isOwner()" [playerName]="group.me()?.name ?? null" />
     </app-root-header>
 
     <div class="flex flex-col gap-5 pb-6">
@@ -62,13 +62,13 @@ interface Shortcut {
             Sem sessão hoje
           </p>
           <p class="text-[14px] text-accent-200">
-            @if (group.isAdmin()) {
+            @if (group.canPlay()) {
               Marque quem apareceu para abrir a sessão do dia.
             } @else {
-              Quando um admin marcar a presença, o seu jogo aparece aqui.
+              Quando alguém marcar a presença, o seu jogo aparece aqui.
             }
           </p>
-          @if (group.isAdmin()) {
+          @if (group.canPlay()) {
             <button
               type="button"
               class="btn btn-inverted"
@@ -88,7 +88,7 @@ interface Shortcut {
                 <span class="font-heading text-[26px] leading-none font-semibold uppercase">{{
                   side.label
                 }}</span>
-                @if (side.mine && !group.isAdmin()) {
+                @if (side.mine) {
                   <span class="text-[15px] text-accent-300">· você</span>
                 }
                 @if (side.note) {
@@ -98,7 +98,7 @@ interface Shortcut {
             }
           </div>
 
-          @if (group.isAdmin()) {
+          @if (group.canPlay()) {
             <div class="grid grid-cols-[2fr_1fr] gap-2">
               <button type="button" class="btn btn-inverted" (click)="openScore(bracket)">
                 <app-icon name="square-pen" [size]="20" />
@@ -127,10 +127,10 @@ interface Shortcut {
           <app-icon name="hand" [size]="26" class="text-accent-700" />
           <h2 class="font-heading text-[22px] font-semibold uppercase">Chave pausada</h2>
           <p class="text-[14px]">
-            @if (group.isAdmin()) {
+            @if (group.canPlay()) {
               Registre quem venceu o par-ou-ímpar na tela do campeonato.
             } @else {
-              Um admin registra quem venceu. A tela atualiza sozinha.
+              Quem está jogando registra quem venceu. Puxe para atualizar.
             }
           </p>
           <button type="button" class="btn btn-secondary mt-1 self-start px-3" (click)="openLive()">
@@ -139,7 +139,7 @@ interface Shortcut {
         </app-blueprint>
       }
 
-      @if (group.isAdmin()) {
+      @if (group.canPlay()) {
         <div class="mx-4 grid grid-cols-3 border border-divider">
           @for (shortcut of shortcuts(); track shortcut.label; let first = $first) {
             <button
@@ -245,18 +245,27 @@ export class HomeComponent implements OnInit {
       `${this.group.group()?.name?.toUpperCase() ?? ''} · ${formatShortDate(todayDateString())}`,
   );
 
-  protected readonly title = computed(() => (this.group.isAdmin() ? 'INÍCIO' : 'SEU JOGO'));
+  /**
+   * Tenho jogo neste campeonato?
+   *
+   * É o que decide a cara da tela. Antes a pergunta era "sou admin?", mas agora
+   * todo mundo joga e todo mundo organiza — quem não está em quadra é que
+   * precisa da visão do campeonato, não quem tem um papel.
+   */
+  private readonly myBracket = computed(() => this.liveStore.myMatch());
 
-  /** Admin vê o jogo em quadra; jogador vê o jogo dele. */
+  protected readonly title = computed(() => (this.myBracket() ? 'SEU JOGO' : 'INÍCIO'));
+
+  /** Quem joga vê o jogo dele; quem não joga vê o que está em quadra. */
   protected readonly currentMatch = computed(() => {
     if (this.liveStore.paused()) {
       return null;
     }
-    return this.group.isAdmin() ? this.liveStore.currentMatch() : this.liveStore.myMatch();
+    return this.myBracket() ?? this.liveStore.currentMatch();
   });
 
   protected readonly heroKicker = computed(() => {
-    if (this.group.isAdmin()) {
+    if (!this.myBracket()) {
       return 'AGORA EM QUADRA';
     }
 
@@ -277,7 +286,7 @@ export class HomeComponent implements OnInit {
 
     const phase =
       this.liveStore.ladder().find((step) => step.phase === bracket.phase)?.phaseLabel ?? '';
-    return this.group.isAdmin() ? `${tournament.name} · ${phase}` : phase;
+    return this.myBracket() ? phase : `${tournament.name} · ${phase}`;
   });
 
   protected readonly heroSides = computed(() => {
@@ -298,8 +307,8 @@ export class HomeComponent implements OnInit {
           .find((side) => side.teamId === teamId)?.note ?? null,
     }));
 
-    // Para o jogador, a dupla dele vem primeiro.
-    return this.group.isAdmin() ? sides : sides.sort((a, b) => Number(b.mine) - Number(a.mine));
+    // Quando é o meu jogo, a minha dupla vem primeiro.
+    return this.myBracket() ? sides.sort((a, b) => Number(b.mine) - Number(a.mine)) : sides;
   });
 
   protected readonly canReport = computed(() => {
@@ -307,7 +316,9 @@ export class HomeComponent implements OnInit {
     if (!bracket || this.liveStore.findSavedMatch(bracket)) {
       return false;
     }
-    return this.group.isAdmin() || this.liveStore.myMatch() === bracket;
+    // Qualquer jogador lança o placar de qualquer partida: o dono pode estar
+    // em quadra, e o jogo não para esperando ele.
+    return this.group.canPlay();
   });
 
   protected readonly shortcuts = computed<Shortcut[]>(() => {

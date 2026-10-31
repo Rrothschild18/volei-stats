@@ -30,7 +30,7 @@ interface RecentMatch {
   imports: [BlueprintComponent, IconComponent, InnerHeaderComponent, SectionBandComponent],
   template: `
     <app-inner-header context="JOGADORES" [title]="player()?.name ?? ''" (back)="back()">
-      @if (group.isAdmin()) {
+      @if (group.isOwner()) {
         <button
           type="button"
           class="btn btn-ghost btn-icon border-0"
