@@ -19,12 +19,14 @@ export interface Invite {
 
 /** Por que a tentativa de dizer quem eu sou não deu certo. */
 export type ClaimFailure =
-  /** Nome que não existe OU data errada. É o mesmo motivo de propósito. */
+  /**
+   * Nome que não existe, nome que já tem dono, ou senha errada. É o mesmo
+   * motivo de propósito: separá-los diria a quem tem o código quem está no
+   * vôlei e quem já entrou.
+   */
   | 'not-found'
-  /** Primeira entrada: a data nova é obrigatória. */
-  | 'new-date-required'
-  /** A data nova não pode ser a mesma que o grupo combinou. */
-  | 'new-date-must-differ'
+  /** Falta a sua data de nascimento, que é obrigatória. */
+  | 'birth-date-required'
   /** Cinco erros em quinze minutos. */
   | 'too-many-tries';
 
@@ -32,8 +34,6 @@ export type ClaimFailure =
 export type BirthDateFailure =
   /** A data atual informada não é a que está guardada. */
   | 'wrong-current'
-  /** A nova não pode ser a que o grupo combinou: é a senha de todos. */
-  | 'same-as-group'
   /** Cinco erros em quinze minutos. */
   | 'too-many-tries';
 
@@ -58,7 +58,8 @@ export abstract class MembershipService {
     ownerName: string;
     ownerGender: Gender;
     ownerBirthDate: string;
-    initialBirthDate: string;
+    /** A senha que vai no zap junto com o código. */
+    joinPassword: string;
   }): Promise<CreatedGroup>;
 
   /** Usa o código e entra no vôlei como visitante. */
@@ -68,14 +69,24 @@ export abstract class MembershipService {
   abstract unclaimedPlayers(groupId: string): Promise<readonly UnclaimedPlayer[]>;
 
   /**
-   * Diz quem eu sou. Na primeira vez a data é a que o grupo combinou, e trocar
-   * pela sua é obrigatório na mesma chamada. Depois disso, é a sua.
+   * Diz quem eu sou, da primeira vez: a senha do grupo abre o nome, e a data
+   * que eu informo vira a minha chave.
    */
   abstract claim(input: {
     groupId: string;
     name: string;
+    password: string;
     birthDate: string;
-    newBirthDate: string | null;
+  }): Promise<ClaimResult>;
+
+  /**
+   * Diz quem eu sou num aparelho novo: só a minha data. A senha do grupo não
+   * serve aqui — ela abre um nome uma vez só.
+   */
+  abstract claimAgain(input: {
+    groupId: string;
+    name: string;
+    birthDate: string;
   }): Promise<ClaimResult>;
 
   /**
@@ -101,8 +112,14 @@ export abstract class MembershipService {
   /** Cancela o convite atual e gera outro, com código novo. */
   abstract renewInvite(groupId: string): Promise<Invite>;
 
-  /** Devolve a data de alguém para a inicial do vôlei. Só o dono. */
-  abstract resetBirthDate(playerId: string): Promise<void>;
+  /**
+   * Devolve um nome à lista de quem ainda não entrou, e derruba os aparelhos
+   * ligados a ele. Só o dono.
+   */
+  abstract resetAccess(playerId: string): Promise<void>;
+
+  /** Troca a senha do grupo. Só o dono. */
+  abstract setJoinPassword(groupId: string, password: string): Promise<void>;
 
   /** Passa o vôlei para outro jogador. Só o dono. */
   abstract transferOwnership(groupId: string, playerId: string): Promise<void>;

@@ -1,17 +1,23 @@
 # Plano: migrar o VoleiStats para Supabase
 
-## 1. Acesso: dono, link e a data como senha
+## 1. Acesso: dono, código, senha do grupo e a data como chave pessoal
 
 ### O modelo
 
 Qualquer pessoa cria um **vôlei** e é **dona** dele. O dono cadastra os amigos
-— nome, sexo e uma **data inicial comum** — e manda **um link** no grupo do
-WhatsApp. Quem abre o link toca no próprio nome, digita a data inicial e
-**troca pela data dele** ali mesmo. Daquele momento em diante aquele navegador
-*é* aquela pessoa, com ranking, histórico, sessões e campeonatos.
+— só nome e sexo — escolhe uma **senha simples para o grupo** ("volei99") e
+manda **o código e a senha** no grupo do WhatsApp. Quem recebe toca no próprio
+nome, digita a senha do grupo e **a data de nascimento dele**. Daquele momento
+em diante aquele navegador _é_ aquela pessoa, com ranking, histórico, sessões e
+campeonatos.
 
-Não existe e-mail, senha, OTP nem magic link. **O link é a porta, e a data é a
-senha.**
+Não existe e-mail, OTP nem magic link. **O código e a senha do grupo são a
+porta; a sua data é a sua chave** — é com ela que você entra num aparelho novo.
+
+> A senha do grupo já foi uma data combinada. Trocou por texto porque uma data
+> é ruim de ditar no telefone e fácil de confundir com a data de alguém — e a
+> troca eliminou de uma vez a regra mais confusa do modelo antigo ("a sua data
+> tem de ser diferente da inicial do grupo").
 
 ### Como isso funciona por baixo
 
@@ -22,11 +28,11 @@ site.
 
 A partir daí são três chamadas, e só:
 
-| Chamada | Quem usa | O que acontece |
-| --- | --- | --- |
-| `create_group(...)` | quem quer um vôlei novo | cria o vôlei, vira dono, recebe o link |
-| `redeem_invite(token)` | quem recebeu o link | entra como **espectador**: lê, não escreve |
-| `claim_player(...)` | o espectador, na lista de nomes | diz quem é e vira **jogador** |
+| Chamada                | Quem usa                        | O que acontece                             |
+| ---------------------- | ------------------------------- | ------------------------------------------ |
+| `create_group(...)`    | quem quer um vôlei novo         | cria o vôlei, vira dono, recebe o link     |
+| `redeem_invite(token)` | quem recebeu o link             | entra como **espectador**: lê, não escreve |
+| `claim_player(...)`    | o espectador, na lista de nomes | diz quem é e vira **jogador**              |
 
 > **Existe um link, e é o do convite.** O uuid do vôlei **não** é uma porta: a
 > função que concede leitura é interna (`revoke execute ... from public`), e só
@@ -34,8 +40,8 @@ A partir daí são três chamadas, e só:
 > não trancaria ninguém — um uuid é permanente, e quem já entrou uma vez o tem
 > para sempre. Por isso `redeem_invite()` também devolve só id e nome do vôlei:
 > **privilégio de coluna não se aplica aos campos de um composto devolvido por
-> função `security definer`**, então `returns groups` entregaria a data inicial
-> — a senha combinada do grupo — para qualquer um que abrisse o link.
+> função `security definer`**, então `returns groups` entregaria o hash da senha
+> do grupo para qualquer um que abrisse o link.
 
 > Os links são **reutilizáveis de propósito**: um link serve pro grupo todo, e a
 > mesma pessoa abre no celular e no tablet, cada aparelho com sua própria sessão
@@ -46,20 +52,23 @@ A partir daí são três chamadas, e só:
 É a mudança de postura que decidimos, e ela tem consequências que o schema
 implementa:
 
-| | Como |
-| --- | --- |
-| **Nunca sai do servidor** | `revoke select on players` + `grant select` coluna a coluna. Nem `select *` traz a data: o PostgREST devolve só as colunas permitidas. Só `claim_player()` a compara |
-| **Trocar na primeira entrada é obrigatório** | `claim_player()` recusa (`new_birth_date_required`) se quem nunca trocou não mandar uma data nova, e recusa de novo se a nova for igual à inicial. Sem isso, metade do grupo fica com a senha compartilhada pra sempre |
-| **Só funciona com o link do vôlei** | `claim_player()` exige ser membro; o uuid do vôlei é um segundo fator |
-| **Trava de força bruta** | 5 erros em 15 minutos e para, contados **por nome tentado** e não só por sessão: uma sessão anônima nova é grátis (é a porta do modelo) e zerava o contador |
-| **Não revela quem está no vôlei** | Nome inexistente e data errada devolvem exatamente a mesma resposta |
-| **Esqueceu?** | O dono chama `reset_player_birth_date()`: volta pra data inicial e derruba os aparelhos ligados àquele jogador. O dono **nunca vê** qual era |
-| **Nem troca na mão** | `revoke update (birth_date, birth_date_changed)`: sem isso o dono trocaria a senha de alguém com um `update` comum, por fora do reset — e a vítima continuaria logada sem saber |
-| **A data do dono é outra** | `create_group()` recusa a data do dono igual à inicial do grupo; senão o nome dele ficaria reivindicável com a senha que ele mesmo manda no grupo |
+|                                           | Como                                                                                                                                                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Nunca sai do servidor**                 | `revoke select on players` + `grant select` coluna a coluna. Nem `select *` traz a data: o PostgREST devolve só as colunas permitidas. Só `claim_player()` a compara                              |
+| **A senha do grupo abre um nome UMA vez** | `claim_player()` só aceita nome sem chave (`birth_date is null`). Depois que alguém entrou, a senha não abre mais aquele nome — senão quem tem o código assumiria quem já entrou                  |
+| **A data pessoal é obrigatória**          | `claim_player()` recusa (`birth_date_required`) sem ela: é ela que vira a chave da pessoa                                                                                                         |
+| **Guardada como hash**                    | A senha do grupo nunca é lida de volta — quem a sabe é o dono, que a escolheu. `crypt`/`gen_salt` do pgcrypto                                                                                     |
+| **Só funciona com o link do vôlei**       | `claim_player()` exige ser membro; o uuid do vôlei é um segundo fator                                                                                                                             |
+| **Trava de força bruta**                  | 5 erros em 15 minutos e para, contados **por nome tentado** e não só por sessão: uma sessão anônima nova é grátis (é a porta do modelo) e zerava o contador                                       |
+| **Não revela quem está no vôlei**         | Nome inexistente, nome já reivindicado e senha errada devolvem exatamente a mesma resposta                                                                                                        |
+| **Esqueceu?**                             | O dono chama `reset_player_access()`: o nome volta pra lista de quem ainda não entrou e os aparelhos ligados a ele são desligados. O dono **nunca vê** qual era a data                            |
+| **Nem troca na mão**                      | `revoke update` em `players`, com `grant` só de nome, sexo e ativo: sem isso o dono apagaria a chave de alguém com um `update` comum, por fora do reset — e a vítima continuaria logada sem saber |
+| **O dono não usa a senha do grupo**       | Ele entra com a data dele no momento em que cria o vôlei, então o nome dele nunca aparece na lista de nomes por reivindicar                                                                       |
+| **Trocar a senha do grupo**               | `set_join_password()`, do dono. É o caminho de "entrou gente que não devia"; quem já entrou continua dentro                                                                                       |
 
 A lista de nomes da tela do convite mostra **só quem ainda não entrou**
-(`unclaimed_players()`), o que fecha a janela em que a data inicial
-compartilhada serviria pra qualquer um se passar por qualquer um.
+(`unclaimed_players()`), o que fecha a janela em que a senha do grupo serviria
+pra qualquer um se passar por qualquer um.
 
 > ⚠️ **O risco que aceitamos conscientemente:** entre o cadastro e a primeira
 > entrada, qualquer um com o link pode reivindicar o nome de outro, porque a
@@ -80,7 +89,7 @@ Existe **exatamente um dono** por vôlei, e ele não é um papel: é a coluna
 
 `transfer_ownership()` só aceita **quem já entrou no vôlei**. Passar para um nome
 que ninguém reivindicou deixaria o vôlei sem dono efetivo — e aí qualquer um com
-o link reivindicaria aquele nome com a data inicial e assumiria tudo.
+o link reivindicaria aquele nome com a senha do grupo e assumiria tudo.
 
 > Isso é uma consequência direta da data ser senha: quem souber a **sua** data
 > assume o seu vôlei. Antes a data era um dado público e esse caminho era
@@ -91,19 +100,19 @@ o link reivindicaria aquele nome com a data inicial e assumiria tudo.
 
 O papel diz uma coisa só: **se a pessoa já disse quem é**.
 
-| | espectador | jogador | dono |
-| --- | --- | --- | --- |
-| Ler ranking, histórico, campeonatos | ✅ | ✅ | ✅ |
-| Marcar presença, tirar sorteio, trocar duplas | — | ✅ | ✅ |
-| Criar campeonato, lançar e corrigir placar | — | ✅ | ✅ |
-| Par-ou-ímpar de desempate, encaixe do avulso | — | ✅ | ✅ |
-| Cadastrar / editar / inativar jogador | — | — | ✅ |
-| Gerar e revogar o link, passar o vôlei, renomear | — | — | ✅ |
-| Apagar sessão, sorteio, campeonato | — | — | ✅ |
+|                                                  | espectador | jogador | dono |
+| ------------------------------------------------ | ---------- | ------- | ---- |
+| Ler ranking, histórico, campeonatos              | ✅         | ✅      | ✅   |
+| Marcar presença, tirar sorteio, trocar duplas    | —          | ✅      | ✅   |
+| Criar campeonato, lançar e corrigir placar       | —          | ✅      | ✅   |
+| Par-ou-ímpar de desempate, encaixe do avulso     | —          | ✅      | ✅   |
+| Cadastrar / editar / inativar jogador            | —          | —       | ✅   |
+| Gerar e revogar o link, passar o vôlei, renomear | —          | —       | ✅   |
+| Apagar sessão, sorteio, campeonato               | —          | —       | ✅   |
 
 A razão de o jogo ser de todos é prática: **o dono pode estar jogando a final,
 ou ter faltado**, e o sorteio não pode esperar ele. Quem estiver com o celular
-na mão resolve. O dono fica com *quem existe* e *o que desaparece*.
+na mão resolve. O dono fica com _quem existe_ e _o que desaparece_.
 
 Uma correção de placar grava `corrected_by` / `corrected_at`, e a tela mostra
 "corrigido por \<nome\>" — é o que torna aceitável deixar a correção na mão de
@@ -135,16 +144,16 @@ e-mail, zero custo, zero dependência externa.
 
 Várias regras que hoje só existem na tela viram **constraints**:
 
-| Regra | Hoje | Depois |
-| --- | --- | --- |
-| Vôlei não tem empate | validação na tela | `check (score_a <> score_b)` |
-| Não existe 0 × 0 | validação na tela | `check (score_a + score_b > 0)` |
-| Dupla não repete jogador | nada | `check (player1_id <> player2_id)` |
-| Vencedor / perdedor / diferença | calculado à mão em cada lugar | **colunas geradas** |
-| Mesma partida lançada duas vezes | nada | `unique (tournament_id, phase, team_a, team_b)` |
-| **Duas sessões no mesmo dia** | nada | `unique (group_id, date)` |
-| Dois par-ou-ímpar do mesmo tipo | nada | `primary key (tournament_id, kind)` |
-| **Dados de dois vôleis se misturarem** | — | **chaves compostas com `group_id`** |
+| Regra                                  | Hoje                          | Depois                                          |
+| -------------------------------------- | ----------------------------- | ----------------------------------------------- |
+| Vôlei não tem empate                   | validação na tela             | `check (score_a <> score_b)`                    |
+| Não existe 0 × 0                       | validação na tela             | `check (score_a + score_b > 0)`                 |
+| Dupla não repete jogador               | nada                          | `check (player1_id <> player2_id)`              |
+| Vencedor / perdedor / diferença        | calculado à mão em cada lugar | **colunas geradas**                             |
+| Mesma partida lançada duas vezes       | nada                          | `unique (tournament_id, phase, team_a, team_b)` |
+| **Duas sessões no mesmo dia**          | nada                          | `unique (group_id, date)`                       |
+| Dois par-ou-ímpar do mesmo tipo        | nada                          | `primary key (tournament_id, kind)`             |
+| **Dados de dois vôleis se misturarem** | —                             | **chaves compostas com `group_id`**             |
 
 A trava do primeiro placar é esse `unique`: a segunda tentativa na mesma
 partida não vira erro feio, devolve o placar que já está lá.
@@ -200,10 +209,10 @@ supabase db reset   # refaz o banco do zero e recarrega o cenário de exemplo
 ```
 
 O `supabase/seed.sql` carrega dois vôleis para clicar: **Vôlei Segunda**
-(código `SEGUNDA`, oito jogadores, a sessão de hoje em andamento e a da semana
-passada encerrada) e **Vôlei Teste** (código `TESTE-VOLEI`, vazio, com Raul
-como dono). Nos dois a data inicial é **01/01/1990** e ninguém está
-reivindicado — é digitando o código e tocando num nome que você entra.
+(código `SEGUNDA`, senha `segunda99`, oito jogadores, a sessão de hoje em andamento e a da semana
+passada encerrada) e **Vôlei Teste** (código `TESTE-VOLEI`, senha `volei99`, vazio, com
+Raul como dono). Em nenhum dos dois alguém está reivindicado — é com o código, a
+senha do grupo e a sua data que você entra.
 
 O `supabase/config.toml` já liga **Anonymous sign-ins**: a sessão anônima é o
 modelo de acesso, e com ela desligada `signInAnonymously()` devolve 422 e o app
@@ -257,14 +266,14 @@ foi descartado de propósito. O primeiro vôlei real nasce vazio.
 
 ## 5. Limites do plano grátis
 
-| Item | Limite | Suficiente? |
-| --- | --- | --- |
-| Banco | 500 MB | Folgadíssimo |
-| Usuários ativos/mês | 50.000 | Sim |
-| Tráfego | 5 GB/mês | Sim |
-| Projetos ativos | 2 por organização | Sim |
+| Item                      | Limite                 | Suficiente?              |
+| ------------------------- | ---------------------- | ------------------------ |
+| Banco                     | 500 MB                 | Folgadíssimo             |
+| Usuários ativos/mês       | 50.000                 | Sim                      |
+| Tráfego                   | 5 GB/mês               | Sim                      |
+| Projetos ativos           | 2 por organização      | Sim                      |
 | **Pausa por inatividade** | **~7 dias sem acesso** | **Precisa do keepalive** |
-| E-mails | — | **Não usamos** |
+| E-mails                   | —                      | **Não usamos**           |
 
 ---
 

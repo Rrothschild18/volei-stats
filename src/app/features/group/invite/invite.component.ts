@@ -43,8 +43,8 @@ import { describeError } from '../../../shared/utils/error.util';
             {{ code() }}
           </p>
           <p class="mt-3 text-[13px] muted">
-            Mande o código <strong class="font-semibold">e a data inicial do grupo</strong> para a
-            pessoa. Ela toca no nome dela e troca a data pela dela.
+            Mande o código <strong class="font-semibold">e a senha do grupo</strong> para a pessoa.
+            Ela toca no nome dela, digita a senha e escolhe a data dela.
           </p>
         </app-blueprint>
 
@@ -97,6 +97,35 @@ import { describeError } from '../../../shared/utils/error.util';
         </div>
 
         <div class="border-t border-divider pt-5">
+          <p class="kicker">TROCAR A SENHA DO GRUPO</p>
+          <p class="mt-1 text-[13px] muted">
+            É o caminho de "entrou gente que não devia". Quem já disse quem é continua dentro — a
+            senha só abre nome que ainda não tem dono.
+          </p>
+          <div class="field mt-3">
+            <label for="invite-password">Senha nova</label>
+            <input
+              id="invite-password"
+              class="input"
+              type="text"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+              [value]="senha()"
+              (input)="senha.set($any($event.target).value)"
+            />
+          </div>
+          <button
+            type="button"
+            class="btn btn-secondary mt-3 min-h-12 w-full"
+            [disabled]="senha().trim().length < 4"
+            (click)="trocarSenha()"
+          >
+            SALVAR A SENHA
+          </button>
+        </div>
+
+        <div class="border-t border-divider pt-5">
           <p class="kicker">CANCELAR ESTE CONVITE</p>
           <p class="mt-1 text-[13px] muted">
             O código atual para de funcionar e um novo é gerado. Quem já entrou continua dentro.
@@ -128,6 +157,7 @@ export class InviteComponent implements OnInit {
 
   protected readonly code = signal<string | null>(null);
   protected readonly draft = signal('');
+  protected readonly senha = signal('');
   protected readonly loading = signal(true);
   protected readonly notice = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -209,6 +239,22 @@ export class InviteComponent implements OnInit {
       this.notice.set('Código trocado.');
     } catch (cause) {
       this.error.set(describeError(cause, 'Não foi possível trocar o código.'));
+    }
+  }
+
+  protected async trocarSenha(): Promise<void> {
+    const groupId = this.group.groupId();
+    if (!groupId || this.senha().trim().length < 4) {
+      return;
+    }
+    this.error.set(null);
+    this.notice.set(null);
+    try {
+      await this.membership.setJoinPassword(groupId, this.senha().trim());
+      this.senha.set('');
+      this.notice.set('Senha trocada. Mande a nova para quem ainda vai entrar.');
+    } catch (cause) {
+      this.error.set(describeError(cause, 'Não foi possível trocar a senha.'));
     }
   }
 

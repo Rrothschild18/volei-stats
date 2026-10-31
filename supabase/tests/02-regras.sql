@@ -3,9 +3,9 @@ returns void language plpgsql as $$
 begin if not cond then raise exception 'FALHOU: %', msg; end if; end $$;
 
 -- fixture: 1 grupo, 4 jogadores, 1 sessao, 1 sorteio, 1 campeonato
-insert into groups (id, name, initial_birth_date) values
- ('aaaaaaaa-0000-0000-0000-000000000001','Terca','2000-01-01'),
- ('bbbbbbbb-0000-0000-0000-000000000002','Quinta','2000-01-01');
+insert into groups (id, name, join_password_hash) values
+ ('aaaaaaaa-0000-0000-0000-000000000001','Terca',crypt('volei99', gen_salt('bf'))),
+ ('bbbbbbbb-0000-0000-0000-000000000002','Quinta',crypt('volei99', gen_salt('bf')));
 insert into players (id, group_id, name, gender, birth_date) values
  ('0a000000-0000-0000-0000-00000000000a','aaaaaaaa-0000-0000-0000-000000000001','Raul','M','1990-05-10'),
  ('0b000000-0000-0000-0000-00000000000b','aaaaaaaa-0000-0000-0000-000000000001','Vitoria','F','1995-07-02'),

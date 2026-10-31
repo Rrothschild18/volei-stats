@@ -28,15 +28,13 @@ const CODE_FAILURES: Record<string, string> = {
 /** Os motivos de `change_my_birth_date`, no vocabulário do app. */
 const BIRTH_DATE_FAILURES: Record<string, BirthDateFailure> = {
   wrong_current: 'wrong-current',
-  same_as_group: 'same-as-group',
   rate_limited: 'too-many-tries',
 };
 
 /** Os motivos que `claim_player` devolve, no vocabulário do app. */
 const FAILURES: Record<string, ClaimFailure> = {
   not_found: 'not-found',
-  new_birth_date_required: 'new-date-required',
-  new_birth_date_must_differ: 'new-date-must-differ',
+  birth_date_required: 'birth-date-required',
   rate_limited: 'too-many-tries',
 };
 
@@ -51,7 +49,7 @@ export class SupabaseMembershipService implements MembershipService {
     ownerName: string;
     ownerGender: Gender;
     ownerBirthDate: string;
-    initialBirthDate: string;
+    joinPassword: string;
   }): Promise<CreatedGroup> {
     const client = await this.ready();
     const { data, error } = await client.rpc('create_group', {
@@ -59,7 +57,7 @@ export class SupabaseMembershipService implements MembershipService {
       p_owner_name: input.ownerName,
       p_owner_gender: input.ownerGender,
       p_owner_birth_date: input.ownerBirthDate,
-      p_initial_birth_date: input.initialBirthDate,
+      p_join_password: input.joinPassword,
     });
     if (error) {
       throw new Error(error.message);
@@ -115,16 +113,37 @@ export class SupabaseMembershipService implements MembershipService {
   async claim(input: {
     groupId: string;
     name: string;
+    password: string;
     birthDate: string;
-    newBirthDate: string | null;
   }): Promise<ClaimResult> {
     const client = await this.ready();
     const { data, error } = await client.rpc('claim_player', {
       p_group_id: input.groupId,
       p_name: input.name,
+      p_password: input.password,
       p_birth_date: input.birthDate,
-      p_new_birth_date: input.newBirthDate ?? undefined,
     });
+    return this.toClaimResult(data, error);
+  }
+
+  async claimAgain(input: {
+    groupId: string;
+    name: string;
+    birthDate: string;
+  }): Promise<ClaimResult> {
+    const client = await this.ready();
+    const { data, error } = await client.rpc('claim_player_again', {
+      p_group_id: input.groupId,
+      p_name: input.name,
+      p_birth_date: input.birthDate,
+    });
+    return this.toClaimResult(data, error);
+  }
+
+  private toClaimResult(
+    data: { ok: boolean | null; reason: string | null; player_id: string | null } | null,
+    error: { message: string } | null,
+  ): ClaimResult {
     if (error) {
       throw new Error(error.message);
     }
@@ -232,9 +251,20 @@ export class SupabaseMembershipService implements MembershipService {
     return { code: data.code, revoked: false };
   }
 
-  async resetBirthDate(playerId: string): Promise<void> {
+  async resetAccess(playerId: string): Promise<void> {
     const client = await this.ready();
-    const { error } = await client.rpc('reset_player_birth_date', { p_player_id: playerId });
+    const { error } = await client.rpc('reset_player_access', { p_player_id: playerId });
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  async setJoinPassword(groupId: string, password: string): Promise<void> {
+    const client = await this.ready();
+    const { error } = await client.rpc('set_join_password', {
+      p_group_id: groupId,
+      p_password: password,
+    });
     if (error) {
       throw new Error(error.message);
     }

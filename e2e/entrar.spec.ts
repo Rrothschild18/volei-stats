@@ -2,10 +2,11 @@ import { expect, Page, test } from '@playwright/test';
 import {
   cadastrar,
   criarVolei,
-  DATA_DO_GRUPO,
   limparVoleisDeTeste,
+  matarUsuarioDaSessao,
   nomeDeVolei,
   reivindicar,
+  SENHA_DO_GRUPO,
 } from './apoio';
 
 test.afterAll(limparVoleisDeTeste);
@@ -53,17 +54,17 @@ test.describe('entrar num vôlei', () => {
     await expect(page.getByRole('button', { name: /Caio$/ })).toBeVisible();
   });
 
-  test('a sua data não pode ser a que o grupo vai combinar', async ({ page }) => {
+  test('a senha do grupo tem um mínimo, e a tela não deixa criar sem ela', async ({ page }) => {
     await page.goto('/criar');
-    await page.fill('#group-name', nomeDeVolei('datas iguais'));
+    await page.fill('#group-name', nomeDeVolei('senha curta'));
     await page.fill('#owner-name', 'Raul');
-    await page.fill('#owner-date', DATA_DO_GRUPO);
-    await page.fill('#initial-date', DATA_DO_GRUPO);
+    await page.fill('#owner-date', '1988-07-23');
 
-    // Se fossem iguais, o nome do dono ficaria destrancado pela senha que ele
-    // mesmo manda no grupo.
-    await expect(page.getByText(/tem de ser diferente da data inicial/)).toBeVisible();
+    await page.fill('#join-password', 'ab');
     await expect(page.getByRole('button', { name: 'CRIAR' })).toBeDisabled();
+
+    await page.fill('#join-password', SENHA_DO_GRUPO);
+    await expect(page.getByRole('button', { name: 'CRIAR' })).toBeEnabled();
   });
 
   test('outro aparelho entra pelo código e diz quem é', async ({ page, browser }) => {
@@ -85,13 +86,13 @@ test.describe('entrar num vôlei', () => {
     await dela.goto(`/g/${groupId}/inicio`);
     await expect(dela.getByText('VOCÊ ESTÁ SÓ OLHANDO')).toBeVisible();
 
-    // Data errada não diz se o erro foi no nome ou na data.
+    // Senha errada não diz se o erro foi no nome ou na senha.
     await dela.goto(`/g/${groupId}/sou-quem`);
     await dela.getByRole('button', { name: /Vitória/i }).click();
-    await dela.fill('#claim-group-date', '1991-01-01');
+    await dela.fill('#claim-password', 'senha-errada');
     await dela.fill('#claim-new-date', '1995-03-02');
     await dela.getByRole('button', { name: 'SOU EU' }).click();
-    await expect(dela.getByText('Não deu certo. Confira o nome e a data.')).toBeVisible();
+    await expect(dela.getByText('Não deu certo. Confira o nome e a senha do grupo.')).toBeVisible();
 
     // Antes de ela dizer quem é, a lista do dono a mostra como pendente.
     await page.goto(`/g/${groupId}/jogadores`);
@@ -151,12 +152,6 @@ test.describe('entrar num vôlei', () => {
     await ele.getByRole('button', { name: 'SALVAR A DATA' }).click();
     await expect(ele.getByText('A data atual não confere.')).toBeVisible();
 
-    // E a nova não pode ser a que o grupo combinou: é a senha de todo mundo.
-    await ele.fill('#me-current', '1994-05-05');
-    await ele.fill('#me-next', DATA_DO_GRUPO);
-    await ele.getByRole('button', { name: 'SALVAR A DATA' }).click();
-    await expect(ele.getByText(/não pode ser a data que o grupo combinou/)).toBeVisible();
-
     await ele.fill('#me-current', '1994-05-05');
     await ele.fill('#me-next', '1988-01-01');
     await ele.getByRole('button', { name: 'SALVAR A DATA' }).click();
@@ -181,6 +176,54 @@ test.describe('entrar num vôlei', () => {
 
     await dele.close();
     await terceiro.close();
+  });
+
+  test('usar o mesmo código já tendo dito quem é entra direto', async ({ page, browser }) => {
+    const { codigo, groupId } = await criarVolei(page, nomeDeVolei('de novo'), 'Raul');
+    await cadastrar(page, groupId, 'Be');
+
+    const dela = await browser.newContext();
+    const ela = await dela.newPage();
+    await ela.goto(`/entrar/${codigo}`);
+    await ela.getByRole('button', { name: 'ENTRAR' }).click();
+    await expect(ela).toHaveURL(new RegExp(`/g/${groupId}/sou-quem$`));
+    await reivindicar(ela, groupId, 'Be', '1996-03-03');
+
+    // O link fica no grupo do zap, e a pessoa toca nele sem pensar. Perguntar
+    // "quem você é?" a quem já respondeu não leva a lugar nenhum — o nome dela
+    // nem aparece na lista, porque já tem dono.
+    await ela.goto(`/entrar/${codigo}`);
+    await ela.getByRole('button', { name: 'ENTRAR' }).click();
+    await expect(ela).toHaveURL(new RegExp(`/g/${groupId}/inicio$`));
+
+    await dela.close();
+  });
+
+  test('sessão cujo usuário sumiu não quebra: o app pega outra', async ({ page, browser }) => {
+    const { codigo, groupId } = await criarVolei(page, nomeDeVolei('órfã'), 'Raul');
+    await cadastrar(page, groupId, 'Be');
+
+    const dela = await browser.newContext();
+    const ela = await dela.newPage();
+
+    // Primeiro uma sessão de verdade, para haver o que matar.
+    await ela.goto('/entrar');
+    await ela.fill('#join-code', 'ZZZZZZ');
+    await ela.getByRole('button', { name: 'ENTRAR' }).click();
+    await expect(ela.getByText('Código inválido')).toBeVisible();
+    expect(await matarUsuarioDaSessao(ela)).toBe(true);
+
+    // Agora o token do navegador aponta para um usuário que não existe mais.
+    // Antes disto, entrar morria com "violates foreign key constraint".
+    //
+    // `domcontentloaded`: a tela anterior deixou pedidos em voo que morrem com
+    // a sessão, e esperar por `load` esperaria por eles.
+    await ela.goto(`/entrar/${codigo}`, { waitUntil: 'domcontentloaded' });
+    await ela.getByRole('button', { name: 'ENTRAR' }).click();
+    await expect(ela).toHaveURL(new RegExp(`/g/${groupId}/sou-quem$`));
+    await expect(ela.getByRole('button', { name: /Be$/ })).toBeVisible();
+
+    await dela.close();
   });
 
   test('código que não existe não diz se o vôlei existe', async ({ page }) => {

@@ -22,27 +22,27 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 create temp table ctx as
-  select * from create_group('Volei de Terca','Raul','M','1990-05-10','2000-01-01');
+  select * from create_group('Volei de Terca','Raul','M','1990-05-10','volei99');
 select add_player((select group_id from ctx), n, g)
 from (values ('Vitoria','F'),('Willy','M'),('Be','F')) as v(n,g);
 commit;
 
 -- ===== 1. A SENHA DO GRUPO NAO SAI PELO RETORNO DA FUNCAO =====
--- `returns groups` levava initial_birth_date embora: privilegio de COLUNA nao
+-- `returns groups` levava join_password_hash embora: privilegio de COLUNA nao
 -- vale para os campos de um composto devolvido por security definer.
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 create temp table entered as select * from redeem_invite((select invite_token from ctx));
 select assert((select count(*) from entered)=1, 'redeem_invite devolveu o volei');
--- Duas colunas e so: id e nome. Nada de initial_birth_date vindo de carona.
+-- Duas colunas e so: id e nome. Nada de join_password_hash vindo de carona.
 select assert(
   (select count(*) from pg_attribute
    where attrelid = 'entered'::regclass and attnum > 0 and not attisdropped)=2,
   'redeem_invite devolve duas colunas');
 select assert(
   not exists (select 1 from pg_attribute
-              where attrelid = 'entered'::regclass and attname = 'initial_birth_date'),
+              where attrelid = 'entered'::regclass and attname = 'join_password_hash'),
   'a senha do grupo nao vem no retorno');
 commit;
 
@@ -93,7 +93,7 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
-select assert((claim_player((select group_id from ctx),'Vitoria','2000-01-01','1995-07-02')).ok,
+select assert((claim_player((select group_id from ctx),'Vitoria','volei99','1995-07-02')).ok,
               'Vitoria entrou');
 insert into sessions (group_id, date) values ((select group_id from ctx), current_date);
 commit;
@@ -150,7 +150,7 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select redeem_invite((select invite_token from ctx));
-select assert((claim_player((select group_id from ctx),'Willy','2000-01-01','1988-09-08')).ok,'Willy entrou');
+select assert((claim_player((select group_id from ctx),'Willy','volei99','1988-09-08')).ok,'Willy entrou');
 update matches set score_a = 12, score_b = 9, corrected_by = null;
 select assert(
   (select corrected_by from matches) = (select id from players where name='Willy'),
@@ -168,9 +168,10 @@ select assert(
   'quem corrigiu nao muda sozinho');
 commit;
 
--- ===== 5. A SENHA NAO SE TROCA COM UM UPDATE COMUM =====
--- Era o jeito de trocar a senha de alguem por fora de reset_player_birth_date,
--- que existe para derrubar os aparelhos da vitima: ela ficaria logada sem saber.
+-- ===== 5. A CHAVE NAO SE TROCA COM UM UPDATE COMUM =====
+-- Era o jeito de apagar a chave de alguem por fora de reset_player_access,
+-- que existe para derrubar os aparelhos da vitima junto: ela ficaria logada
+-- sem saber que a chave dela sumiu.
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
@@ -178,18 +179,15 @@ do $$ begin
   update players set birth_date = '1111-11-11' where name = 'Be';
   raise exception 'FALHOU: o dono trocou a senha de alguem na mao';
 exception when insufficient_privilege then null; end $$;
-do $$ begin
-  update players set birth_date_changed = true where name = 'Be';
-  raise exception 'FALHOU: o dono marcou a troca na mao';
-exception when insufficient_privilege then null; end $$;
 -- O que ele PODE: nome, sexo e ativo.
 update players set name = 'Bea' where name = 'Be';
 select assert((select count(*) from players where name='Bea')=1,'o dono ainda renomeia');
 commit;
 
 -- ===== 6. INATIVAR TIRA O ACESSO =====
--- A linha de group_members sobrevivia a inativacao, e claim_player deixava a
--- pessoa voltar com a propria data: quem saiu do volei seguia escrevendo.
+-- A linha de group_members sobrevivia a inativacao, e claim_player_again
+-- deixava a pessoa voltar com a propria data: quem saiu do volei seguia
+-- escrevendo.
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
@@ -204,7 +202,7 @@ select assert(
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
-select assert((claim_player((select group_id from ctx),'Willy','1988-09-08')).reason = 'not_found',
+select assert((claim_player_again((select group_id from ctx),'Willy','1988-09-08')).reason = 'not_found',
               'quem saiu nao volta com a propria data');
 do $$ begin
   insert into sessions (group_id, date) values ((select group_id from ctx), current_date - 1);
@@ -223,7 +221,7 @@ select redeem_invite((select invite_token from ctx));
 do $$ declare i int;
 begin
   for i in 1..5 loop
-    perform claim_player((select group_id from ctx),'Bea','1970-01-01');
+    perform claim_player((select group_id from ctx),'Bea','senha-errada','1970-01-01');
   end loop;
 end $$;
 commit;
@@ -233,7 +231,7 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
 select redeem_invite((select invite_token from ctx));
-select assert((claim_player((select group_id from ctx),'Bea','2000-01-01','1997-05-19')).reason
+select assert((claim_player((select group_id from ctx),'Bea','volei99','1997-05-19')).reason
               = 'rate_limited',
               'sessao nova nao zera a trava do nome tentado');
 commit;
@@ -243,7 +241,7 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
 select redeem_invite((select invite_token from ctx));
-select assert((claim_player((select group_id from ctx),'Vitoria','1995-07-02')).ok,
+select assert((claim_player_again((select group_id from ctx),'Vitoria','1995-07-02')).ok,
               'quem nao foi alvo entra normalmente');
 commit;
 
@@ -274,16 +272,57 @@ set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select assert(is_group_owner((select group_id from ctx)),'Vitoria e a dona agora');
 commit;
 
--- ===== 9. A DATA DO DONO NAO PODE SER A DATA INICIAL DO GRUPO =====
--- Se fossem iguais, o nome do dono ficaria reivindicavel com a senha que ele
--- mesmo manda no grupo.
+-- ===== 9. A SENHA DO GRUPO TEM UM MINIMO =====
+-- Ela vai no zap e abre nome: uma senha de duas letras seria adivinhada por
+-- quem tem o codigo, e quem tem o codigo ja ve a lista de nomes.
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
 do $$ begin
-  perform create_group('Outro Volei','Alguem','M','2000-01-01','2000-01-01');
-  raise exception 'FALHOU: dono com a mesma data do grupo';
+  perform create_group('Outro Volei','Alguem','M','1990-01-01','ab');
+  raise exception 'FALHOU: senha de duas letras aceita';
 exception when invalid_parameter_value then null; end $$;
 commit;
+
+-- ===== 10. SESSAO ORFA NAO DERRUBA A TRAVA =====
+-- O navegador guarda o token; o usuario do outro lado pode sumir (banco
+-- recriado, conta apagada). As tabelas de TENTATIVA nao referenciam
+-- auth.users de proposito: com a chave estrangeira, entrar num volei morria
+-- com erro de banco cru em vez de so nao entrar.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = 'deadbeef-0000-4000-8000-00000000000f';
+select assert((select reason from redeem_invite_code('NAOEXISTE'))='not_found',
+  'sessao orfa registra a tentativa em vez de estourar');
+commit;
+
+select assert((select count(*) from invite_redeem_attempts
+  where user_id='deadbeef-0000-4000-8000-00000000000f')=1,
+  'a tentativa da sessao orfa foi gravada');
+
+-- E entrar de verdade nao acontece, porque group_members TEM a chave: o vinculo
+-- e real, e uma associacao de usuario inexistente seria lixo. Quem se recupera
+-- disso e o cliente, trocando a sessao — nao o banco, afrouxando o vinculo.
+-- O convite e criado sem papel: aqui e so montagem de cenario, e quem e dono
+-- ja mudou algumas vezes neste arquivo.
+create temp table convite_orfao as
+  with feito as (
+    insert into invites (group_id, label) values ((select group_id from ctx), 'Para o teste')
+    returning code
+  )
+  select code from feito;
+grant select on convite_orfao to authenticated;
+
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = 'deadbeef-0000-4000-8000-00000000000f';
+do $$ begin
+  perform redeem_invite_code((select code from convite_orfao));
+exception when foreign_key_violation then null; end $$;
+commit;
+
+select assert((select count(*) from group_members
+  where user_id='deadbeef-0000-4000-8000-00000000000f')=0,
+  'sessao orfa nao vira membro de nada');
 
 select 'TODAS AS BRECHAS ESTAO FECHADAS' as resultado;

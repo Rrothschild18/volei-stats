@@ -54,6 +54,9 @@ export class SupabaseService {
   /** Uma só promessa em voo: duas telas carregando juntas não abrem duas sessões. */
   #pending: Promise<Session> | null = null;
 
+  /** A conferida de "este token ainda vale" é uma por carregamento do app. */
+  #checked: Promise<void> | null = null;
+
   async ensureSession(): Promise<Session> {
     // Sem rede, para aqui. Não é atalho de desempenho: pedir sessão offline faz
     // o cliente do Supabase tentar renovar o token com reentregas, e a tela fica
@@ -66,7 +69,11 @@ export class SupabaseService {
 
     const { data } = await this.client.auth.getSession();
     if (data.session) {
-      return data.session;
+      await this.#discardIfOrphan();
+      const { data: agora } = await this.client.auth.getSession();
+      if (agora.session) {
+        return agora.session;
+      }
     }
 
     this.#pending ??= this.#signInAnonymously();
@@ -74,6 +81,36 @@ export class SupabaseService {
       return await this.#pending;
     } finally {
       this.#pending = null;
+    }
+  }
+
+  /**
+   * Joga fora a sessão cujo usuário não existe mais.
+   *
+   * O token fica no navegador e continua assinado; quem some é o usuário do
+   * outro lado — um banco recriado em desenvolvimento, uma conta apagada. O
+   * token passa pela porta e morre lá dentro: `group_members.user_id` aponta
+   * para `auth.users`, então ENTRAR num vôlei falhava com um erro de banco cru
+   * que nenhuma tela sabia explicar.
+   *
+   * `getUser()` pergunta ao servidor, e é a única forma de saber — `getSession()`
+   * só lê o que está guardado aqui. Por isso roda uma vez por carregamento: em
+   * produção uma sessão não fica órfã no meio do uso.
+   */
+  async #discardIfOrphan(): Promise<void> {
+    this.#checked ??= (async () => {
+      const { error } = await this.client.auth.getUser();
+      if (error) {
+        await this.client.auth.signOut();
+      }
+    })();
+
+    try {
+      await this.#checked;
+    } catch {
+      // Falha de rede ao conferir não derruba a sessão: quem decide isso é o
+      // servidor respondendo, não o silêncio dele.
+      this.#checked = null;
     }
   }
 

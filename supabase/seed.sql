@@ -5,15 +5,16 @@
 -- políticas de segurança não valem aqui — por isso insere direto, sem passar
 -- por create_group(), que exige uma sessão de verdade.
 --
--- NINGUÉM está reivindicado: todo jogador tem a data inicial do grupo e ainda
--- vai trocá-la. É isso que deixa você entrar como qualquer um dos nomes.
+-- NINGUÉM está reivindicado: todo jogador está sem chave (`birth_date` nula),
+-- esperando alguém dizer "sou eu". É isso que deixa você entrar como qualquer
+-- um dos nomes, com a senha do grupo e a data que você quiser.
 --
---   VÔLEI SEGUNDA · código SEGUNDA     · data inicial 01/01/1990
+--   VÔLEI SEGUNDA · código SEGUNDA     · senha do grupo "segunda99"
 --     Oito jogadores, a sessão de hoje com um campeonato em andamento, e a
 --     sessão da semana passada já encerrada — é ela que dá número ao ranking.
 --     Dono: Rafa. Entre como Raul para ver a tela de quem só joga.
 --
---   VÔLEI TESTE   · código TESTE-VOLEI · data inicial 01/01/1990
+--   VÔLEI TESTE   · código TESTE-VOLEI · senha do grupo "volei99"
 --     Vazio de propósito, e Raul é o dono. Entre como Raul para ver a tela de
 --     dono e montar uma sessão do zero.
 --
@@ -36,18 +37,19 @@ delete from groups where id in (
 -- -----------------------------------------------------------------------------
 -- VÔLEI SEGUNDA
 -- -----------------------------------------------------------------------------
-insert into groups (id, name, initial_birth_date) values
-  ('00000000-0000-4000-8000-000000000001', 'Vôlei Segunda', '1990-01-01');
+insert into groups (id, name, join_password_hash) values
+  ('00000000-0000-4000-8000-000000000001', 'Vôlei Segunda',
+   crypt('segunda99', gen_salt('bf')));
 
-insert into players (id, group_id, name, gender, birth_date, birth_date_changed) values
-  ('10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'Rafa',    'M', '1990-01-01', false),
-  ('10000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'Raul',    'M', '1990-01-01', false),
-  ('10000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Caio',    'M', '1990-01-01', false),
-  ('10000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000001', 'Willy',   'M', '1990-01-01', false),
-  ('10000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000001', 'Be',      'F', '1990-01-01', false),
-  ('10000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000001', 'Vitória', 'F', '1990-01-01', false),
-  ('10000000-0000-4000-8000-000000000007', '00000000-0000-4000-8000-000000000001', 'Nina',    'F', '1990-01-01', false),
-  ('10000000-0000-4000-8000-000000000008', '00000000-0000-4000-8000-000000000001', 'Duda',    'F', '1990-01-01', false);
+insert into players (id, group_id, name, gender) values
+  ('10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'Rafa',    'M'),
+  ('10000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'Raul',    'M'),
+  ('10000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Caio',    'M'),
+  ('10000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000001', 'Willy',   'M'),
+  ('10000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000001', 'Be',      'F'),
+  ('10000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000001', 'Vitória', 'F'),
+  ('10000000-0000-4000-8000-000000000007', '00000000-0000-4000-8000-000000000001', 'Nina',    'F'),
+  ('10000000-0000-4000-8000-000000000008', '00000000-0000-4000-8000-000000000001', 'Duda',    'F');
 
 update groups set owner_player_id = '10000000-0000-4000-8000-000000000001'
 where id = '00000000-0000-4000-8000-000000000001';
@@ -174,14 +176,15 @@ where id = '50000000-0000-4000-8000-000000000012';
 -- -----------------------------------------------------------------------------
 -- VÔLEI TESTE: vazio, e o Raul é o dono
 -- -----------------------------------------------------------------------------
-insert into groups (id, name, initial_birth_date) values
-  ('00000000-0000-4000-8000-000000000002', 'Vôlei Teste', '1990-01-01');
+insert into groups (id, name, join_password_hash) values
+  ('00000000-0000-4000-8000-000000000002', 'Vôlei Teste',
+   crypt('volei99', gen_salt('bf')));
 
-insert into players (id, group_id, name, gender, birth_date, birth_date_changed) values
-  ('11000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', 'Raul',    'M', '1990-01-01', false),
-  ('11000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Be',      'F', '1990-01-01', false),
-  ('11000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000002', 'Caio',    'M', '1990-01-01', false),
-  ('11000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000002', 'Vitória', 'F', '1990-01-01', false);
+insert into players (id, group_id, name, gender) values
+  ('11000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', 'Raul',    'M'),
+  ('11000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Be',      'F'),
+  ('11000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000002', 'Caio',    'M'),
+  ('11000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000002', 'Vitória', 'F');
 
 update groups set owner_player_id = '11000000-0000-4000-8000-000000000001'
 where id = '00000000-0000-4000-8000-000000000002';

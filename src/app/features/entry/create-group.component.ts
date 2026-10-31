@@ -10,22 +10,16 @@ import {
 } from '../../shared/ui';
 import { describeError } from '../../shared/utils/error.util';
 
-/** A data que o grupo combina, sugerida para ninguém precisar inventar uma. */
-const SUGGESTED_INITIAL_DATE = '2000-01-01';
-
 /**
- * Criar um vôlei: o nome dele, quem você é, e a data que o grupo vai combinar.
+ * Criar um vôlei: o nome dele, quem você é, e a senha que o grupo vai combinar.
  *
- * Duas datas, e elas fazem coisas diferentes:
+ * Dois segredos, e eles fazem coisas diferentes:
  *
- *   a sua       — é a sua senha, daqui em diante. Você já entra com ela, então
- *                 seu nome nunca aparece na lista de nomes por reivindicar.
- *   a do grupo  — é a senha de primeiro acesso de todo mundo que você cadastrar,
- *                 e é ela que vai junto com o código no grupo do zap.
- *
- * Elas **não podem ser iguais**: se forem, o seu nome fica reivindicável com a
- * senha que você mesmo manda — e quem abrir o link assume o vôlei. Quem recusa
- * é o banco; aqui a tela só explica antes.
+ *   a sua data   — é a sua chave, daqui em diante. Você já entra com ela, então
+ *                  seu nome nunca aparece na lista de nomes por reivindicar.
+ *   a senha do   — é o que vai no zap junto com o código, e abre cada nome uma
+ *   grupo          vez. Depois que a pessoa entrou, a senha não abre mais o
+ *                  nome dela.
  */
 @Component({
   selector: 'app-create-group',
@@ -94,29 +88,28 @@ const SUGGESTED_INITIAL_DATE = '2000-01-01';
         <p class="kicker">O GRUPO</p>
 
         <div class="field mt-3">
-          <label for="initial-date">Data inicial do grupo</label>
+          <label for="join-password">Senha do grupo</label>
           <input
-            id="initial-date"
+            id="join-password"
             class="input"
-            type="date"
-            aria-describedby="initial-date-help"
-            [value]="initialBirthDate()"
-            (input)="initialBirthDate.set($any($event.target).value)"
+            type="text"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+            placeholder="volei99"
+            aria-describedby="join-password-help"
+            [value]="joinPassword()"
+            (input)="joinPassword.set($any($event.target).value)"
           />
-          <p id="initial-date-help" class="mt-2 text-[12px] muted">
-            É esta data que você manda junto com o código. Cada pessoa usa ela para entrar e troca
-            pela data dela na hora.
+          <p id="join-password-help" class="mt-2 text-[12px] muted">
+            Escolha algo simples de ditar — ela vai no zap junto com o código. Cada pessoa usa ela
+            uma vez, para dizer qual nome é o dela.
           </p>
         </div>
       </div>
 
       <div aria-live="polite">
-        @if (sameDates()) {
-          <app-inline-note tone="error">
-            A sua data tem de ser diferente da data inicial do grupo — senão o seu nome fica
-            destrancado pela senha que você vai mandar no zap.
-          </app-inline-note>
-        } @else if (error()) {
+        @if (error()) {
           <app-inline-note tone="error">{{ error() }}</app-inline-note>
         }
       </div>
@@ -151,22 +144,17 @@ export class CreateGroupComponent {
   protected readonly ownerName = signal('');
   protected readonly gender = signal<Gender>(Gender.MALE);
   protected readonly ownerBirthDate = signal('');
-  protected readonly initialBirthDate = signal(SUGGESTED_INITIAL_DATE);
+  protected readonly joinPassword = signal('');
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal(false);
-
-  protected readonly sameDates = computed(
-    () => this.ownerBirthDate() !== '' && this.ownerBirthDate() === this.initialBirthDate(),
-  );
 
   protected readonly canSubmit = computed(
     () =>
       !this.busy() &&
-      !this.sameDates() &&
       this.groupName().trim().length > 0 &&
       this.ownerName().trim().length > 0 &&
       this.ownerBirthDate() !== '' &&
-      this.initialBirthDate() !== '',
+      this.joinPassword().trim().length >= 4,
   );
 
   protected async submit(): Promise<void> {
@@ -182,7 +170,7 @@ export class CreateGroupComponent {
         ownerName: this.ownerName().trim(),
         ownerGender: this.gender(),
         ownerBirthDate: this.ownerBirthDate(),
-        initialBirthDate: this.initialBirthDate(),
+        joinPassword: this.joinPassword().trim(),
       });
       // Direto para o convite: a primeira coisa que o dono faz é cadastrar o
       // pessoal e mandar o código.

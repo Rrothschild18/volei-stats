@@ -14,8 +14,8 @@ const SERVICE_KEY = 'CHAVE-LOCAL-REMOVIDA-DA-HISTORIA';
 /** O prefixo que marca o que é dos testes, para a limpeza saber o que apagar. */
 export const E2E_PREFIX = 'e2e';
 
-/** A data que o grupo combina nos testes. */
-export const DATA_DO_GRUPO = '1990-01-01';
+/** A senha que o grupo combina nos testes. */
+export const SENHA_DO_GRUPO = 'volei99';
 
 export function nomeDeVolei(qual: string): string {
   return `${E2E_PREFIX} ${qual} ${Date.now().toString(36)}`;
@@ -44,6 +44,35 @@ export async function limparVoleisDeTeste(): Promise<void> {
 }
 
 /**
+ * Apaga o usuário da sessão que este navegador guarda.
+ *
+ * É como se faz, de forma determinística, uma **sessão órfã**: o token continua
+ * no navegador e continua assinado, e o usuário do outro lado sumiu. Acontece
+ * de verdade a cada `supabase db reset` em desenvolvimento, e é o que fazia
+ * entrar num vôlei morrer com um erro de banco cru.
+ */
+export async function matarUsuarioDaSessao(page: Page): Promise<boolean> {
+  const id = await page.evaluate(() => {
+    const chave = Object.keys(localStorage).find((k) => k.endsWith('-auth-token'));
+    if (!chave) {
+      return null;
+    }
+    const guardado = JSON.parse(localStorage.getItem(chave) ?? '{}') as { user?: { id?: string } };
+    return guardado.user?.id ?? null;
+  });
+
+  if (!id) {
+    return false;
+  }
+
+  const admin = createClient(environment.supabaseUrl, SERVICE_KEY, {
+    auth: { persistSession: false },
+  });
+  const { error } = await admin.auth.admin.deleteUser(id);
+  return !error;
+}
+
+/**
  * Cria um vôlei pela tela, e devolve o código do convite.
  *
  * Passa pelo fluxo de verdade em vez de inserir no banco: criar é um dos
@@ -59,7 +88,7 @@ export async function criarVolei(
   await page.fill('#group-name', nome);
   await page.fill('#owner-name', dono);
   await page.fill('#owner-date', '1988-07-23');
-  await page.fill('#initial-date', DATA_DO_GRUPO);
+  await page.fill('#join-password', SENHA_DO_GRUPO);
   await page.getByRole('button', { name: 'CRIAR' }).click();
 
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+\/convite$/);
@@ -77,7 +106,7 @@ export async function cadastrar(page: Page, groupId: string, nome: string): Prom
   await expect(page).toHaveURL(new RegExp(`/g/${groupId}/jogadores$`));
 }
 
-/** Diz quem eu sou: toca no nome, usa a data do grupo e troca pela própria. */
+/** Diz quem eu sou: toca no nome, usa a senha do grupo e escolhe a própria data. */
 export async function reivindicar(
   page: Page,
   groupId: string,
@@ -86,7 +115,7 @@ export async function reivindicar(
 ): Promise<void> {
   await page.goto(`/g/${groupId}/sou-quem`);
   await page.getByRole('button', { name: new RegExp(nome, 'i') }).click();
-  await page.fill('#claim-group-date', DATA_DO_GRUPO);
+  await page.fill('#claim-password', SENHA_DO_GRUPO);
   await page.fill('#claim-new-date', minhaData);
   await page.getByRole('button', { name: 'SOU EU' }).click();
   await expect(page).toHaveURL(new RegExp(`/g/${groupId}/inicio$`));

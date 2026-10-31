@@ -24,19 +24,20 @@ pnpm start
 ```
 
 O `supabase/seed.sql` sobe dois vôleis para clicar, e em nenhum deles alguém
-está reivindicado — é digitando o código e tocando num nome que você entra:
+está reivindicado — é com o código, a senha do grupo e a sua data que você entra:
 
-| Vôlei         | Código        | Data inicial | O que tem                                                                                                  |
-| ------------- | ------------- | ------------ | ---------------------------------------------------------------------------------------------------------- |
-| Vôlei Segunda | `SEGUNDA`     | 01/01/1990   | Oito jogadores, a sessão de hoje com um campeonato em andamento, a da semana passada encerrada. Dono: Rafa |
-| Vôlei Teste   | `TESTE-VOLEI` | 01/01/1990   | Vazio de propósito, com Raul como dono                                                                     |
+| Vôlei         | Código        | Senha do grupo | O que tem                                                                                |
+| ------------- | ------------- | -------------- | ---------------------------------------------------------------------------------------- |
+| Vôlei Segunda | `SEGUNDA`     | `segunda99`    | Oito jogadores, a sessão de hoje em andamento, a da semana passada encerrada. Dono: Rafa |
+| Vôlei Teste   | `TESTE-VOLEI` | `volei99`      | Vazio de propósito, com Raul como dono                                                   |
 
 Entre como **Raul** nos dois: no Teste ele é dono (cadastra gente, gera o
 convite), na Segunda ele só joga. É assim que se vê as duas telas.
 
-A data inicial do grupo é a senha de primeiro acesso: você a digita uma vez e
-**troca pela sua** na mesma tela. Daquele momento em diante aquele navegador é
-aquela pessoa.
+A senha do grupo abre **um nome, uma vez**: você a digita junto com a sua data
+de nascimento, e daquele momento em diante aquele navegador é aquela pessoa. A
+sua data vira a sua chave — é ela, e não a senha do grupo, que te deixa entrar
+num aparelho novo.
 
 Depois disso, o nome e a data são seus: em **Seus dados** (`/g/:id/eu`, pelo seu
 perfil) você ajusta como quer ser chamado neste vôlei — quem cadastrou digitou

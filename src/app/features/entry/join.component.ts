@@ -1,6 +1,6 @@
 import { Component, inject, input, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { MembershipService } from '../../core/identity';
+import { IdentityService, MembershipService } from '../../core/identity';
 import { BlueprintComponent, IconComponent, InlineNoteComponent } from '../../shared/ui';
 import { describeError } from '../../shared/utils/error.util';
 
@@ -87,6 +87,7 @@ import { describeError } from '../../shared/utils/error.util';
 })
 export class JoinComponent implements OnInit {
   private readonly membership = inject(MembershipService);
+  private readonly identity = inject(IdentityService);
   private readonly router = inject(Router);
 
   /** Vem do link do convite: `/entrar/TESTE-VOLEI`. */
@@ -113,8 +114,14 @@ export class JoinComponent implements OnInit {
     this.error.set(null);
     try {
       const { groupId } = await this.membership.redeemCode(this.code());
-      // Entrou, e ainda não é ninguém: a próxima tela é dizer quem.
-      await this.router.navigate(['/g', groupId, 'sou-quem']);
+
+      // Quem já disse quem é entra direto. Usar o mesmo código de novo é o caso
+      // comum — o link fica no grupo do zap, e a pessoa toca nele sem pensar —,
+      // e perguntar "quem você é?" a quem já respondeu não leva a lugar nenhum:
+      // o nome dela nem aparece na lista, porque já tem dono.
+      const eu = await this.identity.myGroup(groupId);
+      const destino = eu?.playerId ? 'inicio' : 'sou-quem';
+      await this.router.navigate(['/g', groupId, destino]);
     } catch (cause) {
       this.error.set(describeError(cause, 'Não foi possível entrar.'));
     } finally {

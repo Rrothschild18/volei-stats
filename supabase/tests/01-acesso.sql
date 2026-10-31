@@ -12,7 +12,8 @@ insert into auth.users (id) values
   ('55555555-5555-5555-5555-555555555555'),  -- erra a data e bate na trava
   ('66666666-6666-6666-6666-666666666666'),  -- tenta sem o link do volei
   ('77777777-7777-7777-7777-777777777777'),  -- Willy, que vai receber o volei
-  ('88888888-8888-8888-8888-888888888888');  -- dono num navegador novo
+  ('88888888-8888-8888-8888-888888888888'),  -- dono num navegador novo
+  ('99999999-9999-9999-9999-999999999999');  -- tenta um nome que ja tem dono
 
 create or replace function assert(cond boolean, msg text)
 returns void language plpgsql as $$
@@ -23,20 +24,19 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 create temp table ctx as
-  select * from create_group('Volei de Terca','Raul','M','1990-05-10','2000-01-01');
+  select * from create_group('Volei de Terca','Raul','M','1990-05-10','volei99');
 select assert((select count(*) from ctx)=1, 'create_group devolveu 1 linha');
 select assert((select invite_token from ctx) is not null, 'devolveu o link do volei');
 commit;
 
--- O dono ja entra com a data DELE, nao com a inicial do grupo: o nome dele
--- nunca fica na lista de nomes por reivindicar.
+-- O dono ja entra com a data DELE: o nome dele nunca fica na lista de nomes por
+-- reivindicar, e ele nao usa a senha do grupo.
 select assert((select birth_date from players where name='Raul')='1990-05-10','dono com a data dele');
-select assert((select birth_date_changed from players where name='Raul'),'dono nao precisa trocar');
 select assert(
   (select owner_player_id from groups where id=(select group_id from ctx))
   = (select player_id from ctx), 'owner_player_id aponta para quem criou');
 
--- ===== 2. O DONO CADASTRA OS AMIGOS COM A DATA INICIAL =====
+-- ===== 2. O DONO CADASTRA OS AMIGOS, SEM CHAVE NENHUMA =====
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
@@ -96,37 +96,47 @@ select assert((select count(*) from unclaimed_players((select group_id from ctx)
 select assert(not exists (select 1 from unclaimed_players((select group_id from ctx)) where name='Raul'),'o dono nao esta na lista');
 commit;
 
--- ===== 6. A SENHA INICIAL NAO SERVE SEM TROCAR =====
+-- ===== 6. A SENHA DO GRUPO SOZINHA NAO BASTA =====
+-- Quem cadastra nao escolhe a chave de ninguem: a data e obrigatoria e e a
+-- propria pessoa que a informa.
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select redeem_invite((select invite_token from ctx));
 select assert(
-  (claim_player((select group_id from ctx),'Vitoria','2000-01-01')).reason = 'new_birth_date_required',
-  'primeira entrada exige a data nova');
+  (claim_player((select group_id from ctx),'Vitoria','volei99',null)).reason = 'birth_date_required',
+  'primeira entrada exige a data da pessoa');
 select assert((select role from group_members where user_id=auth.uid())='viewer','continua espectador');
 commit;
 
--- E a data nova nao pode ser a propria inicial.
+-- E a senha errada nao abre nome nenhum.
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select assert(
-  (claim_player((select group_id from ctx),'Vitoria','2000-01-01','2000-01-01')).reason
-  = 'new_birth_date_must_differ', 'a data nova tem de ser outra');
+  (claim_player((select group_id from ctx),'Vitoria','senha-errada','1995-07-02')).reason
+  = 'not_found', 'senha errada nao entra');
 commit;
 
--- ===== 7. REIVINDICAR O NOME, TROCANDO A DATA =====
+-- ===== 7. REIVINDICAR O NOME, ESCOLHENDO A DATA =====
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
-select assert((claim_player((select group_id from ctx),'Vitoria','2000-01-01','1995-07-02')).ok,
-              'entrou trocando a data');
+select assert((claim_player((select group_id from ctx),'Vitoria','volei99','1995-07-02')).ok,
+              'entrou com a senha do grupo e a data dela');
 select assert((select role from group_members where user_id=auth.uid())='player','virou jogadora');
 commit;
 
-select assert((select birth_date from players where name='Vitoria')='1995-07-02','a data trocou');
-select assert((select birth_date_changed from players where name='Vitoria'),'marcou que trocou');
+select assert((select birth_date from players where name='Vitoria')='1995-07-02','a data dela ficou');
+
+-- E a senha do grupo nao abre mais esse nome: ela abre um nome UMA vez.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '99999999-9999-9999-9999-999999999999';
+select redeem_invite((select invite_token from ctx));
+select assert((claim_player((select group_id from ctx),'Vitoria','volei99','1991-01-01')).reason
+  = 'not_found', 'nome ja reivindicado nao abre com a senha do grupo');
+commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
@@ -224,7 +234,7 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
 select redeem_invite((select invite_token from ctx));
-select assert((claim_player((select group_id from ctx),'Vitoria','1995-07-02')).ok,
+select assert((claim_player_again((select group_id from ctx),'Vitoria','1995-07-02')).ok,
               'segundo aparelho entrou com a data dela');
 commit;
 
@@ -242,7 +252,7 @@ do $$ begin
   raise exception 'FALHOU: o cliente leu a data de nascimento';
 exception when insufficient_privilege then null; end $$;
 do $$ begin
-  perform initial_birth_date from groups limit 1;
+  perform join_password_hash from groups limit 1;
   raise exception 'FALHOU: o cliente leu a data inicial do grupo';
 exception when insufficient_privilege then null; end $$;
 -- `select *` continua funcionando: devolve as colunas permitidas.
@@ -254,9 +264,9 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
 select redeem_invite((select invite_token from ctx));
-select assert((claim_player((select group_id from ctx),'Be','1980-01-01')).reason='not_found',
+select assert((claim_player_again((select group_id from ctx),'Be','1980-01-01')).reason='not_found',
               'data errada nao entra');
-select assert((claim_player((select group_id from ctx),'Ninguem','1980-01-01')).reason='not_found',
+select assert((claim_player_again((select group_id from ctx),'Ninguem','1980-01-01')).reason='not_found',
               'nome inexistente da a MESMA resposta');
 commit;
 
@@ -268,10 +278,10 @@ set local request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
 do $$ declare i int;
 begin
   for i in 1..3 loop
-    perform claim_player((select group_id from ctx),'Be','1970-01-01');
+    perform claim_player_again((select group_id from ctx),'Be','1970-01-01');
   end loop;
 end $$;
-select assert((claim_player((select group_id from ctx),'Be','2000-01-01','1998-03-03')).reason='rate_limited',
+select assert((claim_player((select group_id from ctx),'Be','volei99','1998-03-03')).reason='rate_limited',
               'travou na 6a tentativa, mesmo com a data certa');
 commit;
 
@@ -280,20 +290,19 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
 do $$ begin
-  perform claim_player((select group_id from ctx),'Be','2000-01-01','1998-03-03');
+  perform claim_player((select group_id from ctx),'Be','volei99','1998-03-03');
   raise exception 'FALHOU: tentou sem o link do volei';
 exception when insufficient_privilege then null; end $$;
 commit;
 
--- ===== 16. O DONO RESETA A DATA DE QUEM TRAVOU =====
+-- ===== 16. O DONO DEVOLVE UM NOME PARA A LISTA =====
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
-select reset_player_birth_date((select id from players where name='Vitoria'));
+select reset_player_access((select id from players where name='Vitoria'));
 commit;
 
-select assert((select birth_date from players where name='Vitoria')='2000-01-01','voltou para a data inicial');
-select assert(not (select birth_date_changed from players where name='Vitoria'),'vai ter de trocar de novo');
+select assert((select birth_date from players where name='Vitoria') is null,'a chave dela foi apagada');
 select assert((select count(*) from group_members
                where player_id=(select id from players where name='Vitoria'))=0,
               'os aparelhos dela voltaram a ser espectadores');
@@ -308,16 +317,16 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
-select assert((claim_player((select group_id from ctx),'Vitoria','2000-01-01','1995-07-02')).ok,
+select assert((claim_player((select group_id from ctx),'Vitoria','volei99','1995-07-02')).ok,
               'entrou de novo depois do reset');
 commit;
 
--- Jogador nao reseta a data de ninguem.
+-- Jogador nao devolve o nome de ninguem.
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 do $$ begin
-  perform reset_player_birth_date((select id from players where name='Be'));
+  perform reset_player_access((select id from players where name='Be'));
   raise exception 'FALHOU: jogadora resetou a data de outra pessoa';
 exception when insufficient_privilege then null; end $$;
 commit;
@@ -328,7 +337,7 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '88888888-8888-8888-8888-888888888888';
 select redeem_invite((select invite_token from ctx));
-select assert((claim_player((select group_id from ctx),'Raul','1990-05-10')).ok,
+select assert((claim_player_again((select group_id from ctx),'Raul','1990-05-10')).ok,
               'o dono se reconheceu num navegador novo');
 select assert(is_group_owner((select group_id from ctx)),'e voltou a ser dono');
 commit;
@@ -338,7 +347,7 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
 select redeem_invite((select invite_token from ctx));
-select assert((claim_player((select group_id from ctx),'Willy','2000-01-01','1988-09-08')).ok,'Willy entrou');
+select assert((claim_player((select group_id from ctx),'Willy','volei99','1988-09-08')).ok,'Willy entrou');
 commit;
 
 begin;
@@ -460,8 +469,6 @@ set local role authenticated;
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 select assert(change_my_birth_date((select group_id from ctx),'1900-01-01','1970-02-02')='wrong_current',
   'data atual errada nao troca nada');
-select assert(change_my_birth_date((select group_id from ctx),'1995-07-02','2000-01-01')='same_as_group',
-  'nao da para voltar para a data combinada do grupo');
 select assert(change_my_birth_date((select group_id from ctx),'1995-07-02','1970-02-02')='ok',
   'com a data atual certa, troca');
 commit;
@@ -483,9 +490,9 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '88888888-8888-8888-8888-888888888888';
 select redeem_invite((select token from convite2));
-select assert(not (claim_player((select group_id from ctx),'Vivi','1995-07-02')).ok,
+select assert(not (claim_player_again((select group_id from ctx),'Vivi','1995-07-02')).ok,
   'a data velha nao entra mais');
-select assert((claim_player((select group_id from ctx),'Vivi','1970-02-02')).ok,
+select assert((claim_player_again((select group_id from ctx),'Vivi','1970-02-02')).ok,
   'a data nova entra');
 commit;
 

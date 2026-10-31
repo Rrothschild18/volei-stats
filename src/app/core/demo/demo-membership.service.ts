@@ -54,6 +54,14 @@ export class DemoMembershipService implements MembershipService {
     return this.unavailable();
   }
 
+  claimAgain(): Promise<ClaimResult> {
+    return this.unavailable();
+  }
+
+  setJoinPassword(): Promise<void> {
+    return this.unavailable();
+  }
+
   /**
    * Trocar o nome funciona aqui: é escrita comum, e o cenário em memória a
    * aceita. É o que deixa a tela "Seus dados" ser testada na metade rápida.
@@ -83,7 +91,7 @@ export class DemoMembershipService implements MembershipService {
     return this.unavailable();
   }
 
-  resetBirthDate(): Promise<void> {
+  resetAccess(): Promise<void> {
     return this.unavailable();
   }
 

@@ -49,9 +49,13 @@ create table groups (
   -- O dono. Nulo só no instante entre inserir o grupo e inserir o jogador que
   -- o criou, dentro de create_group(); depois disso nunca mais.
   owner_player_id uuid,
-  -- A senha inicial que o dono combina com o grupo: ele cadastra todo mundo
-  -- com ela, e cada pessoa troca pela sua ao entrar.
-  initial_birth_date date not null,
+  -- A SENHA DO GRUPO: o que o dono combina e manda no zap junto com o código.
+  -- Texto simples escolhido por ele ("volei99"), porque é para ser ditado — uma
+  -- data era difícil de falar e fácil de confundir com a data de alguém.
+  --
+  -- Guardada como hash, e não como está escrita: ninguém precisa lê-la de volta
+  -- (o dono a sabe), então guardá-la em claro só criaria uma forma de vazá-la.
+  join_password_hash text not null,
   created_at timestamptz not null default now()
 );
 
@@ -63,12 +67,14 @@ create table players (
   group_id   uuid not null references groups(id) on delete cascade,
   name       text not null check (length(trim(name)) > 0),
   gender     char(1) not null check (gender in ('M', 'F')),
-  -- SENHA, não dado cadastral. Nunca sai do servidor: o privilégio de coluna
-  -- abaixo impede qualquer select do cliente de enxergá-la, e só
-  -- claim_player() a compara.
-  birth_date date not null,
-  -- Falso enquanto a pessoa ainda estiver com a data inicial do grupo.
-  birth_date_changed boolean not null default false,
+  -- A CHAVE PESSOAL, não dado cadastral. Nunca sai do servidor: o privilégio
+  -- de coluna abaixo impede qualquer select do cliente de enxergá-la.
+  --
+  -- NULA enquanto ninguém reivindicou este nome. É o que distingue as duas
+  -- portas: com ela vazia, entra-se com a senha do GRUPO e a data vira a sua;
+  -- com ela preenchida, entra-se com a SUA data, e a senha do grupo não serve
+  -- mais para este nome — senão quem tem o código assumiria quem já entrou.
+  birth_date date,
   active     boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -172,7 +178,13 @@ create trigger invites_normalize_code
 -- -----------------------------------------------------------------------------
 create table invite_redeem_attempts (
   id             bigserial primary key,
-  user_id        uuid references auth.users(id) on delete set null,
+  -- Sem chave estrangeira para `auth.users` DE PROPÓSITO. Isto é registro de
+  -- tentativa, não vínculo: a integridade referencial não compra nada aqui e
+  -- custa disponibilidade. Com a chave, uma sessão cujo usuário não existe mais
+  -- — o navegador guarda o JWT, e o usuário sumiu num `db reset` — derrubava a
+  -- ENTRADA no vôlei com um erro de banco cru, em vez de a pessoa só não
+  -- conseguir entrar.
+  user_id        uuid,
   attempted_code text not null,
   succeeded      boolean not null,
   attempted_at   timestamptz not null default now()
@@ -188,7 +200,10 @@ create index invite_redeem_attempts_rate_idx
 create table player_claim_attempts (
   id             bigserial primary key,
   group_id       uuid not null references groups(id)     on delete cascade,
-  user_id        uuid references auth.users(id)          on delete set null,
+  -- Sem chave estrangeira para `auth.users`, pelo mesmo que
+  -- `invite_redeem_attempts`: é registro de tentativa, e uma sessão órfã deve
+  -- falhar em entrar, não quebrar a tela.
+  user_id        uuid,
   attempted_name text not null,
   succeeded      boolean not null,
   attempted_at   timestamptz not null default now()
@@ -551,10 +566,10 @@ $$;
 /**
  * Cria um vôlei e põe quem chamou como dono.
  *
- * `p_initial_birth_date` é a senha inicial que o dono vai combinar com o grupo:
- * ele cadastra todos com ela, e cada pessoa troca pela sua ao entrar. O dono
- * entra já com a data dele, então o nome dele nunca aparece na lista de nomes
- * por reivindicar.
+ * `p_join_password` é a senha que o dono combina com o grupo: ela vai no zap
+ * junto com o código, e serve para cada pessoa reivindicar o SEU nome uma vez.
+ * O dono entra já com a data dele, então o nome dele nunca aparece na lista de
+ * nomes por reivindicar.
  *
  * Devolve também o token do convite — o link que vai pro grupo do WhatsApp.
  */
@@ -563,10 +578,10 @@ create or replace function create_group(
   p_owner_name         text,
   p_owner_gender       char(1),
   p_owner_birth_date   date,
-  p_initial_birth_date date
+  p_join_password      text
 )
 returns table (group_id uuid, player_id uuid, invite_token uuid, invite_code text)
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare
   new_group  uuid;
   new_player uuid;
@@ -576,24 +591,22 @@ begin
   if auth.uid() is null then
     raise exception 'É preciso uma sessão para criar um vôlei' using errcode = '28000';
   end if;
-  if p_owner_birth_date is null or p_initial_birth_date is null then
-    raise exception 'Informe a sua data e a data inicial do grupo' using errcode = '22023';
+  if p_owner_birth_date is null then
+    raise exception 'Informe a sua data de nascimento' using errcode = '22023';
   end if;
-  -- Se as duas forem iguais, o nome do dono fica reivindicável com a senha que
-  -- ele mesmo vai mandar no grupo — e aí qualquer um com o link assume o vôlei.
-  if p_owner_birth_date = p_initial_birth_date then
-    raise exception 'A sua data tem de ser diferente da data inicial do grupo'
+  if length(coalesce(trim(p_join_password), '')) < 4 then
+    raise exception 'A senha do grupo precisa de pelo menos 4 caracteres'
       using errcode = '22023';
   end if;
 
-  insert into groups (name, initial_birth_date)
-  values (trim(p_group_name), p_initial_birth_date)
+  insert into groups (name, join_password_hash)
+  values (trim(p_group_name), crypt(trim(p_join_password), gen_salt('bf')))
   returning id into new_group;
 
-  -- O dono já entra com a data dele própria: nada de senha compartilhada para
-  -- quem manda o link.
-  insert into players (group_id, name, gender, birth_date, birth_date_changed)
-  values (new_group, trim(p_owner_name), p_owner_gender, p_owner_birth_date, true)
+  -- O dono já entra com a data dele: ele não usa a senha do grupo, e o nome
+  -- dele não fica na lista de nomes por reivindicar.
+  insert into players (group_id, name, gender, birth_date)
+  values (new_group, trim(p_owner_name), p_owner_gender, p_owner_birth_date)
   returning id into new_player;
 
   update groups set owner_player_id = new_player where id = new_group;
@@ -622,9 +635,7 @@ create or replace function add_player(
 )
 returns uuid
 language plpgsql security definer set search_path = public as $$
-declare
-  new_player uuid;
-  initial    date;
+declare new_player uuid;
 begin
   if not is_group_owner(p_group_id) then
     raise exception 'Só o dono cadastra gente no vôlei' using errcode = '42501';
@@ -633,10 +644,10 @@ begin
     raise exception 'O jogador precisa de um nome' using errcode = '22023';
   end if;
 
-  select initial_birth_date into initial from groups where id = p_group_id;
-
-  insert into players (group_id, name, gender, birth_date)
-  values (p_group_id, trim(p_name), p_gender, initial)
+  -- Nasce SEM chave: ela é a data que a própria pessoa informa ao reivindicar
+  -- o nome. Quem cadastra não escolhe a chave de ninguém.
+  insert into players (group_id, name, gender)
+  values (p_group_id, trim(p_name), p_gender)
   returning id into new_player;
 
   return new_player;
@@ -651,7 +662,7 @@ end $$;
  *
  * Também não devolve `groups`: privilégio de COLUNA não se aplica aos campos
  * de um composto devolvido por função security definer, e o composto carregaria
- * `initial_birth_date` — a senha combinada do grupo — para quem chamasse.
+ * `join_password_hash` — o hash da senha do grupo — para quem chamasse.
  */
 create or replace function enter_group(p_group_id uuid)
 returns void
@@ -797,20 +808,22 @@ begin
 end $$;
 
 /**
- * Dizer quem eu sou: NOME + DATA.
+ * Dizer quem eu sou, da PRIMEIRA vez: nome + senha do grupo + a sua data.
  *
- * É a porta principal, não o plano B. A data funciona como senha:
- *   * na primeira vez a pessoa usa a data inicial do grupo e é OBRIGADA a
- *     trocar pela dela na mesma chamada (p_new_birth_date);
- *   * depois de trocada, ela usa a própria data e p_new_birth_date é ignorado
- *     — é assim que o segundo aparelho entra.
+ * A senha do grupo é a que o dono mandou no zap junto com o código; a data que
+ * você informa aqui vira a SUA chave, e é com ela que você entra num aparelho
+ * novo depois.
+ *
+ * Só serve para nome ainda sem dono (`birth_date is null`). Depois que alguém
+ * reivindicou, a senha do grupo não abre mais aquele nome — senão qualquer um
+ * com o código assumiria quem já entrou.
  *
  * O que o torna aceitável:
- *   1. A data NUNCA sai do servidor: o privilégio de coluna impede qualquer
- *      select do cliente, e aqui só se compara palpite com armazenado.
+ *   1. Nem a senha do grupo nem a data saem do servidor: a senha é guardada
+ *      como hash e a data tem o privilégio de coluna revogado.
  *   2. Só funciona para quem já tem o link do vôlei (precisa ser membro).
  *   3. Trava de força bruta: 5 erros em 15 minutos e para.
- *   4. A mensagem de erro é a mesma para nome inexistente e data errada, para
+ *   4. A mensagem de erro é a mesma para nome inexistente e senha errada, para
  *      não confirmar quem está no vôlei.
  *
  * NÃO concede a propriedade por si: quem é dono é quem groups.owner_player_id
@@ -818,30 +831,100 @@ end $$;
  * e é o que o faz sobreviver à perda do celular.
  */
 create or replace function claim_player(
-  p_group_id       uuid,
-  p_name           text,
-  p_birth_date     date,
-  p_new_birth_date date default null
+  p_group_id   uuid,
+  p_name       text,
+  p_password   text,
+  p_birth_date date
 )
 returns claim_result
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare
-  recent_failures int;
   target          players;
-  initial         date;
+  recent_failures int;
+  senha_confere   boolean;
 begin
   if auth.uid() is null then
     raise exception 'É preciso uma sessão' using errcode = '28000';
   end if;
+  if not is_group_member(p_group_id) then
+    raise exception 'Abra o link do vôlei primeiro' using errcode = '42501';
+  end if;
+  if p_birth_date is null then
+    return (false, 'birth_date_required', null)::claim_result;
+  end if;
 
-  -- Precisa ter chegado pelo link do vôlei.
+  -- A trava conta por PESSOA TENTADA, não só por sessão: uma sessão anônima
+  -- nova é grátis (é a própria porta de entrada do modelo) e zerava o contador.
+  select count(*) into recent_failures
+  from player_claim_attempts
+  where group_id = p_group_id
+    and not succeeded
+    and attempted_at > now() - interval '15 minutes'
+    and (
+      user_id = auth.uid()
+      or lower(trim(attempted_name)) = lower(trim(coalesce(p_name, '')))
+    );
+
+  if recent_failures >= 5 then
+    return (false, 'rate_limited', null)::claim_result;
+  end if;
+
+  select (join_password_hash = crypt(coalesce(p_password, ''), join_password_hash))
+  into senha_confere
+  from groups where id = p_group_id;
+
+  select * into target
+  from players
+  where group_id = p_group_id
+    and active
+    and birth_date is null
+    and lower(trim(name)) = lower(trim(coalesce(p_name, '')));
+
+  insert into player_claim_attempts (group_id, user_id, attempted_name, succeeded)
+  values (p_group_id, auth.uid(), coalesce(p_name, ''),
+          coalesce(senha_confere, false) and target.id is not null);
+
+  -- Mesmo motivo para nome que não existe, nome já reivindicado e senha errada:
+  -- não confirma quem está no vôlei nem quem já entrou.
+  if not coalesce(senha_confere, false) or target.id is null then
+    return (false, 'not_found', null)::claim_result;
+  end if;
+
+  update players set birth_date = p_birth_date where id = target.id;
+
+  insert into group_members (group_id, user_id, player_id, role)
+  values (p_group_id, auth.uid(), target.id, 'player')
+  on conflict (group_id, user_id) do update
+    set player_id = excluded.player_id,
+        role      = 'player';
+
+  return (true, 'ok', target.id)::claim_result;
+end $$;
+
+/**
+ * Dizer quem eu sou NUM APARELHO NOVO: nome + a sua data.
+ *
+ * É a porta de quem já reivindicou o nome e está no tablet, ou trocou de
+ * celular. A senha do grupo não serve aqui: ela abre um nome uma vez só.
+ */
+create or replace function claim_player_again(
+  p_group_id   uuid,
+  p_name       text,
+  p_birth_date date
+)
+returns claim_result
+language plpgsql security definer set search_path = public as $$
+declare
+  target          players;
+  recent_failures int;
+begin
+  if auth.uid() is null then
+    raise exception 'É preciso uma sessão' using errcode = '28000';
+  end if;
   if not is_group_member(p_group_id) then
     raise exception 'Abra o link do vôlei primeiro' using errcode = '42501';
   end if;
 
-  -- A trava conta por PESSOA TENTADA, não só por sessão: uma sessão anônima
-  -- nova é grátis (é a própria porta de entrada do modelo) e zerava o contador,
-  -- o que transformava "5 erros em 15 minutos" em algumas centenas por hora.
   select count(*) into recent_failures
   from player_claim_attempts
   where group_id = p_group_id
@@ -860,32 +943,15 @@ begin
   from players
   where group_id = p_group_id
     and active
-    and lower(trim(name)) = lower(trim(coalesce(p_name, '')))
-    and birth_date = p_birth_date;
+    and birth_date is not null
+    and birth_date = p_birth_date
+    and lower(trim(name)) = lower(trim(coalesce(p_name, '')));
 
   insert into player_claim_attempts (group_id, user_id, attempted_name, succeeded)
   values (p_group_id, auth.uid(), coalesce(p_name, ''), target.id is not null);
 
   if target.id is null then
-    -- Mesmo motivo para nome inexistente e data errada: não confirma quem
-    -- está no vôlei.
     return (false, 'not_found', null)::claim_result;
-  end if;
-
-  -- Primeira entrada: trocar a senha compartilhada pela própria é obrigatório.
-  -- Sem isso, metade do grupo fica com a data inicial para sempre e qualquer
-  -- um entra como qualquer um.
-  if not target.birth_date_changed then
-    if p_new_birth_date is null then
-      return (false, 'new_birth_date_required', null)::claim_result;
-    end if;
-    select initial_birth_date into initial from groups where id = p_group_id;
-    if p_new_birth_date = initial then
-      return (false, 'new_birth_date_must_differ', null)::claim_result;
-    end if;
-    update players
-    set birth_date = p_new_birth_date, birth_date_changed = true
-    where id = target.id;
   end if;
 
   insert into group_members (group_id, user_id, player_id, role)
@@ -932,7 +998,7 @@ end $$;
  *
  * A data atual é exigida por um motivo concreto: a sessão é a única credencial,
  * e um celular emprestado já está dentro. Sem pedir a data velha, quem pegasse
- * o aparelho trocaria a senha e trancaria a pessoa fora dos aparelhos dela —
+ * o aparelho trocaria a chave e trancaria a pessoa fora dos aparelhos dela —
  * porque é a data que reivindica o nome num aparelho novo.
  *
  * Devolve MOTIVO em vez de lançar exceção, pelo mesmo que `claim_player`: um
@@ -948,7 +1014,6 @@ returns text
 language plpgsql security definer set search_path = public as $$
 declare
   me              players;
-  initial         date;
   recent_failures int;
 begin
   select * into me from players where id = my_player_id(p_group_id);
@@ -970,33 +1035,52 @@ begin
     return 'rate_limited';
   end if;
 
-  if me.birth_date <> p_current then
+  if me.birth_date is distinct from p_current then
     insert into player_claim_attempts (group_id, user_id, attempted_name, succeeded)
     values (p_group_id, auth.uid(), me.name, false);
     return 'wrong_current';
   end if;
 
-  -- Voltar para a data combinada do grupo entregaria o nome a quem tem o
-  -- código: é a senha que todo mundo recebeu.
-  select initial_birth_date into initial from groups where id = p_group_id;
-  if p_new = initial then
-    return 'same_as_group';
-  end if;
-
-  update players
-  set birth_date = p_new, birth_date_changed = true
-  where id = me.id;
-
+  update players set birth_date = p_new where id = me.id;
   return 'ok';
 end $$;
 
 /**
- * O dono devolve a data de alguém para a inicial do grupo.
+ * O dono troca a senha do grupo.
+ *
+ * É o caminho de "entrou gente que não devia": troca a senha, manda a nova no
+ * zap. Quem já reivindicou um nome continua dentro — a senha do grupo só abre
+ * nome que ainda não tem dono.
+ */
+create or replace function set_join_password(p_group_id uuid, p_password text)
+returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if not is_group_owner(p_group_id) then
+    raise exception 'Só o dono do vôlei troca a senha' using errcode = '42501';
+  end if;
+  if length(coalesce(trim(p_password), '')) < 4 then
+    raise exception 'A senha do grupo precisa de pelo menos 4 caracteres'
+      using errcode = '22023';
+  end if;
+
+  update groups
+  set join_password_hash = crypt(trim(p_password), gen_salt('bf'))
+  where id = p_group_id;
+end $$;
+
+/**
+ * O dono devolve um nome à lista de quem ainda não entrou.
  *
  * É o caminho do "esqueci a minha data" / "troquei de celular e não lembro".
- * O dono nunca vê qual era: só manda zerar.
+ * O dono nunca vê qual era: ele apaga a chave, e a pessoa entra de novo como
+ * entrou da primeira vez — senha do grupo e uma data nova.
+ *
+ * Derruba junto os aparelhos ligados àquele jogador. Isso é o ponto, não um
+ * efeito colateral: se a pessoa pediu reset porque perdeu o celular, deixar o
+ * celular perdido logado seria o contrário do pedido.
  */
-create or replace function reset_player_birth_date(p_player_id uuid)
+create or replace function reset_player_access(p_player_id uuid)
 returns void
 language plpgsql security definer set search_path = public as $$
 declare target_group uuid;
@@ -1009,13 +1093,8 @@ begin
     raise exception 'Só o dono do vôlei pode fazer isso' using errcode = '42501';
   end if;
 
-  update players p
-  set birth_date = g.initial_birth_date, birth_date_changed = false
-  from groups g
-  where p.id = p_player_id and g.id = target_group;
+  update players set birth_date = null where id = p_player_id;
 
-  -- Os aparelhos que estavam ligados a esse jogador voltam a ser espectadores:
-  -- quem for reivindicar de novo passa pela troca de data outra vez.
   update group_members
   set player_id = null, role = 'viewer'
   where group_id = target_group and player_id = p_player_id;
@@ -1031,7 +1110,7 @@ begin
   end if;
   -- Tem de ser alguém que JÁ entrou: passar para um nome não reivindicado
   -- deixaria o vôlei sem dono efetivo, e quem reivindicasse aquele nome com a
-  -- data inicial assumiria tudo.
+  -- senha do grupo assumiria tudo.
   if not exists (
     select 1
     from players p
@@ -1141,13 +1220,13 @@ create policy players_write_owner on players
 -- Então tira o da tabela e concede coluna a coluna. O PostgREST respeita isso:
 -- `select=*` devolve só as colunas permitidas, em vez de dar erro.
 revoke select on players from authenticated, anon;
-grant select (id, group_id, name, gender, birth_date_changed, active,
+grant select (id, group_id, name, gender, active,
               created_at, updated_at) on players to authenticated, anon;
 
--- E o mesmo vale para ESCRITA: sem isto o dono trocava a senha de alguém com um
--- `update` comum, por fora de reset_player_birth_date() — que existe justamente
--- para derrubar os aparelhos da vítima. Assim ela ficaria logada sem saber que a
--- senha dela mudou.
+-- E o mesmo vale para ESCRITA: sem isto o dono apagava a chave de alguém com um
+-- `update` comum, por fora de reset_player_access() — que existe justamente
+-- para derrubar os aparelhos da vítima junto. Assim ela ficaria logada sem
+-- saber que a chave dela sumiu.
 revoke update on players from authenticated, anon;
 grant update (name, gender, active) on players to authenticated, anon;
 
@@ -1162,8 +1241,8 @@ create policy groups_select_member on groups
 create policy groups_update_owner on groups
   for update to authenticated using (is_group_owner(id)) with check (is_group_owner(id));
 
--- A data inicial também é senha compartilhada: ninguém a lê pelo cliente.
--- O dono a recebe uma vez, no retorno de create_group().
+-- A senha do grupo não sai pelo cliente — nem como hash. Quem a sabe é o dono,
+-- que a escolheu; ninguém precisa lê-la de volta.
 revoke select on groups from authenticated, anon;
 grant select (id, name, owner_player_id, created_at) on groups to authenticated, anon;
 

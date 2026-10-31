@@ -14,11 +14,11 @@ import { describeError } from '../../../shared/utils/error.util';
 
 /** O que dizer para cada recusa. Nunca "esse nome não existe": ver abaixo. */
 const MESSAGES: Record<ClaimFailure, string> = {
-  // Nome errado e data errada dão a MESMA mensagem de propósito: separá-las
-  // diria a quem tem o código quem está no vôlei.
-  'not-found': 'Não deu certo. Confira o nome e a data.',
-  'new-date-required': 'Escolha a sua data de nascimento para continuar.',
-  'new-date-must-differ': 'A sua data tem de ser diferente da que o grupo combinou.',
+  // Nome que não existe, nome que já tem dono e senha errada dão a MESMA
+  // mensagem de propósito: separá-las diria a quem tem o código quem está no
+  // vôlei e quem já entrou.
+  'not-found': 'Não deu certo. Confira o nome e a senha do grupo.',
+  'birth-date-required': 'Informe a sua data de nascimento.',
   'too-many-tries':
     'Muitas tentativas. Espere uns quinze minutos, ou peça para quem é dono liberar.',
 };
@@ -26,9 +26,9 @@ const MESSAGES: Record<ClaimFailure, string> = {
 /**
  * "Quem você é?" — a tela que transforma visitante em jogador.
  *
- * Tocar no nome e digitar a data combinada não basta: **trocar pela sua data é
- * obrigatório na mesma tela**. Sem isso, metade do grupo ficaria com a senha
- * compartilhada para sempre, e qualquer um entraria como qualquer um.
+ * Tocar no nome, digitar a senha que o grupo combinou e **a sua data de
+ * nascimento**. A senha abre o nome uma vez; a data vira a sua chave, e é com
+ * ela que você entra num aparelho novo depois.
  *
  * Quem já fez isso antes não aparece na lista — a lista é só de nomes que
  * ninguém reivindicou. Para essa pessoa existe o segundo caminho, com a data
@@ -130,22 +130,25 @@ const MESSAGES: Record<ClaimFailure, string> = {
           </app-blueprint>
 
           <div class="field">
-            <label for="claim-group-date">A data que o grupo combinou</label>
+            <label for="claim-password">A senha do grupo</label>
             <input
-              id="claim-group-date"
+              id="claim-password"
               class="input"
-              type="date"
-              aria-describedby="claim-group-date-help"
-              [value]="birthDate()"
-              (input)="birthDate.set($any($event.target).value)"
+              type="text"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+              aria-describedby="claim-password-help"
+              [value]="password()"
+              (input)="password.set($any($event.target).value)"
             />
-            <p id="claim-group-date-help" class="mt-2 text-[12px] muted">
+            <p id="claim-password-help" class="mt-2 text-[12px] muted">
               Quem organiza mandou ela junto com o código.
             </p>
           </div>
 
           <div class="field">
-            <label for="claim-new-date">Agora a sua data de nascimento</label>
+            <label for="claim-new-date">Sua data de nascimento</label>
             <input
               id="claim-new-date"
               class="input"
@@ -156,7 +159,8 @@ const MESSAGES: Record<ClaimFailure, string> = {
               (input)="newBirthDate.set($any($event.target).value)"
             />
             <p id="claim-new-date-help" class="mt-2 text-[12px] muted">
-              Ela passa a ser a sua senha neste vôlei, e substitui a do grupo. Ninguém vê.
+              Ela vira a sua chave neste vôlei: é ela que você digita para entrar num aparelho novo.
+              Ninguém vê, nem quem é dono.
             </p>
           </div>
         }
@@ -197,16 +201,21 @@ export class ClaimComponent implements OnInit {
   protected readonly returning = signal(false);
 
   protected readonly name = signal('');
+  /** A senha do grupo, no caminho de quem está entrando pela primeira vez. */
+  protected readonly password = signal('');
+  /** A própria data, no caminho de quem já entrou num outro aparelho. */
   protected readonly birthDate = signal('');
   protected readonly newBirthDate = signal('');
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal(false);
 
   protected readonly canSubmit = computed(() => {
-    if (this.busy() || this.name().trim() === '' || this.birthDate() === '') {
+    if (this.busy() || this.name().trim() === '') {
       return false;
     }
-    return this.returning() ? true : this.newBirthDate() !== '';
+    return this.returning()
+      ? this.birthDate() !== ''
+      : this.password().trim() !== '' && this.newBirthDate() !== '';
   });
 
   async ngOnInit(): Promise<void> {
@@ -234,6 +243,7 @@ export class ClaimComponent implements OnInit {
   protected startReturning(): void {
     this.returning.set(true);
     this.name.set('');
+    this.password.set('');
     this.birthDate.set('');
     this.error.set(null);
   }
@@ -242,6 +252,7 @@ export class ClaimComponent implements OnInit {
     this.chosen.set(null);
     this.returning.set(false);
     this.name.set('');
+    this.password.set('');
     this.birthDate.set('');
     this.newBirthDate.set('');
     this.error.set(null);
@@ -256,13 +267,21 @@ export class ClaimComponent implements OnInit {
     this.busy.set(true);
     this.error.set(null);
     try {
-      const result = await this.membership.claim({
-        groupId,
-        name: this.name().trim(),
-        birthDate: this.birthDate(),
-        // Quem volta num aparelho novo usa a própria data, e não troca nada.
-        newBirthDate: this.returning() ? null : this.newBirthDate(),
-      });
+      // Duas portas, e não uma com um campo a mais: quem volta num aparelho
+      // novo usa a PRÓPRIA data, e a senha do grupo não serve para ele — ela
+      // abre um nome uma vez só.
+      const result = this.returning()
+        ? await this.membership.claimAgain({
+            groupId,
+            name: this.name().trim(),
+            birthDate: this.birthDate(),
+          })
+        : await this.membership.claim({
+            groupId,
+            name: this.name().trim(),
+            password: this.password().trim(),
+            birthDate: this.newBirthDate(),
+          });
 
       if (!result.ok) {
         this.error.set(MESSAGES[result.failure]);

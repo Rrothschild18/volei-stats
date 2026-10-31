@@ -140,7 +140,7 @@ interface RecentMatch {
             [disabled]="busy()"
             (click)="resetDate()"
           >
-            DEVOLVER A DATA PARA A INICIAL
+            DEVOLVER O NOME PARA A LISTA
           </button>
 
           <p class="mt-5 text-[13px] muted">
@@ -287,8 +287,8 @@ export class PlayerDetailComponent implements OnInit {
 
   protected async resetDate(): Promise<void> {
     await this.run(
-      () => this.membership.resetBirthDate(this.playerId()),
-      'Data devolvida para a inicial do grupo.',
+      () => this.membership.resetAccess(this.playerId()),
+      'Nome devolvido para a lista de quem ainda não entrou.',
     );
   }
 

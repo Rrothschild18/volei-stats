@@ -7,7 +7,6 @@ import { BlueprintComponent, InlineNoteComponent, InnerHeaderComponent } from '.
 
 const MOTIVOS: Record<BirthDateFailure, string> = {
   'wrong-current': 'A data atual não confere.',
-  'same-as-group': 'A nova não pode ser a data que o grupo combinou — ela é a senha de todos.',
   'too-many-tries': 'Muitas tentativas. Espere uns quinze minutos.',
 };
 

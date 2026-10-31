@@ -196,7 +196,7 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
-          initial_birth_date: string;
+          join_password_hash: string;
           name: string;
           owner_player_id: string | null;
         };
@@ -204,14 +204,14 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
-          initial_birth_date: string;
+          join_password_hash: string;
           name: string;
           owner_player_id?: string | null;
         };
         Update: {
           created_at?: string;
           id?: string;
-          initial_birth_date?: string;
+          join_password_hash?: string;
           name?: string;
           owner_player_id?: string | null;
         };
@@ -545,8 +545,7 @@ export type Database = {
       players: {
         Row: {
           active: boolean;
-          birth_date: string;
-          birth_date_changed: boolean;
+          birth_date: string | null;
           created_at: string;
           gender: string;
           group_id: string;
@@ -557,8 +556,7 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           active?: boolean;
-          birth_date: string;
-          birth_date_changed?: boolean;
+          birth_date?: string | null;
           created_at?: string;
           gender: string;
           group_id: string;
@@ -568,8 +566,7 @@ export type Database = {
         };
         Update: {
           active?: boolean;
-          birth_date?: string;
-          birth_date_changed?: boolean;
+          birth_date?: string | null;
           created_at?: string;
           gender?: string;
           group_id?: string;
@@ -1101,12 +1098,17 @@ export type Database = {
         Returns: string;
       };
       claim_player: {
-        Args: {
-          p_birth_date: string;
-          p_group_id: string;
-          p_name: string;
-          p_new_birth_date?: string;
+        Args: { p_birth_date: string; p_group_id: string; p_name: string; p_password: string };
+        Returns: Database['public']['CompositeTypes']['claim_result'];
+        SetofOptions: {
+          from: '*';
+          to: 'claim_result';
+          isOneToOne: true;
+          isSetofReturn: false;
         };
+      };
+      claim_player_again: {
+        Args: { p_birth_date: string; p_group_id: string; p_name: string };
         Returns: Database['public']['CompositeTypes']['claim_result'];
         SetofOptions: {
           from: '*';
@@ -1118,7 +1120,7 @@ export type Database = {
       create_group: {
         Args: {
           p_group_name: string;
-          p_initial_birth_date: string;
+          p_join_password: string;
           p_owner_birth_date: string;
           p_owner_gender: string;
           p_owner_name: string;
@@ -1161,7 +1163,8 @@ export type Database = {
         }[];
       };
       rename_me: { Args: { p_group_id: string; p_name: string }; Returns: undefined };
-      reset_player_birth_date: { Args: { p_player_id: string }; Returns: undefined };
+      reset_player_access: { Args: { p_player_id: string }; Returns: undefined };
+      set_join_password: { Args: { p_group_id: string; p_password: string }; Returns: undefined };
       transfer_ownership: { Args: { p_group_id: string; p_player_id: string }; Returns: undefined };
       unclaimed_players: {
         Args: { p_group_id: string };
