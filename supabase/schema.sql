@@ -149,6 +149,9 @@ create table sessions (
   updated_at timestamptz not null default now(),
   unique (id, group_id)
 );
+-- Um dia tem UMA sessão por vôlei. O app já assume isso; sem a constraint,
+-- dois jogadores abrindo a presença ao mesmo tempo criavam duas.
+create unique index sessions_group_date_key on sessions (group_id, date);
 create index sessions_group_date_idx on sessions (group_id, date desc);
 
 create table session_players (
@@ -306,6 +309,42 @@ create table matches (
 create index matches_tournament_idx on matches (tournament_id);
 create index matches_group_played_idx on matches (group_id, played_at desc);
 
+-- -----------------------------------------------------------------------------
+-- Quem lançou e quem corrigiu são gravados pelo BANCO, não pelo cliente.
+--
+-- Deixar todo mundo corrigir placar só é aceitável porque fica registrado quem
+-- foi (docs/PLANO-SUPABASE.md §1). Como coluna comum, qualquer jogador mudava o
+-- placar deixando corrected_by nulo, ou apontando para outra pessoa — e a
+-- justificativa inteira caía.
+-- -----------------------------------------------------------------------------
+create or replace function stamp_match_author()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare me uuid;
+begin
+  me := my_player_id(new.group_id);
+
+  if tg_op = 'INSERT' then
+    new.reported_by := coalesce(me, new.reported_by);
+    return new;
+  end if;
+
+  -- Mexeu no placar: é correção, e tem autor.
+  if new.score_a <> old.score_a or new.score_b <> old.score_b then
+    new.corrected_by := coalesce(me, new.corrected_by);
+    new.corrected_at := now();
+  else
+    new.corrected_by := old.corrected_by;
+    new.corrected_at := old.corrected_at;
+  end if;
+
+  new.reported_by := old.reported_by;
+  return new;
+end $$;
+
+create trigger matches_stamp_author
+  before insert or update on matches
+  for each row execute function stamp_match_author();
+
 create table tournament_priority_entries (
   group_id      uuid not null,
   tournament_id uuid not null,
@@ -364,6 +403,28 @@ end $$;
 create trigger players_owner_stays_active
   before update of active on players
   for each row execute function prevent_inactive_owner();
+
+-- -----------------------------------------------------------------------------
+-- Inativar alguém tira o acesso dele.
+--
+-- Sem isto, quem saiu do vôlei continuava escrevendo presença, sorteio e placar:
+-- a linha de group_members sobrevivia à inativação, e claim_player o deixaria
+-- voltar com a própria data.
+-- -----------------------------------------------------------------------------
+create or replace function drop_access_when_inactive()
+returns trigger language plpgsql as $$
+begin
+  if old.active and not new.active then
+    update group_members
+    set player_id = null, role = 'viewer'
+    where player_id = new.id;
+  end if;
+  return new;
+end $$;
+
+create trigger players_inactive_drops_access
+  after update of active on players
+  for each row execute function drop_access_when_inactive();
 
 -- =============================================================================
 -- QUEM PODE O QUÊ
@@ -446,6 +507,12 @@ begin
   if p_owner_birth_date is null or p_initial_birth_date is null then
     raise exception 'Informe a sua data e a data inicial do grupo' using errcode = '22023';
   end if;
+  -- Se as duas forem iguais, o nome do dono fica reivindicável com a senha que
+  -- ele mesmo vai mandar no grupo — e aí qualquer um com o link assume o vôlei.
+  if p_owner_birth_date = p_initial_birth_date then
+    raise exception 'A sua data tem de ser diferente da data inicial do grupo'
+      using errcode = '22023';
+  end if;
 
   insert into groups (name, initial_birth_date)
   values (trim(p_group_name), p_initial_birth_date)
@@ -469,29 +536,36 @@ begin
 end $$;
 
 /**
- * Link do vôlei: quem tem o uuid vira espectador e passa a poder ler.
- * Não rebaixa quem já é jogador.
+ * Vira espectador do vôlei: lê, e não escreve.
+ *
+ * ⚠️ INTERNA. O privilégio de EXECUTE é revogado abaixo, e a única porta de
+ * fora é redeem_invite(). Se o cliente pudesse chamar isto com um uuid de
+ * grupo, revogar um convite não trancaria ninguém: o uuid é permanente.
+ *
+ * Também não devolve `groups`: privilégio de COLUNA não se aplica aos campos
+ * de um composto devolvido por função security definer, e o composto carregaria
+ * `initial_birth_date` — a senha combinada do grupo — para quem chamasse.
  */
 create or replace function enter_group(p_group_id uuid)
-returns groups
+returns void
 language plpgsql security definer set search_path = public as $$
-declare g groups;
 begin
   if auth.uid() is null then
     raise exception 'É preciso uma sessão para entrar no vôlei' using errcode = '28000';
   end if;
 
-  select * into g from groups where id = p_group_id;
-  if not found then
+  if not exists (select 1 from groups where id = p_group_id) then
     raise exception 'Vôlei não encontrado' using errcode = 'P0002';
   end if;
 
   insert into group_members (group_id, user_id, role)
   values (p_group_id, auth.uid(), 'viewer')
   on conflict (group_id, user_id) do nothing;
-
-  return g;
 end $$;
+
+-- Só redeem_invite() entra. O grant implícito a PUBLIC é o que precisa sair:
+-- revogar de `authenticated` sozinho não tira nada.
+revoke execute on function enter_group(uuid) from public, anon, authenticated;
 
 /**
  * Link de convite: autoriza entrar no vôlei, e nada mais.
@@ -500,7 +574,7 @@ end $$;
  * claim_player(). Reutilizável de propósito.
  */
 create or replace function redeem_invite(p_token uuid)
-returns groups
+returns table (group_id uuid, group_name text)
 language plpgsql security definer set search_path = public as $$
 declare inv invites;
 begin
@@ -519,7 +593,10 @@ begin
     raise exception 'Este convite expirou' using errcode = 'P0001';
   end if;
 
-  return enter_group(inv.group_id);
+  perform enter_group(inv.group_id);
+
+  -- Devolve só o que a tela precisa: nada de composto de `groups`.
+  return query select g.id, g.name from groups g where g.id = inv.group_id;
 end $$;
 
 /**
@@ -565,12 +642,18 @@ begin
     raise exception 'Abra o link do vôlei primeiro' using errcode = '42501';
   end if;
 
+  -- A trava conta por PESSOA TENTADA, não só por sessão: uma sessão anônima
+  -- nova é grátis (é a própria porta de entrada do modelo) e zerava o contador,
+  -- o que transformava "5 erros em 15 minutos" em algumas centenas por hora.
   select count(*) into recent_failures
   from player_claim_attempts
   where group_id = p_group_id
-    and user_id  = auth.uid()
     and not succeeded
-    and attempted_at > now() - interval '15 minutes';
+    and attempted_at > now() - interval '15 minutes'
+    and (
+      user_id = auth.uid()
+      or lower(trim(attempted_name)) = lower(trim(coalesce(p_name, '')))
+    );
 
   if recent_failures >= 5 then
     return (false, 'rate_limited', null)::claim_result;
@@ -579,6 +662,7 @@ begin
   select * into target
   from players
   where group_id = p_group_id
+    and active
     and lower(trim(name)) = lower(trim(coalesce(p_name, '')))
     and birth_date = p_birth_date;
 
@@ -655,11 +739,16 @@ begin
   if not is_group_owner(p_group_id) then
     raise exception 'Só o dono do vôlei pode passá-lo' using errcode = '42501';
   end if;
+  -- Tem de ser alguém que JÁ entrou: passar para um nome não reivindicado
+  -- deixaria o vôlei sem dono efetivo, e quem reivindicasse aquele nome com a
+  -- data inicial assumiria tudo.
   if not exists (
-    select 1 from players
-    where id = p_player_id and group_id = p_group_id and active
+    select 1
+    from players p
+    join group_members m on m.player_id = p.id
+    where p.id = p_player_id and p.group_id = p_group_id and p.active
   ) then
-    raise exception 'Escolha um jogador ativo do vôlei' using errcode = '22023';
+    raise exception 'Passe o vôlei para alguém que já entrou nele' using errcode = '22023';
   end if;
 
   update groups set owner_player_id = p_player_id where id = p_group_id;
@@ -734,6 +823,13 @@ create policy players_write_owner on players
 revoke select on players from authenticated, anon;
 grant select (id, group_id, name, gender, birth_date_changed, active,
               created_at, updated_at) on players to authenticated, anon;
+
+-- E o mesmo vale para ESCRITA: sem isto o dono trocava a senha de alguém com um
+-- `update` comum, por fora de reset_player_birth_date() — que existe justamente
+-- para derrubar os aparelhos da vítima. Assim ela ficaria logada sem saber que a
+-- senha dela mudou.
+revoke update on players from authenticated, anon;
+grant update (name, gender, active) on players to authenticated, anon;
 
 -- O vôlei em si: membro lê, dono renomeia. Criação só via create_group().
 create policy groups_select_member on groups

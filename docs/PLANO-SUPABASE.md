@@ -28,6 +28,15 @@ A partir daí são três chamadas, e só:
 | `redeem_invite(token)` | quem recebeu o link | entra como **espectador**: lê, não escreve |
 | `claim_player(...)` | o espectador, na lista de nomes | diz quem é e vira **jogador** |
 
+> **Existe um link, e é o do convite.** O uuid do vôlei **não** é uma porta: a
+> função que concede leitura é interna (`revoke execute ... from public`), e só
+> `redeem_invite()` a chama. Se o uuid servisse de entrada, revogar um convite
+> não trancaria ninguém — um uuid é permanente, e quem já entrou uma vez o tem
+> para sempre. Por isso `redeem_invite()` também devolve só id e nome do vôlei:
+> **privilégio de coluna não se aplica aos campos de um composto devolvido por
+> função `security definer`**, então `returns groups` entregaria a data inicial
+> — a senha combinada do grupo — para qualquer um que abrisse o link.
+
 > Os links são **reutilizáveis de propósito**: um link serve pro grupo todo, e a
 > mesma pessoa abre no celular e no tablet, cada aparelho com sua própria sessão
 > ligada ao mesmo jogador.
@@ -42,9 +51,11 @@ implementa:
 | **Nunca sai do servidor** | `revoke select on players` + `grant select` coluna a coluna. Nem `select *` traz a data: o PostgREST devolve só as colunas permitidas. Só `claim_player()` a compara |
 | **Trocar na primeira entrada é obrigatório** | `claim_player()` recusa (`new_birth_date_required`) se quem nunca trocou não mandar uma data nova, e recusa de novo se a nova for igual à inicial. Sem isso, metade do grupo fica com a senha compartilhada pra sempre |
 | **Só funciona com o link do vôlei** | `claim_player()` exige ser membro; o uuid do vôlei é um segundo fator |
-| **Trava de força bruta** | 5 erros em 15 minutos e para |
+| **Trava de força bruta** | 5 erros em 15 minutos e para, contados **por nome tentado** e não só por sessão: uma sessão anônima nova é grátis (é a porta do modelo) e zerava o contador |
 | **Não revela quem está no vôlei** | Nome inexistente e data errada devolvem exatamente a mesma resposta |
 | **Esqueceu?** | O dono chama `reset_player_birth_date()`: volta pra data inicial e derruba os aparelhos ligados àquele jogador. O dono **nunca vê** qual era |
+| **Nem troca na mão** | `revoke update (birth_date, birth_date_changed)`: sem isso o dono trocaria a senha de alguém com um `update` comum, por fora do reset — e a vítima continuaria logada sem saber |
+| **A data do dono é outra** | `create_group()` recusa a data do dono igual à inicial do grupo; senão o nome dele ficaria reivindicável com a senha que ele mesmo manda no grupo |
 
 A lista de nomes da tela do convite mostra **só quem ainda não entrou**
 (`unclaimed_players()`), o que fecha a janela em que a data inicial
@@ -66,6 +77,10 @@ Existe **exatamente um dono** por vôlei, e ele não é um papel: é a coluna
 3. **A propriedade acompanha o jogador, não o navegador.** Perdeu o celular?
    Reivindique seu nome com a sua data num aparelho novo e o vôlei volta pra
    você. Não precisa de link de recuperação, e não existe link de recuperação.
+
+`transfer_ownership()` só aceita **quem já entrou no vôlei**. Passar para um nome
+que ninguém reivindicou deixaria o vôlei sem dono efetivo — e aí qualquer um com
+o link reivindicaria aquele nome com a data inicial e assumiria tudo.
 
 > Isso é uma consequência direta da data ser senha: quem souber a **sua** data
 > assume o seu vôlei. Antes a data era um dado público e esse caminho era
@@ -95,6 +110,15 @@ Uma correção de placar grava `corrected_by` / `corrected_at`, e a tela mostra
 todos, já que ela muda quem foi eliminado direto e as prioridades do próximo
 sorteio.
 
+Quem essa assinatura aponta é **o banco que decide**, num gatilho: como coluna
+comum, qualquer jogador mudaria o placar deixando `corrected_by` nulo, ou
+apontando para outra pessoa, e a justificativa inteira cairia.
+
+**Inativar alguém tira o acesso dele**: os aparelhos ligados àquele jogador
+voltam a ser espectadores, e `claim_player()` não aceita nome inativo. Sem isso,
+quem saiu do vôlei seguiria marcando presença e lançando placar, porque sabe a
+própria data.
+
 ### Por que não OTP / magic link
 
 > O servidor de e-mail embutido do Supabase manda só **2 e-mails por hora no
@@ -118,6 +142,7 @@ Várias regras que hoje só existem na tela viram **constraints**:
 | Dupla não repete jogador | nada | `check (player1_id <> player2_id)` |
 | Vencedor / perdedor / diferença | calculado à mão em cada lugar | **colunas geradas** |
 | Mesma partida lançada duas vezes | nada | `unique (tournament_id, phase, team_a, team_b)` |
+| **Duas sessões no mesmo dia** | nada | `unique (group_id, date)` |
 | Dois par-ou-ímpar do mesmo tipo | nada | `primary key (tournament_id, kind)` |
 | **Dados de dois vôleis se misturarem** | — | **chaves compostas com `group_id`** |
 
@@ -131,8 +156,10 @@ auditoria (esperas contadas em triplo), porque contam apenas sorteios
 requisição.
 
 Schema completo em [`supabase/schema.sql`](../supabase/schema.sql), com testes
-em [`supabase/tests/`](../supabase/tests/) — 76 verificações que rodam num
-Postgres descartável, sem precisar de conta no Supabase:
+em [`supabase/tests/`](../supabase/tests/) — rodam num Postgres descartável,
+sem precisar de conta no Supabase. O terceiro arquivo, `03-brechas.sql`, existe
+por causa de uma revisão que achou nove furos reais neste modelo: cada um tem
+ali o teste que faltava.
 
 ```bash
 ./supabase/tests/run.sh
@@ -171,10 +198,15 @@ supabase start                      # Postgres, Auth e Studio em Docker
 psql "$DB_URL" -f supabase/schema.sql
 ```
 
+O `supabase/config.toml` já liga **Anonymous sign-ins**: a sessão anônima é o
+modelo de acesso, e com ela desligada `signInAnonymously()` devolve 422 e o app
+não passa da primeira tela nem localmente.
+
 Studio em http://127.0.0.1:54323, API em http://127.0.0.1:54321. As chaves
 locais são as fixas do Supabase, iguais em qualquer máquina — não são segredo.
-O `supabase/seed.sql` sobe o cenário do redesign, pra dar pra clicar no app
-contra back-end de verdade.
+O `supabase/seed.sql` — que o **ticket 19** escreve — vai subir o cenário do
+redesign no `supabase db reset`, pra dar pra clicar no app contra back-end de
+verdade. Até ele existir, o banco local sobe vazio.
 
 ### Fase 1 — Camada de dados (ticket 19)
 
