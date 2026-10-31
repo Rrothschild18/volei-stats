@@ -23,8 +23,8 @@ set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 create temp table ctx as
   select * from create_group('Volei de Terca','Raul','M','1990-05-10','2000-01-01');
-insert into players (group_id, name, gender, birth_date)
-select group_id, n, g, '2000-01-01' from ctx, (values ('Vitoria','F'),('Willy','M'),('Be','F')) as v(n,g);
+select add_player((select group_id from ctx), n, g)
+from (values ('Vitoria','F'),('Willy','M'),('Be','F')) as v(n,g);
 commit;
 
 -- ===== 1. A SENHA DO GRUPO NAO SAI PELO RETORNO DA FUNCAO =====

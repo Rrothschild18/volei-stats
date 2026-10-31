@@ -40,9 +40,25 @@ select assert(
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
-insert into players (group_id, name, gender, birth_date)
-select group_id, n, g, '2000-01-01' from ctx, (values ('Vitoria','F'),('Willy','M'),('Be','F')) as v(n,g);
+-- Cadastrar e add_player(), e nao insert: a data inicial do grupo e senha de
+-- primeiro acesso, e quem a define e o banco. O dono nem a informa.
+select add_player((select group_id from ctx), n, g)
+from (values ('Vitoria','F'),('Willy','M'),('Be','F')) as v(n,g);
 select assert((select count(*) from players where group_id=(select group_id from ctx))=4,'4 jogadores');
+-- Que a data saiu de `groups` nao se verifica daqui: nem o dono le a coluna.
+-- Quem prova isso e o bloco 6, onde Vitoria entra com a data inicial.
+commit;
+
+-- Inserir jogador na mao e recusado, inclusive para o dono: com insert
+-- liberado, quem cadastra escolheria a senha de primeiro acesso de cada um.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  insert into players (group_id, name, gender, birth_date)
+  values ((select group_id from ctx), 'Intruso', 'M', '1980-01-01');
+  raise exception 'FALHOU: insert direto de jogador funcionou';
+exception when insufficient_privilege then null; end $$;
 commit;
 
 -- ===== 3. QUEM NAO TEM LINK NAO VE NADA =====
@@ -142,6 +158,12 @@ do $$ begin
   insert into players (group_id,name,gender,birth_date)
   values ((select group_id from ctx),'Intruso','M','2000-01-01');
   raise exception 'FALHOU: jogadora cadastrou jogador';
+exception when insufficient_privilege then null; end $$;
+
+-- E nem pela porta certa: add_player() checa o dono por dentro.
+do $$ begin
+  perform add_player((select group_id from ctx),'Intruso','M');
+  raise exception 'FALHOU: jogadora cadastrou por add_player';
 exception when insufficient_privilege then null; end $$;
 
 -- Apagar e do dono. O delete sem permissao nao estoura: nao casa linha.
@@ -293,8 +315,7 @@ set local role authenticated;
 set local request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
 select assert(is_group_owner((select group_id from ctx)),'Willy e o dono agora');
 -- E manda de verdade: cadastra jogador.
-insert into players (group_id,name,gender,birth_date)
-values ((select group_id from ctx),'Novato','M','2000-01-01');
+select add_player((select group_id from ctx),'Novato','M');
 commit;
 
 -- Quem nao e dono nao passa o volei.
