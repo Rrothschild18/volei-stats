@@ -2,6 +2,7 @@ import { Component, inject, input, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { MembershipService } from '../../core/identity';
 import { BlueprintComponent, IconComponent, InlineNoteComponent } from '../../shared/ui';
+import { describeError } from '../../shared/utils/error.util';
 
 /**
  * A porta do app: o código de um vôlei, ou criar o seu.
@@ -115,7 +116,7 @@ export class JoinComponent implements OnInit {
       // Entrou, e ainda não é ninguém: a próxima tela é dizer quem.
       await this.router.navigate(['/g', groupId, 'sou-quem']);
     } catch (cause) {
-      this.error.set(cause instanceof Error ? cause.message : 'Não foi possível entrar.');
+      this.error.set(describeError(cause, 'Não foi possível entrar.'));
     } finally {
       this.busy.set(false);
     }

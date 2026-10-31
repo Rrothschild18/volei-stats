@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { RefreshService } from '../../../core/refresh/refresh.service';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { StatisticsService } from '../../../core/services/statistics.service';
@@ -9,6 +10,7 @@ import {
   ActionBarComponent,
   GenderBadgeComponent,
   IconComponent,
+  PullToRefreshComponent,
   RoleTagComponent,
   RootHeaderComponent,
   SegmentedComponent,
@@ -23,6 +25,7 @@ type Filter = 'active' | 'inactive' | 'all';
     ActionBarComponent,
     GenderBadgeComponent,
     IconComponent,
+    PullToRefreshComponent,
     RoleTagComponent,
     RootHeaderComponent,
     SegmentedComponent,
@@ -35,6 +38,8 @@ type Filter = 'active' | 'inactive' | 'all';
         [playerName]="group.me()?.name ?? null"
       />
     </app-root-header>
+
+    <app-pull-to-refresh />
 
     <div class="px-4 pt-4">
       <label class="relative block">
@@ -121,6 +126,7 @@ type Filter = 'active' | 'inactive' | 'all';
 })
 export class PlayerListComponent implements OnInit {
   private readonly facade = inject(AppFacade);
+  private readonly refresh = inject(RefreshService);
   private readonly stats = inject(StatisticsService);
   private readonly router = inject(Router);
   protected readonly group = inject(CurrentGroupStore);
@@ -179,7 +185,16 @@ export class PlayerListComponent implements OnInit {
       .sort((a, b) => a.player.name.localeCompare(b.player.name, 'pt-BR'));
   });
 
+  constructor() {
+    // Voltar para o app, a rede voltar, ou puxar para atualizar: tudo cai aqui.
+    this.refresh.register(() => this.load());
+  }
+
   async ngOnInit(): Promise<void> {
+    await this.load();
+  }
+
+  private async load(): Promise<void> {
     const groupId = this.group.groupId();
     if (!groupId) {
       return;

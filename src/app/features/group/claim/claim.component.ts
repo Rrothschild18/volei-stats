@@ -10,6 +10,7 @@ import {
   InlineNoteComponent,
   InnerHeaderComponent,
 } from '../../../shared/ui';
+import { describeError } from '../../../shared/utils/error.util';
 
 /** O que dizer para cada recusa. Nunca "esse nome não existe": ver abaixo. */
 const MESSAGES: Record<ClaimFailure, string> = {
@@ -268,7 +269,7 @@ export class ClaimComponent implements OnInit {
       await this.group.enter(groupId);
       await this.router.navigate(['/g', groupId, 'inicio']);
     } catch (cause) {
-      this.error.set(cause instanceof Error ? cause.message : 'Não foi possível entrar.');
+      this.error.set(describeError(cause, 'Não foi possível entrar.'));
     } finally {
       this.busy.set(false);
     }

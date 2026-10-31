@@ -19,3 +19,4 @@ export * from './tab-bar/tab-bar.component';
 export * from './ladder/ladder.component';
 export * from './role-tag.component';
 export * from './focus-trap.directive';
+export * from './pull-to-refresh/pull-to-refresh.component';

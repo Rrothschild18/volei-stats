@@ -8,6 +8,7 @@ import {
   InlineNoteComponent,
   InnerHeaderComponent,
 } from '../../../shared/ui';
+import { describeError } from '../../../shared/utils/error.util';
 
 /**
  * O convite do vôlei: o código e o link que vão para o grupo do zap.
@@ -147,7 +148,7 @@ export class InviteComponent implements OnInit {
       const invite = await this.membership.invite(groupId);
       this.code.set(invite?.code ?? null);
     } catch (cause) {
-      this.error.set(cause instanceof Error ? cause.message : 'Não foi possível ler o convite.');
+      this.error.set(describeError(cause, 'Não foi possível ler o convite.'));
     } finally {
       this.loading.set(false);
     }
@@ -198,7 +199,7 @@ export class InviteComponent implements OnInit {
       this.draft.set('');
       this.notice.set('Código trocado.');
     } catch (cause) {
-      this.error.set(cause instanceof Error ? cause.message : 'Não foi possível trocar o código.');
+      this.error.set(describeError(cause, 'Não foi possível trocar o código.'));
     }
   }
 
@@ -214,7 +215,7 @@ export class InviteComponent implements OnInit {
       this.code.set(invite.code);
       this.notice.set('Convite novo gerado. O código antigo não entra mais.');
     } catch (cause) {
-      this.error.set(cause instanceof Error ? cause.message : 'Não foi possível gerar o convite.');
+      this.error.set(describeError(cause, 'Não foi possível gerar o convite.'));
     }
   }
 

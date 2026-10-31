@@ -14,6 +14,7 @@ import {
   StatGridComponent,
   SwitchComponent,
 } from '../../../shared/ui';
+import { describeError } from '../../../shared/utils/error.util';
 
 /**
  * Cadastro e edição de jogador (1y). É do dono do vôlei.
@@ -186,7 +187,7 @@ export class PlayerFormComponent implements OnInit {
       await this.group.enter(groupId);
       this.cancel();
     } catch (cause) {
-      this.error.set(cause instanceof Error ? cause.message : 'Não foi possível salvar.');
+      this.error.set(describeError(cause, 'Não foi possível salvar.'));
     }
   }
 

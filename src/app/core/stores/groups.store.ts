@@ -5,6 +5,7 @@ import { TournamentService } from '../services/tournament.service';
 import { phaseLabel } from '../rules/bracket-phases';
 import { Group, GroupRole, Session, Tournament } from '../../shared/models';
 import { todayDateString } from '../../shared/utils/date.util';
+import { describeError } from '../../shared/utils/error.util';
 
 export interface GroupSummary {
   readonly group: Group;
@@ -36,10 +37,13 @@ export class GroupsStore {
 
   readonly summaries = signal<readonly GroupSummary[]>([]);
   readonly loading = signal(false);
+  /** O que deu errado na última leitura, em palavras para a pessoa ler. */
+  readonly error = signal<string | null>(null);
 
   /** Os vôleis de quem está usando o app, com o papel de cada um. */
   async load(): Promise<void> {
     this.loading.set(true);
+    this.error.set(null);
     try {
       const mine = await this.identity.myGroups();
       const summaries: GroupSummary[] = [];
@@ -52,6 +56,10 @@ export class GroupsStore {
       }
 
       this.summaries.set(summaries);
+    } catch (cause) {
+      // Sem rede, a lista que já estava na tela fica: apagá-la só tiraria
+      // informação de quem está olhando.
+      this.error.set(describeError(cause, 'Não foi possível ler os seus vôleis.'));
     } finally {
       this.loading.set(false);
     }

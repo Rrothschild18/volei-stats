@@ -8,6 +8,7 @@ import {
   InnerHeaderComponent,
   SegmentedComponent,
 } from '../../shared/ui';
+import { describeError } from '../../shared/utils/error.util';
 
 /** A data que o grupo combina, sugerida para ninguém precisar inventar uma. */
 const SUGGESTED_INITIAL_DATE = '2000-01-01';
@@ -187,7 +188,7 @@ export class CreateGroupComponent {
       // pessoal e mandar o código.
       await this.router.navigate(['/g', created.groupId, 'convite']);
     } catch (cause) {
-      this.error.set(cause instanceof Error ? cause.message : 'Não foi possível criar o vôlei.');
+      this.error.set(describeError(cause, 'Não foi possível criar o vôlei.'));
     } finally {
       this.busy.set(false);
     }

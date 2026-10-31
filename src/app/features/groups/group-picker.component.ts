@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { RefreshService } from '../../core/refresh/refresh.service';
 import { AppFacade } from '../../core/facade/app.facade';
 import { GroupsStore, GroupSummary } from '../../core/stores/groups.store';
 import { MembershipService } from '../../core/identity';
@@ -10,6 +11,7 @@ import {
   BlueprintComponent,
   HeroFieldComponent,
   IconComponent,
+  PullToRefreshComponent,
   StatGridComponent,
 } from '../../shared/ui';
 
@@ -22,7 +24,13 @@ import {
  */
 @Component({
   selector: 'app-group-picker',
-  imports: [BlueprintComponent, HeroFieldComponent, IconComponent, StatGridComponent],
+  imports: [
+    BlueprintComponent,
+    HeroFieldComponent,
+    IconComponent,
+    PullToRefreshComponent,
+    StatGridComponent,
+  ],
   template: `
     <!--
       Sem saudação com nome: o nome é por vôlei. A mesma pessoa é "Raul" num e
@@ -31,6 +39,8 @@ import {
     <header class="px-4 pt-6 pb-4">
       <h1 class="title-xl">SEUS VÔLEIS</h1>
     </header>
+
+    <app-pull-to-refresh />
 
     <div class="flex flex-col gap-4 px-4">
       @for (summary of summaries(); track summary.group.id) {
@@ -108,7 +118,16 @@ import {
         }
       }
 
-      @if (!loading() && summaries().length === 0) {
+      @if (error()) {
+        <app-blueprint class="p-4">
+          <p class="text-[14px]" aria-live="polite">{{ error() }}</p>
+          <button type="button" class="btn btn-secondary mt-3 min-h-11 w-full" (click)="retry()">
+            TENTAR DE NOVO
+          </button>
+        </app-blueprint>
+      }
+
+      @if (!loading() && !error() && summaries().length === 0) {
         <app-blueprint class="p-4">
           <p class="text-[14px]">
             Você ainda não está em nenhum vôlei. Peça o link a quem organiza um, ou crie o seu.
@@ -155,6 +174,7 @@ import {
 })
 export class GroupPickerComponent implements OnInit {
   private readonly facade = inject(AppFacade);
+  private readonly refresh = inject(RefreshService);
   private readonly identity = inject(MockIdentityService);
   private readonly membership = inject(MembershipService);
   private readonly groups = inject(GroupsStore);
@@ -162,12 +182,22 @@ export class GroupPickerComponent implements OnInit {
 
   protected readonly summaries = this.groups.summaries;
   protected readonly loading = this.groups.loading;
+  protected readonly error = this.groups.error;
   protected readonly currentPlayerId = this.identity.playerId;
   protected readonly everyone = signal<readonly Player[]>([]);
   /** O trocador de pessoa só existe sem banco: ele é a identidade de mentira. */
   protected readonly demoMode = computed(() => !this.membership.available);
 
+  constructor() {
+    // Voltar para o app, a rede voltar, ou puxar para atualizar: tudo cai aqui.
+    this.refresh.register(() => this.load());
+  }
+
   async ngOnInit(): Promise<void> {
+    await this.load();
+  }
+
+  private async load(): Promise<void> {
     // A lista de pessoas só serve ao trocador do modo demonstração.
     if (this.demoMode()) {
       this.everyone.set(await this.facade.getPlayers());
@@ -196,6 +226,10 @@ export class GroupPickerComponent implements OnInit {
 
   protected liveStats(summary: GroupSummary) {
     return this.groupStats(summary);
+  }
+
+  protected async retry(): Promise<void> {
+    await this.load();
   }
 
   protected join(): void {
