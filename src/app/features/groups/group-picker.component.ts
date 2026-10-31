@@ -13,11 +13,11 @@ import {
 } from '../../shared/ui';
 
 /**
- * Seus vôleis: um card por grupo de que a pessoa participa, com o papel dela em
- * cada um (1b). O grupo com sessão ao vivo hoje aparece em destaque.
+ * Seus vôleis: um card por vôlei de que a pessoa participa (1b). O vôlei com
+ * sessão ao vivo hoje aparece em destaque.
  *
- * A seção do fim é do mock: sem backend, é por ali que se escolhe entrar como
- * admin ou como jogador para testar as duas visões. Ela sai no ticket 19.
+ * A seção do fim é do mock: sem backend, é por ali que se assume outra pessoa
+ * para ver o app pelos olhos dela. Ela sai no ticket 20.
  */
 @Component({
   selector: 'app-group-picker',
@@ -114,17 +114,17 @@ import {
       @if (!loading() && summaries().length === 0) {
         <app-blueprint class="p-4">
           <p class="text-[14px]">
-            Você ainda não está em nenhum vôlei. Peça ao admin do grupo para te cadastrar.
+            Você ainda não está em nenhum vôlei. Peça o link a quem organiza um, ou crie o seu.
           </p>
         </app-blueprint>
       }
 
       <div class="flex flex-col gap-1 text-[13px] muted">
         <p>
-          O papel vale por grupo: num vôlei você pode ser admin e escolher quem joga cada sessão, e
-          em outro ser jogador.
+          Em todos os seus vôleis você marca presença, tira sorteio e lança placar. Dono é quem
+          criou o vôlei: só ele cadastra gente e apaga coisa.
         </p>
-        <p>Para entrar em outro vôlei, peça ao admin do grupo para te cadastrar.</p>
+        <p>Para entrar em outro vôlei, peça o link a quem é dono dele.</p>
       </div>
 
       <app-blueprint class="mt-2 mb-8 p-4">
@@ -132,8 +132,7 @@ import {
         <h2 class="font-heading text-[20px] font-semibold uppercase">Entrar como</h2>
         <p class="mt-1 mb-3 text-[13px] muted">
           Enquanto não há login, dá para assumir qualquer pessoa do cenário e ver o app pelos olhos
-          dela. Rafa e Duda são admins do Vôlei Segunda; Caio é jogador lá e admin no Vôlei
-          Trabalho.
+          dela. Rafa é dono do Vôlei Segunda; Caio joga lá e é dono do Vôlei Trabalho.
         </p>
         <div class="flex flex-wrap gap-2">
           @for (player of everyone(); track player.id) {
@@ -173,7 +172,10 @@ export class GroupPickerComponent implements OnInit {
   }
 
   protected roleLabel(summary: GroupSummary): string {
-    return summary.role === 'admin' ? 'ADMIN' : 'JOGADOR';
+    if (summary.group.ownerPlayerId === this.currentPlayerId()) {
+      return 'DONO';
+    }
+    return summary.role === 'player' ? 'JOGADOR' : 'VISITANTE';
   }
 
   protected shortDate(date: string): string {

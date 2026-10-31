@@ -8,7 +8,7 @@ import { Match, PendingTiebreak, TiebreakDecision, TiebreakKind } from '../../sh
  * à final, o perdedor por mais diferença está fora, e o perdedor por menos
  * disputa o par-ou-ímpar do encaixe. Quando duas duplas empatam **na fronteira
  * que decide**, não existe critério: a chave pausa e as duplas resolvem com um
- * par-ou-ímpar, que um admin registra.
+ * par-ou-ímpar, que quem está na quadra registra.
  */
 
 export interface RankedTeam {

@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { StatisticsService } from '../../../core/services/statistics.service';
-import { GroupMember, Player, PlayerStats } from '../../../shared/models';
+import { Player, PlayerStats } from '../../../shared/models';
 import { formatShortDate, todayDateString } from '../../../shared/utils/date.util';
 import {
   ActionBarComponent,
@@ -29,7 +29,7 @@ type Filter = 'active' | 'inactive' | 'all';
   ],
   template: `
     <app-root-header [context]="context()" title="JOGADORES" (switchGroup)="toGroups()">
-      <app-role-tag slot="role" [role]="group.role()" [playerName]="group.me()?.name ?? null" />
+      <app-role-tag slot="role" [isOwner]="group.isOwner()" [playerName]="group.me()?.name ?? null" />
     </app-root-header>
 
     <div class="px-4 pt-4">
@@ -79,8 +79,8 @@ type Filter = 'active' | 'inactive' | 'all';
                   >{{ entry.player.name }}</span
                 >
                 <app-gender-badge [gender]="entry.player.gender" />
-                @if (entry.isAdmin) {
-                  <span class="tag tag-outline">ADMIN</span>
+                @if (entry.isOwner) {
+                  <span class="tag tag-outline">DONO</span>
                 }
               </span>
               @if (!entry.player.active) {
@@ -98,7 +98,7 @@ type Filter = 'active' | 'inactive' | 'all';
       }
     </ul>
 
-    @if (group.isAdmin()) {
+    @if (group.isOwner()) {
       <app-action-bar [withTabBar]="true">
         <button type="button" class="btn btn-primary blueprint h-13" (click)="create()">
           <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>
@@ -118,7 +118,6 @@ export class PlayerListComponent implements OnInit {
   protected readonly group = inject(CurrentGroupStore);
 
   private readonly players = signal<readonly Player[]>([]);
-  private readonly members = signal<readonly GroupMember[]>([]);
   private readonly playerStats = signal<readonly PlayerStats[]>([]);
 
   protected readonly term = signal('');
@@ -130,16 +129,12 @@ export class PlayerListComponent implements OnInit {
   );
 
   private readonly entries = computed(() => {
-    const admins = new Set(
-      this.members()
-        .filter((member) => member.role === 'admin')
-        .map((member) => member.playerId),
-    );
+    const ownerId = this.group.group()?.ownerPlayerId ?? null;
     const statsById = new Map(this.playerStats().map((entry) => [entry.playerId, entry]));
 
     return this.players().map((player) => ({
       player,
-      isAdmin: admins.has(player.id),
+      isOwner: player.id === ownerId,
       stats:
         statsById.get(player.id) ??
         ({
@@ -183,14 +178,12 @@ export class PlayerListComponent implements OnInit {
     }
 
     const scope = await this.facade.getGroupScope(groupId);
-    const [players, members, stats] = await Promise.all([
+    const [players, stats] = await Promise.all([
       this.facade.getPlayersByGroupId(groupId),
-      this.facade.getGroupMembers(groupId),
       this.stats.getAllPlayerStats({ includeWithoutGames: true, scope }),
     ]);
 
     this.players.set(players);
-    this.members.set(members);
     this.playerStats.set(stats);
   }
 

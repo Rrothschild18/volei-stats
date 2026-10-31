@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard } from '../../../core/guards/group.guards';
+import { ownerGuard } from '../../../core/guards/group.guards';
 
 export const PLAYER_ROUTES: Routes = [
   {
@@ -9,7 +9,7 @@ export const PLAYER_ROUTES: Routes = [
   {
     path: 'novo',
     title: 'Novo jogador',
-    canActivate: [adminGuard],
+    canActivate: [ownerGuard],
     loadComponent: () => import('./player-form.component').then((m) => m.PlayerFormComponent),
   },
   {
@@ -20,7 +20,7 @@ export const PLAYER_ROUTES: Routes = [
   {
     path: ':playerId/editar',
     title: 'Editar jogador',
-    canActivate: [adminGuard],
+    canActivate: [ownerGuard],
     loadComponent: () => import('./player-form.component').then((m) => m.PlayerFormComponent),
   },
 ];

@@ -16,11 +16,12 @@ import {
 } from '../../../shared/ui';
 
 /**
- * Cadastro e edição de jogador (1y).
+ * Cadastro e edição de jogador (1y). É do dono do vôlei.
  *
- * A data de nascimento é obrigatória porque é ela, com o nome, que devolve o
- * acesso a quem trocou de celular (docs/PLANO-SUPABASE.md). O switch de
- * administrador mexe no papel **deste grupo**, e trava no último admin.
+ * A data de nascimento **não aparece aqui**: ela é a senha da pessoa
+ * (docs/PLANO-SUPABASE.md §1). Quem cadastra não escolhe a data de ninguém —
+ * todos nascem com a data inicial do vôlei e trocam pela própria ao entrar — e
+ * quem edita não vê a de ninguém.
  */
 @Component({
   selector: 'app-player-form',
@@ -49,15 +50,13 @@ import {
         }
       </div>
 
-      <div class="field">
-        <label for="player-birth">Data de nascimento · recupera o acesso</label>
-        <input id="player-birth" class="input" type="date" [formField]="playerForm.birthDate" />
-        @if (playerForm.birthDate().touched() && playerForm.birthDate().errors().length > 0) {
-          <app-inline-note class="mt-2" tone="error">
-            A data de nascimento é o que devolve o acesso junto com o nome.
-          </app-inline-note>
-        }
-      </div>
+      @if (isNew()) {
+        <app-inline-note tone="event" icon="lock">
+          A pessoa entra pelo link do vôlei com a
+          <strong class="font-semibold">data inicial do grupo</strong> e troca pela data dela —
+          que passa a ser a senha dela. Você não escolhe, e não vê.
+        </app-inline-note>
+      }
 
       <div>
         <p class="mb-[5px] text-[12px] muted">Sexo</p>
@@ -77,23 +76,6 @@ import {
         </span>
         <app-switch label="Jogador ativo" [(checked)]="active" />
       </div>
-
-      <div class="flex items-start gap-3 border-t border-divider pt-4">
-        <span class="flex-1">
-          <span class="block font-heading text-[17px] font-semibold uppercase">Administrador</span>
-          <span class="block text-[13px] muted">
-            Marca presença, sorteia, decide par-ou-ímpar e corrige placares
-          </span>
-        </span>
-        <app-switch label="Administrador do grupo" [(checked)]="admin" [disabled]="lastAdmin()" />
-      </div>
-
-      @if (lastAdmin()) {
-        <app-inline-note tone="event" icon="lock">
-          É o último administrador do grupo. Promova outra pessoa antes de tirar o papel — sem
-          admin, ninguém marca presença nem sorteia.
-        </app-inline-note>
-      }
 
       @if (stats(); as entry) {
         <app-stat-grid
@@ -134,18 +116,15 @@ export class PlayerFormComponent implements OnInit {
 
   readonly playerId = input<string | undefined>(undefined);
 
-  protected readonly model = signal({ name: '', birthDate: '' });
+  protected readonly model = signal({ name: '' });
   protected readonly playerForm = form(this.model, (path) => {
     required(path.name);
-    required(path.birthDate);
   });
 
   protected readonly gender = signal<string>(Gender.MALE);
   protected readonly active = signal(true);
-  protected readonly admin = signal(false);
   protected readonly stats = signal<PlayerStats | null>(null);
   protected readonly error = signal<string | null>(null);
-  private readonly adminCount = signal(0);
 
   protected readonly genders = [
     { id: Gender.MALE, label: 'Masculino' },
@@ -154,18 +133,12 @@ export class PlayerFormComponent implements OnInit {
 
   protected readonly isNew = computed(() => !this.playerId());
 
-  /** Só trava quando a pessoa editada é o único admin que o grupo tem. */
-  protected readonly lastAdmin = computed(() => this.admin() && this.adminCount() <= 1);
-
   async ngOnInit(): Promise<void> {
     const groupId = this.group.groupId();
     const playerId = this.playerId();
     if (!groupId) {
       return;
     }
-
-    const members = await this.facade.getGroupMembers(groupId);
-    this.adminCount.set(members.filter((member) => member.role === 'admin').length);
 
     if (!playerId) {
       return;
@@ -177,10 +150,9 @@ export class PlayerFormComponent implements OnInit {
     ]);
 
     if (player) {
-      this.model.set({ name: player.name, birthDate: player.birthDate ?? '' });
+      this.model.set({ name: player.name });
       this.gender.set(player.gender);
       this.active.set(player.active);
-      this.admin.set(members.find((member) => member.playerId === playerId)?.role === 'admin');
     }
 
     this.stats.set(stats);
@@ -192,7 +164,7 @@ export class PlayerFormComponent implements OnInit {
       return;
     }
 
-    const { name, birthDate } = this.model();
+    const { name } = this.model();
     const gender = this.gender() as Gender;
     this.error.set(null);
 
@@ -201,18 +173,13 @@ export class PlayerFormComponent implements OnInit {
       if (playerId) {
         const player = await this.facade.getPlayerById(playerId);
         if (player) {
-          await this.facade.updatePlayer({
-            ...player,
-            name,
-            birthDate,
-            gender,
-            active: this.active(),
-          });
+          // A data não vem do formulário: ela é senha, e só a própria pessoa a
+          // troca (ou o dono a reseta para a inicial do vôlei).
+          await this.facade.updatePlayer({ ...player, name, gender, active: this.active() });
         }
-        await this.facade.setGroupRole(groupId, playerId, this.admin() ? 'admin' : 'player');
       } else {
-        const created = await this.facade.createPlayer(name, gender, birthDate);
-        await this.facade.addGroupMember(groupId, created.id, this.admin() ? 'admin' : 'player');
+        const created = await this.facade.createPlayer(name, gender);
+        await this.facade.addGroupMember(groupId, created.id);
       }
 
       await this.group.enter(groupId);

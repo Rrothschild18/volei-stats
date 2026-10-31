@@ -45,6 +45,8 @@ export interface MatchResult {
   /** "−5 · fora" */
   readonly loserConsequence: string | null;
   readonly reportedByName: string | null;
+  /** Preenchido quando alguém corrigiu o placar depois de salvo. */
+  readonly correctedByName: string | null;
 }
 
 const UNDEFINED_SLOT = 'VENCEDOR';
@@ -242,7 +244,7 @@ export class LiveTournamentStore {
     return { saved: true, existing: null };
   }
 
-  /** Correção de placar já lançado: só admin, e fica registrado quem corrigiu. */
+  /** Correção de placar já lançado: de qualquer jogador, e registra quem foi. */
   async correctScore(
     matchId: string,
     scoreA: number,
@@ -536,6 +538,7 @@ export class LiveTournamentStore {
         loserConsequence:
           match.phase === 'round-1' ? consequence(loserId, match.pointDifference) : null,
         reportedByName: this.playerName(match.reportedBy),
+        correctedByName: this.playerName(match.correctedBy),
       };
     });
   }

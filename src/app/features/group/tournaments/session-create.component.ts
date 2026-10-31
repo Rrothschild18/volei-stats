@@ -7,7 +7,7 @@ import {
   MIN_SUPPORTED_PLAYERS,
   formatsForPlayerCount,
 } from '../../../core/rules/tournament-formats';
-import { GroupMember, Player } from '../../../shared/models';
+import { Player } from '../../../shared/models';
 import { formatShortDate, todayDateString } from '../../../shared/utils/date.util';
 import {
   ActionBarComponent,
@@ -20,7 +20,7 @@ import {
 } from '../../../shared/ui';
 
 /**
- * Presença na quadra (1e): o admin marca quem apareceu e o bloco de cima
+ * Presença na quadra (1e): qualquer jogador marca quem apareceu e o bloco de cima
  * responde na hora — quantas duplas dá, se sobra avulso e quais campeonatos
  * cabem naquele número (REGRAS.md §10).
  */
@@ -159,8 +159,8 @@ import {
                 [class.muted]="!selected().has(player.id)"
                 >{{ player.name }}</span
               >
-              @if (isAdmin(player.id)) {
-                <span class="tag tag-outline">ADMIN</span>
+              @if (isOwner(player.id)) {
+                <span class="tag tag-outline">DONO</span>
               }
               <app-gender-badge [gender]="player.gender" />
             </button>
@@ -242,7 +242,6 @@ export class SessionCreateComponent implements OnInit {
   protected readonly selected = signal<ReadonlySet<string>>(new Set());
 
   private readonly players = signal<readonly Player[]>([]);
-  private readonly members = signal<readonly GroupMember[]>([]);
 
   protected readonly editing = computed(() => !!this.sessionId());
   protected readonly context = computed(
@@ -306,13 +305,7 @@ export class SessionCreateComponent implements OnInit {
       return;
     }
 
-    const [players, members] = await Promise.all([
-      this.facade.getPlayersByGroupId(groupId),
-      this.facade.getGroupMembers(groupId),
-    ]);
-
-    this.players.set(players);
-    this.members.set(members);
+    this.players.set(await this.facade.getPlayersByGroupId(groupId));
 
     const sessionId = this.sessionId();
     if (sessionId) {
@@ -333,8 +326,8 @@ export class SessionCreateComponent implements OnInit {
     }
   }
 
-  protected isAdmin(playerId: string): boolean {
-    return this.members().some((member) => member.playerId === playerId && member.role === 'admin');
+  protected isOwner(playerId: string): boolean {
+    return this.group.group()?.ownerPlayerId === playerId;
   }
 
   protected toggle(playerId: string): void {

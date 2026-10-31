@@ -32,7 +32,7 @@ import {
     <div class="flex flex-col gap-6 px-4 pb-6">
       <section>
         <app-section-band index="01" [label]="'PRESENTES · ' + present().length">
-          @if (group.isAdmin()) {
+          @if (group.canPlay()) {
             <button type="button" class="text-[13px] text-accent-700" (click)="editPresence()">
               Editar presença
             </button>
@@ -111,7 +111,7 @@ import {
       </section>
     </div>
 
-    @if (group.isAdmin()) {
+    @if (group.canPlay()) {
       <app-action-bar [pair]="true" [withTabBar]="true">
         <button type="button" class="btn btn-secondary h-13" (click)="editPresence()">
           PRESENÇA

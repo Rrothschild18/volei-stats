@@ -6,7 +6,7 @@ import { BottomSheetComponent } from '../../../shared/ui';
  * Empate na diferença de pontos (1r), REGRAS.md §9.3.
  *
  * Quando duas duplas empatam exatamente na posição que decide, não existe
- * critério no app. Elas fazem par-ou-ímpar na quadra e o admin registra. Entre
+ * critério no app. Elas fazem par-ou-ímpar na quadra e quem está lá registra. Entre
  * perdedoras, quem perde o par-ou-ímpar é eliminada direto; entre vencedoras,
  * quem vence vai direto à final.
  */

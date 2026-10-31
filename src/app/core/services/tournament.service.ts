@@ -281,7 +281,7 @@ export class TournamentService {
     const completedMatches = matches.filter((match) => match.winnerId !== null);
 
     // Empate na fronteira que decide: ninguém gera partida até as duplas
-    // fazerem o par-ou-ímpar e um admin registrar (REGRAS.md §9.3).
+    // fazerem o par-ou-ímpar e alguém registrar (REGRAS.md §9.3).
     if (this.pendingTiebreak(tournament, completedMatches)) {
       return [];
     }

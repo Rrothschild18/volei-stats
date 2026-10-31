@@ -13,7 +13,7 @@ export interface Match {
   playedAt: string;
   /** Quem lançou o placar: o primeiro insert trava a partida. */
   reportedBy: string | null;
-  /** Só admin corrige um placar já lançado. */
+  /** Quem corrigiu um placar já lançado. Corrigir é de qualquer jogador. */
   correctedBy: string | null;
   correctedAt: string | null;
   createdAt: string;

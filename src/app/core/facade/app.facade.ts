@@ -50,33 +50,31 @@ export class AppFacade {
     return this.#groupRepo.getMembersByGroupId(groupId);
   }
 
-  async getGroupAdmins(groupId: string): Promise<GroupMember[]> {
-    const members = await this.#groupRepo.getMembersByGroupId(groupId);
-    return members.filter((member) => member.role === 'admin');
-  }
-
-  /** Cadastra alguém no grupo, com o papel que o admin escolheu. */
-  async addGroupMember(groupId: string, playerId: string, role: GroupRole): Promise<GroupMember> {
+  /** Cadastra alguém no vôlei. Quem entra por convite começa espectador. */
+  async addGroupMember(
+    groupId: string,
+    playerId: string,
+    role: GroupRole = 'player',
+  ): Promise<GroupMember> {
     return this.#groupRepo.saveMember({ id: `${groupId}:${playerId}`, groupId, playerId, role });
   }
 
   /**
-   * Troca o papel de alguém no grupo. O último admin não pode se rebaixar: o
-   * grupo ficaria sem ninguém para marcar presença e sortear.
+   * Passa o vôlei para outra pessoa. Não existe "rebaixar o último admin":
+   * existe um dono, e ele muda de uma vez — o vôlei nunca fica sem.
    */
-  async setGroupRole(groupId: string, playerId: string, role: GroupRole): Promise<GroupMember> {
+  async transferOwnership(groupId: string, playerId: string): Promise<Group> {
+    const group = await this.#groupRepo.getById(groupId);
+    if (!group) {
+      throw new Error(`Vôlei ${groupId} não encontrado`);
+    }
+
     const members = await this.#groupRepo.getMembersByGroupId(groupId);
-    const member = members.find((candidate) => candidate.playerId === playerId);
-    if (!member) {
-      throw new Error(`Jogador ${playerId} não é membro do grupo ${groupId}`);
+    if (!members.some((member) => member.playerId === playerId && member.role === 'player')) {
+      throw new Error('O vôlei só pode ser passado para um jogador dele');
     }
 
-    const admins = members.filter((candidate) => candidate.role === 'admin');
-    if (role !== 'admin' && admins.length === 1 && admins[0].playerId === playerId) {
-      throw new Error('O grupo precisa de pelo menos um administrador');
-    }
-
-    return this.#groupRepo.saveMember({ ...member, role });
+    return this.#groupRepo.save({ ...group, ownerPlayerId: playerId });
   }
 
   // Players
@@ -139,7 +137,7 @@ export class AppFacade {
       .sort((a, b) => b.date.localeCompare(a.date));
   }
 
-  /** A sessão de hoje do grupo, se um admin já a abriu. */
+  /** A sessão de hoje do grupo, se alguém já a abriu. */
   async getTodaySession(groupId: string): Promise<Session | undefined> {
     const today = this.getLocalDateString();
     const sessions = await this.#sessionRepo.getAll();

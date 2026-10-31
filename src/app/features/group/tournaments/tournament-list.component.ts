@@ -44,7 +44,7 @@ interface PastRow {
   ],
   template: `
     <app-root-header [context]="context()" title="CAMPEONATOS" (switchGroup)="toGroups()">
-      <app-role-tag slot="role" [role]="group.role()" [playerName]="group.me()?.name ?? null" />
+      <app-role-tag slot="role" [isOwner]="group.isOwner()" [playerName]="group.me()?.name ?? null" />
     </app-root-header>
 
     <div class="px-4 pt-4">
@@ -90,10 +90,10 @@ interface PastRow {
           <app-blueprint class="p-4">
             <p class="text-[14px]">
               Ninguém abriu a sessão de hoje ainda.
-              @if (group.isAdmin()) {
+              @if (group.canPlay()) {
                 Marque quem apareceu para começar.
               } @else {
-                Quando um admin marcar a presença, ela aparece aqui.
+                Quando alguém marcar a presença, ela aparece aqui.
               }
             </p>
           </app-blueprint>
@@ -120,7 +120,7 @@ interface PastRow {
       </section>
     </div>
 
-    @if (group.isAdmin()) {
+    @if (group.canPlay()) {
       <app-action-bar [withTabBar]="true">
         <button
           type="button"

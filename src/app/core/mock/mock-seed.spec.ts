@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { IndexedDbService } from '../database/indexed-db.service';
 import { InMemoryDbService } from './in-memory-db.service';
-import { buildMockData, GROUP_SEGUNDA, MOCK_USER_PLAYER_ID } from './mock-seed';
+import {
+  buildMockData,
+  GROUP_SEGUNDA,
+  GROUP_SEGUNDA_OWNER,
+  GROUP_TRABALHO,
+  GROUP_TRABALHO_OWNER,
+  MOCK_USER_PLAYER_ID,
+} from './mock-seed';
 import { AppFacade } from '../facade/app.facade';
 import { DrawService } from '../services/draw.service';
 import { TournamentService } from '../services/tournament.service';
@@ -37,12 +44,20 @@ describe('cenário de exemplo do redesign', () => {
     return playerIds.map((id) => players.get(id)?.name ?? '?').join(' + ');
   }
 
-  it('o usuário é jogador no Vôlei Segunda e admin no Vôlei Trabalho', async () => {
+  it('o usuário joga nos dois vôleis, e é dono só do Vôlei Trabalho', async () => {
     const memberships = await facade.getMembershipsByPlayerId(MOCK_USER_PLAYER_ID);
     const roles = new Map(memberships.map((member) => [member.groupId, member.role]));
 
+    // O papel diz só que ele já disse quem é — nos dois ele joga.
     expect(roles.get(GROUP_SEGUNDA)).toBe('player');
-    expect(roles.get('g-trabalho')).toBe('admin');
+    expect(roles.get(GROUP_TRABALHO)).toBe('player');
+
+    // Mandar é outra pergunta, e a resposta é a coluna do vôlei.
+    expect((await facade.getGroupById(GROUP_SEGUNDA))!.ownerPlayerId).toBe(GROUP_SEGUNDA_OWNER);
+    expect((await facade.getGroupById(GROUP_TRABALHO))!.ownerPlayerId).toBe(
+      GROUP_TRABALHO_OWNER,
+    );
+    expect(GROUP_TRABALHO_OWNER).toBe(MOCK_USER_PLAYER_ID);
   });
 
   it('a sessão de hoje tem 11 presentes e dois campeonatos', async () => {

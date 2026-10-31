@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard } from '../../../core/guards/group.guards';
+import { playerGuard } from '../../../core/guards/group.guards';
 
 /** As rotas específicas vêm antes de `:tournamentId`, que casa com qualquer coisa. */
 export const TOURNAMENT_ROUTES: Routes = [
@@ -11,7 +11,7 @@ export const TOURNAMENT_ROUTES: Routes = [
   {
     path: 'sessoes/nova',
     title: 'Nova sessão',
-    canActivate: [adminGuard],
+    canActivate: [playerGuard],
     loadComponent: () => import('./session-create.component').then((m) => m.SessionCreateComponent),
   },
   {
@@ -22,13 +22,13 @@ export const TOURNAMENT_ROUTES: Routes = [
   {
     path: 'sessoes/:sessionId/sorteio',
     title: 'Sorteio',
-    canActivate: [adminGuard],
+    canActivate: [playerGuard],
     loadComponent: () => import('./draw.component').then((m) => m.DrawComponent),
   },
   {
     path: 'novo',
     title: 'Formato',
-    canActivate: [adminGuard],
+    canActivate: [playerGuard],
     loadComponent: () =>
       import('./tournament-create.component').then((m) => m.TournamentCreateComponent),
   },

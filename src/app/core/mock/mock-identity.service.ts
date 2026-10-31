@@ -6,9 +6,9 @@ const STORAGE_KEY = 'volei-stats:mock-identity';
 /**
  * Quem está usando o app enquanto não existe autenticação.
  *
- * O ticket 19 troca isto pelo `auth.uid()` do Supabase. Até lá, dá para entrar
- * como qualquer jogador do cenário — é assim que se testa a visão de admin e a
- * de jogador sem backend.
+ * O ticket 20 troca isto pelo `auth.uid()` do Supabase. Até lá, dá para entrar
+ * como qualquer jogador do cenário — é assim que se vê a tela do dono e a de
+ * quem só joga, sem backend.
  */
 @Injectable({ providedIn: 'root' })
 export class MockIdentityService {

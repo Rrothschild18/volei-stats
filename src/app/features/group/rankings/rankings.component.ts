@@ -56,7 +56,7 @@ interface MatchGroup {
   ],
   template: `
     <app-root-header [context]="context()" title="RANKINGS" (switchGroup)="toGroups()">
-      <app-role-tag slot="role" [role]="group.role()" [playerName]="group.me()?.name ?? null" />
+      <app-role-tag slot="role" [isOwner]="group.isOwner()" [playerName]="group.me()?.name ?? null" />
     </app-root-header>
 
     <app-segmented

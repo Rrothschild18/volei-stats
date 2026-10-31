@@ -102,12 +102,19 @@ const PLAYER_SPECS: readonly PlayerSpec[] = [
 export const GROUP_SEGUNDA = 'g-segunda';
 export const GROUP_TRABALHO = 'g-trabalho';
 
-/** O usuário do mock: jogador no Vôlei Segunda, admin no Vôlei Trabalho. */
+/**
+ * Quem criou cada vôlei. Entrar como o dono de um e jogador do outro é o jeito
+ * de ver as duas visões sem backend — é o mesmo cenário do handoff.
+ */
+export const GROUP_SEGUNDA_OWNER = 'p-rafa';
+export const GROUP_TRABALHO_OWNER = 'p-caio';
+
+/** O usuário do mock: jogador no Vôlei Segunda, dono do Vôlei Trabalho. */
 export const MOCK_USER_PLAYER_ID = 'p-caio';
 
 const SEGUNDA_MEMBERS: readonly (readonly [string, GroupRole])[] = [
-  ['p-rafa', 'admin'],
-  ['p-duda', 'admin'],
+  ['p-rafa', 'player'],
+  ['p-duda', 'player'],
   ['p-bia', 'player'],
   ['p-leo', 'player'],
   ['p-carol', 'player'],
@@ -125,7 +132,7 @@ const SEGUNDA_MEMBERS: readonly (readonly [string, GroupRole])[] = [
 ];
 
 const TRABALHO_MEMBERS: readonly (readonly [string, GroupRole])[] = [
-  ['p-caio', 'admin'],
+  ['p-caio', 'player'],
   ['p-rafa', 'player'],
   ['p-nina', 'player'],
   ['p-edu', 'player'],
@@ -643,8 +650,18 @@ export function buildMockData(): Record<string, unknown[]> {
   }
 
   draft.groups.push(
-    { id: GROUP_SEGUNDA, name: 'Vôlei Segunda', createdAt: timestamp(400, 10) },
-    { id: GROUP_TRABALHO, name: 'Vôlei Trabalho', createdAt: timestamp(300, 10) },
+    {
+      id: GROUP_SEGUNDA,
+      name: 'Vôlei Segunda',
+      ownerPlayerId: GROUP_SEGUNDA_OWNER,
+      createdAt: timestamp(400, 10),
+    },
+    {
+      id: GROUP_TRABALHO,
+      name: 'Vôlei Trabalho',
+      ownerPlayerId: GROUP_TRABALHO_OWNER,
+      createdAt: timestamp(300, 10),
+    },
   );
 
   for (const [groupId, specs] of [
