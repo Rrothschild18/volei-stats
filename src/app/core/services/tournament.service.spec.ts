@@ -329,7 +329,7 @@ describe('TournamentService · o que ainda falta jogar', () => {
     expect(pending[0]).toEqual({ phase: 'semifinal', teamAId: 'tc', teamBId: 'td' });
   });
 
-  it('com as duas jogadas, a fila passa a ser a final e a disputa de 3º', async () => {
+  it('a disputa de 3º é oferecida ANTES da final', async () => {
     const { service } = setup([
       match('m1', 'semifinal', 'ta', 'tb', 15, 13),
       match('m2', 'semifinal', 'tc', 'td', 15, 9),
@@ -337,7 +337,10 @@ describe('TournamentService · o que ainda falta jogar', () => {
 
     const pending = await service.getPendingMatches(fourTeams());
 
-    expect(pending.map((bracket) => bracket.phase)).toEqual(['final', 'third-place']);
+    // A final é o último jogo da noite: coroar o campeão e só então mandar duas
+    // duplas de volta à quadra para um jogo que já não decide nada é o
+    // contrário do que a noite pede.
+    expect(pending.map((bracket) => bracket.phase)).toEqual(['third-place', 'final']);
   });
 
   it('sem nenhum placar, a fila é a rodada inicial inteira', async () => {
@@ -349,5 +352,99 @@ describe('TournamentService · o que ainda falta jogar', () => {
       { phase: 'semifinal', teamAId: 'ta', teamBId: 'tb' },
       { phase: 'semifinal', teamAId: 'tc', teamBId: 'td' },
     ]);
+  });
+});
+
+/**
+ * A final é o último jogo da noite, em todo formato que tem disputa de 3º.
+ *
+ * A regra mora num lugar só (`finalLast`), e estes testes existem para que um
+ * formato novo não escape dela sem ninguém notar.
+ */
+describe('TournamentService · a final fecha a noite', () => {
+  function cincoDuplas(): Tournament {
+    return tournament({
+      formatId: 'knockout-5',
+      thirdPlaceEnabled: true,
+      teams: [
+        team('ta', ['p1', 'p2']),
+        team('tb', ['p3', 'p4']),
+        team('tc', ['p5', 'p6']),
+        team('td', ['p7', 'p8']),
+        team('te', ['p9', 'p10']),
+      ],
+    });
+  }
+
+  it('cinco duplas: o 3º vem antes da final', async () => {
+    const { service } = setup([
+      match('m1', 'round-1', 'ta', 'tb', 12, 6),
+      match('m2', 'round-1', 'tc', 'td', 12, 10),
+      match('m3', 'semifinal-bye', 'tc', 'te', 12, 8),
+    ]);
+
+    const pending = await service.getPendingMatches(cincoDuplas());
+
+    expect(pending.map((bracket) => bracket.phase)).toEqual(['third-place', 'final']);
+  });
+
+  it('quatro duplas: o 3º vem antes da final', async () => {
+    const { service } = setup([
+      match('m1', 'semifinal', 'ta', 'tb', 15, 13),
+      match('m2', 'semifinal', 'tc', 'td', 15, 9),
+    ]);
+    const entry = tournament({
+      formatId: 'knockout-4',
+      thirdPlaceEnabled: true,
+      teams: [
+        team('ta', ['p1', 'p2']),
+        team('tb', ['p3', 'p4']),
+        team('tc', ['p5', 'p6']),
+        team('td', ['p7', 'p8']),
+      ],
+    });
+
+    const pending = await service.getPendingMatches(entry);
+
+    expect(pending.map((bracket) => bracket.phase)).toEqual(['third-place', 'final']);
+  });
+
+  it('sem disputa de 3º, a final é a única coisa que sobra', async () => {
+    const { service } = setup([
+      match('m1', 'round-1', 'ta', 'tb', 12, 6),
+      match('m2', 'round-1', 'tc', 'td', 12, 10),
+      match('m3', 'semifinal-bye', 'tc', 'te', 12, 8),
+    ]);
+    const entry = cincoDuplas();
+    entry.thirdPlaceEnabled = false;
+
+    const pending = await service.getPendingMatches(entry);
+
+    expect(pending.map((bracket) => bracket.phase)).toEqual(['final']);
+  });
+
+  it('o campeonato não acaba com a final por jogar', async () => {
+    const jogadas = [
+      match('m1', 'round-1', 'ta', 'tb', 12, 6),
+      match('m2', 'round-1', 'tc', 'td', 12, 10),
+      match('m3', 'semifinal-bye', 'tc', 'te', 12, 8),
+      match('m4', 'third-place', 'tb', 'te', 12, 7),
+    ];
+    const { service } = setup(jogadas);
+
+    expect(await service.isTournamentComplete(cincoDuplas(), jogadas)).toBe(false);
+  });
+
+  it('e acaba quando ela é jogada', async () => {
+    const jogadas = [
+      match('m1', 'round-1', 'ta', 'tb', 12, 6),
+      match('m2', 'round-1', 'tc', 'td', 12, 10),
+      match('m3', 'semifinal-bye', 'tc', 'te', 12, 8),
+      match('m4', 'third-place', 'tb', 'te', 12, 7),
+      match('m5', 'final', 'ta', 'tc', 12, 9),
+    ];
+    const { service } = setup(jogadas);
+
+    expect(await service.isTournamentComplete(cincoDuplas(), jogadas)).toBe(true);
   });
 });

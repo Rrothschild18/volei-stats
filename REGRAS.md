@@ -160,11 +160,15 @@ A rodada 1 é disputada e, a partir dela, dois critérios comandam o resto:
 - **Perdedor com maior diferença de pontos** é **eliminado diretamente** e recebe
   prioridade no próximo sorteio.
 
+> **A final é o último jogo.** Quando há disputa de 3º lugar, ela é jogada
+> ANTES da final: coroar o campeão e só então mandar duas duplas de volta à
+> quadra para um jogo que já não decide nada é o contrário do que a noite pede.
+
 | Duplas | Rodada 1            | Sequência                                                                                                                                                                          |
 | ------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **2**  | —                   | Final direta                                                                                                                                                                       |
 | **3**  | 1 jogo (duplas 1×2) | Perdedor da R1 × dupla de bye (repescagem) → vencedor vai à final contra o vencedor da R1                                                                                          |
-| **4**  | 2 semifinais        | Final + 3º lugar (se habilitado)                                                                                                                                                   |
+| **4**  | 2 semifinais        | Disputa de 3º lugar (se habilitada) e depois a final                                                                                                                                                   |
 | **5**  | 2 jogos (4 duplas)  | Pior perdedor eliminado direto. Vencedor de menor diferença × dupla de bye → final contra o vencedor de maior diferença. 3º lugar: outro perdedor da R1 × perdedor do bye          |
 | **6**  | 3 jogos             | Pior perdedor eliminado direto. Semifinal entre os 2 vencedores de menor diferença → final contra o vencedor de maior diferença. 3º lugar: outro perdedor da R1 × perdedor da semi |
 | **7**  | 3 jogos (6 duplas)  | Pior perdedor eliminado direto. Vencedor nº2 × dupla de bye → semifinal contra o vencedor nº3 → final contra o vencedor nº1. 3º lugar: perdedor do bye × perdedor da semi          |

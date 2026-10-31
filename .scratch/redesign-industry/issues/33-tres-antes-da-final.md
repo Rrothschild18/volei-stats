@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## O código já discorda de si mesmo
 
@@ -46,9 +46,9 @@ passa a ser naturalmente verdade — a final é a última —, mas a condição 
 um teste que prove que o campeonato não se declara encerrado com a disputa de 3º
 ainda por jogar.
 
-- [ ] A fila oferece a disputa de 3º antes da final, em 4, 5, 6 e 7 duplas
-- [ ] Vale também nas variantes com encaixe do avulso que têm 3º lugar
-- [ ] A escada da chave mostra a mesma ordem que a fila — hoje as duas discordam
-- [ ] O campeonato só se declara encerrado depois da final, com a disputa de 3º já jogada
-- [ ] O teste que fixava `['final', 'third-place']` passa a fixar o contrário
-- [ ] REGRAS.md §10 diz a ordem por escrito, em vez de deixá-la implícita na tabela
+- [x] A fila oferece a disputa de 3º antes da final, em 4, 5, 6 e 7 duplas
+- [x] Vale também nas variantes com encaixe do avulso que têm 3º lugar
+- [x] A escada da chave mostra a mesma ordem que a fila — hoje as duas discordam
+- [x] O campeonato só se declara encerrado depois da final, com a disputa de 3º já jogada
+- [x] O teste que fixava `['final', 'third-place']` passa a fixar o contrário
+- [x] REGRAS.md §10 diz a ordem por escrito, em vez de deixá-la implícita na tabela

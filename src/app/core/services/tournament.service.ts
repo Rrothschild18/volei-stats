@@ -696,7 +696,7 @@ export class TournamentService {
         });
       }
 
-      return next;
+      return this.finalLast(next);
     }
 
     return [];
@@ -753,7 +753,7 @@ export class TournamentService {
       ) {
         next.push({ phase: 'third-place', teamAId: semis[0].loserId!, teamBId: semis[1].loserId! });
       }
-      return next;
+      return this.finalLast(next);
     }
     return [];
   }
@@ -790,7 +790,7 @@ export class TournamentService {
           next.push({ phase: 'third-place', teamAId: losers[1].id, teamBId: semiBye[0].loserId! });
         }
 
-        return next;
+        return this.finalLast(next);
       }
     }
 
@@ -823,7 +823,7 @@ export class TournamentService {
           next.push({ phase: 'third-place', teamAId: losers[1].id, teamBId: semis[0].loserId! });
         }
 
-        return next;
+        return this.finalLast(next);
       }
     }
 
@@ -867,7 +867,7 @@ export class TournamentService {
           });
         }
 
-        return next;
+        return this.finalLast(next);
       }
     }
 
@@ -895,6 +895,22 @@ export class TournamentService {
       expectedMatches: this.generateInitialMatches(tournament).length,
       thirdPlaceEnabled: tournament.thirdPlaceEnabled,
     };
+  }
+
+  /**
+   * A final é o ÚLTIMO jogo da noite.
+   *
+   * A disputa de 3º lugar vem antes: coroar o campeão e só então mandar duas
+   * duplas de volta à quadra para um jogo que já não decide nada é o contrário
+   * do que a noite pede. E a escada da chave sempre planejou nessa ordem — era
+   * a fila que discordava.
+   *
+   * Mora aqui, e não em cada formato, para que um formato novo não precise
+   * lembrar da regra: ela se aplica sozinha. A ordenação é estável, então as
+   * outras fases mantêm a ordem em que o chaveamento as gerou.
+   */
+  private finalLast(next: BracketMatch[]): BracketMatch[] {
+    return [...next].sort((a, b) => Number(a.phase === 'final') - Number(b.phase === 'final'));
   }
 
   private getTeamById(tournament: Tournament, teamId: string): TournamentTeam | null {
