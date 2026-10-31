@@ -80,7 +80,7 @@ fresh_db() {
 }
 
 # Cada arquivo de teste parte de um banco limpo: um não enxerga o estado do outro.
-for suite in 01-acesso 02-regras; do
+for suite in 01-acesso 02-regras 03-brechas; do
   db="test_${suite//-/_}"
   fresh_db "$db"
   psql_run "$db" "$HERE/00-supabase-shim.sql"
