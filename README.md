@@ -63,13 +63,14 @@ ng test
 
 ## Running end-to-end tests
 
-For end-to-end (e2e) testing, run:
+Playwright, contra o app em modo demonstração (sem Supabase):
 
 ```bash
-ng e2e
+pnpm e2e        # roda tudo; sobe o servidor sozinho
+pnpm e2e:ui     # modo interativo
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+O que está coberto, o que não está e como escrever teste novo: `e2e/README.md`.
 
 ## Additional Resources
 
