@@ -68,10 +68,15 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
-do $$ begin
-  perform redeem_invite((select invite_token from ctx));
-  raise exception 'FALHOU: convite revogado ainda entrou';
-exception when raise_exception then null; end $$;
+do $$
+declare passou boolean := false;
+begin
+  begin
+    perform redeem_invite((select invite_token from ctx));
+    passou := true;
+  exception when raise_exception then null; end;
+  if passou then raise exception 'FALHOU: convite revogado ainda entrou'; end if;
+end $$;
 select assert((select count(*) from groups)=0,'e nao ve o volei');
 commit;
 

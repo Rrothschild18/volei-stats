@@ -97,8 +97,11 @@ export class AppFacade {
    *
    * Um dia tem UMA sessão por vôlei — é índice único no banco. Duas pessoas
    * marcando a presença ao mesmo tempo na beira da quadra é o caso comum, não a
-   * exceção: sem isto, a segunda levava um erro de chave repetida em vez de
-   * cair na mesma sessão da primeira.
+   * exceção.
+   *
+   * Olhar antes resolve o caso normal (a segunda pessoa chega segundos depois) e
+   * NÃO resolve a corrida de verdade, em que as duas olham no mesmo instante.
+   * Essa é tratada no repositório, onde o banco recusa a segunda inserção.
    */
   async createSession(groupId: string, playerIds: string[]): Promise<Session> {
     const existing = await this.getTodaySession(groupId);

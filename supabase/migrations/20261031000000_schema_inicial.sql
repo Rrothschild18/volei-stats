@@ -675,23 +675,34 @@ end $$;
 revoke execute on function enter_group(uuid) from public, anon, authenticated;
 
 /**
- * O que acontece depois de achar o convite, seja pelo link ou pelo código.
+ * Em que estado o convite está. Interna: recebe a LINHA, que carrega o token.
+ */
+create or replace function invite_state(inv invites)
+returns text
+language sql stable set search_path = public as $$
+  select case
+    when inv.token is null                                      then 'not_found'
+    when inv.revoked_at is not null                             then 'revoked'
+    when inv.expires_at is not null and inv.expires_at < now()  then 'expired'
+    else 'ok'
+  end
+$$;
+
+revoke execute on function invite_state(invites) from public, anon, authenticated;
+
+/**
+ * Entra no vôlei, achado o convite — pelo link ou pelo código.
  *
  * ⚠️ INTERNA, por um motivo diferente de enter_group(): ela recebe a LINHA do
- * convite, e um composto de `invites` carrega o token. Deixá-la aberta daria
- * ao cliente um jeito de passar uma linha inventada.
+ * convite, e um composto de `invites` carrega o token. Deixá-la aberta daria ao
+ * cliente um jeito de passar uma linha inventada.
+ *
+ * Quem checa o estado do convite é quem chama: aqui já se sabe que ele vale.
  */
 create or replace function accept_invite(inv invites)
 returns table (group_id uuid, group_name text)
 language plpgsql security definer set search_path = public as $$
 begin
-  if inv.revoked_at is not null then
-    raise exception 'Este convite foi cancelado' using errcode = 'P0001';
-  end if;
-  if inv.expires_at is not null and inv.expires_at < now() then
-    raise exception 'Este convite expirou' using errcode = 'P0001';
-  end if;
-
   perform enter_group(inv.group_id);
 
   -- Devolve só o que a tela precisa: nada de composto de `groups`.
@@ -705,19 +716,30 @@ revoke execute on function accept_invite(invites) from public, anon, authenticat
  *
  * Não cria jogador nem concede identidade — quem a pessoa é, ela diz em
  * claim_player(). Reutilizável de propósito.
+ *
+ * Esta pode lançar exceção à vontade: o caminho do link não registra tentativa
+ * nenhuma, então não há nada para um `raise` desfazer.
  */
 create or replace function redeem_invite(p_token uuid)
 returns table (group_id uuid, group_name text)
 language plpgsql security definer set search_path = public as $$
-declare inv invites;
+declare
+  inv   invites;
+  state text;
 begin
   if auth.uid() is null then
     raise exception 'É preciso uma sessão para usar o convite' using errcode = '28000';
   end if;
 
   select * into inv from invites where token = p_token;
-  if not found then
+  state := invite_state(inv);
+
+  if state = 'not_found' then
     raise exception 'Convite inválido' using errcode = 'P0002';
+  elsif state = 'revoked' then
+    raise exception 'Este convite foi cancelado' using errcode = 'P0001';
+  elsif state = 'expired' then
+    raise exception 'Este convite expirou' using errcode = 'P0001';
   end if;
 
   return query select * from accept_invite(inv);
@@ -726,14 +748,22 @@ end $$;
 /**
  * O mesmo convite, digitado em vez de clicado.
  *
- * A mensagem de "não existe" é a mesma do link: o código não diz se há um
+ * Devolve MOTIVO em vez de lançar exceção, e isso não é estilo: um `raise`
+ * desfaz a transação, e com ela o registro da tentativa que acabou de ser
+ * gravado — a trava de força bruta então contaria sempre zero e nunca pegaria
+ * ninguém. É a mesma razão de claim_player() devolver status, e foi escrevendo
+ * esta função que eu caí na armadilha que aquela documenta.
+ *
+ * `reason` é 'ok', 'not_found', 'revoked', 'expired' ou 'rate_limited'. A tela
+ * não distingue 'not_found' de vôlei inexistente: o código não conta se há um
  * vôlei do outro lado.
  */
 create or replace function redeem_invite_code(p_code text)
-returns table (group_id uuid, group_name text)
+returns table (group_id uuid, group_name text, reason text)
 language plpgsql security definer set search_path = public as $$
 declare
   inv             invites;
+  state           text;
   recent_failures int;
   wanted          text := upper(trim(coalesce(p_code, '')));
 begin
@@ -748,19 +778,22 @@ begin
     and attempted_at > now() - interval '15 minutes';
 
   if recent_failures >= 10 then
-    raise exception 'Muitas tentativas. Espere alguns minutos.' using errcode = 'P0001';
+    return query select null::uuid, null::text, 'rate_limited'::text;
+    return;
   end if;
 
   select * into inv from invites where code = wanted;
+  state := invite_state(inv);
 
   insert into invite_redeem_attempts (user_id, attempted_code, succeeded)
-  values (auth.uid(), wanted, inv.token is not null);
+  values (auth.uid(), wanted, state = 'ok');
 
-  if inv.token is null then
-    raise exception 'Código inválido' using errcode = 'P0002';
+  if state <> 'ok' then
+    return query select null::uuid, null::text, state;
+    return;
   end if;
 
-  return query select * from accept_invite(inv);
+  return query select a.group_id, a.group_name, 'ok'::text from accept_invite(inv) a;
 end $$;
 
 /**
@@ -947,7 +980,22 @@ alter table matches                     enable row level security;
 alter table tournament_priority_entries enable row level security;
 alter table tournament_standings        enable row level security;
 
--- Tabelas do JOGO: membro lê, jogador escreve, dono apaga.
+-- Tabelas do JOGO: membro lê, jogador escreve.
+--
+-- Apagar se divide em dois, e confundir os dois foi um erro:
+--
+--   DONO — as coisas que alguém destrói de propósito: a sessão, o sorteio, o
+--          campeonato, a partida, a dupla do campeonato. São as que levam
+--          história embora, e a dupla em particular levaria as partidas por
+--          cascata — o que daria ao jogador uma porta lateral para apagar
+--          placar.
+--
+--   JOGADOR — as linhas que existem só como parte do que ele já pode escrever,
+--             e que o app REESCREVE jogando: tirar alguém da presença, regravar
+--             as duplas de uma proposta, a classificação, as prioridades, o
+--             encaixe e o desempate. Com elas trancadas, desmarcar um nome não
+--             dava erro — não fazia nada —, e regravar a classificação batia em
+--             chave repetida porque o apagar anterior não apagara nada.
 do $$
 declare tbl text;
 begin
@@ -965,9 +1013,23 @@ begin
     execute format(
       'create policy %I on %I for update to authenticated using (is_group_player(group_id)) with check (is_group_player(group_id))',
       tbl || '_update_player', tbl);
+  end loop;
+
+  foreach tbl in array array[
+    'sessions','draws','tournaments','tournament_teams','matches'
+  ] loop
     execute format(
       'create policy %I on %I for delete to authenticated using (is_group_owner(group_id))',
       tbl || '_delete_owner', tbl);
+  end loop;
+
+  foreach tbl in array array[
+    'session_players','draw_teams','odd_player_placements','tiebreak_decisions',
+    'tournament_priority_entries','tournament_standings'
+  ] loop
+    execute format(
+      'create policy %I on %I for delete to authenticated using (is_group_player(group_id))',
+      tbl || '_delete_player', tbl);
   end loop;
 end $$;
 

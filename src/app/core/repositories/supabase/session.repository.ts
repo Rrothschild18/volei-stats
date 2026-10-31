@@ -49,20 +49,12 @@ export class SupabaseSessionRepository extends SupabaseRepositoryBase implements
    * para esta sessão.
    */
   async save(session: Session): Promise<Session> {
-    const sessions = await this.table('sessions');
-    const { error: upsertError } = await sessions.upsert({
-      id: session.id,
-      group_id: session.groupId,
-      date: session.date,
-    });
-    if (upsertError) {
-      throw new Error(`Não foi possível salvar a sessão: ${upsertError.message}`);
-    }
+    const sessionId = await this.upsertSession(session);
 
     const presence = await this.table('session_players');
     const { data: current, error: readError } = await presence
       .select('player_id')
-      .eq('session_id', session.id);
+      .eq('session_id', sessionId);
     if (readError) {
       throw new Error(`Não foi possível ler a presença: ${readError.message}`);
     }
@@ -85,7 +77,7 @@ export class SupabaseSessionRepository extends SupabaseRepositoryBase implements
       const { error } = await presence.insert(
         added.map((playerId) => ({
           group_id: session.groupId,
-          session_id: session.id,
+          session_id: sessionId,
           player_id: playerId,
         })),
       );
@@ -94,11 +86,47 @@ export class SupabaseSessionRepository extends SupabaseRepositoryBase implements
       }
     }
 
-    const saved = await this.getById(session.id);
+    const saved = await this.getById(sessionId);
     if (!saved) {
       throw new Error('A sessão desapareceu depois de salva');
     }
     return saved;
+  }
+
+  /**
+   * Grava a sessão e devolve o id que de fato vale.
+   *
+   * Um dia tem UMA sessão por vôlei, e isso é índice único. Olhar antes se já
+   * existe não resolve: dois celulares podem olhar no mesmo instante, os dois
+   * ver que não há, e os dois inserir com ids diferentes — e aí o segundo leva
+   * "chave repetida". Então o conflito é tratado onde ele acontece: quem perder
+   * a corrida passa a usar a sessão de quem ganhou.
+   */
+  private async upsertSession(session: Session): Promise<string> {
+    const sessions = await this.table('sessions');
+    const { error } = await sessions.upsert({
+      id: session.id,
+      group_id: session.groupId,
+      date: session.date,
+    });
+
+    if (!error) {
+      return session.id;
+    }
+    if (error.code !== '23505') {
+      throw new Error(`Não foi possível salvar a sessão: ${error.message}`);
+    }
+
+    const table = await this.table('sessions');
+    const { data, error: readError } = await table
+      .select('id')
+      .eq('group_id', session.groupId)
+      .eq('date', session.date)
+      .maybeSingle();
+    if (readError || !data) {
+      throw new Error(`Não foi possível salvar a sessão: ${error.message}`);
+    }
+    return data.id;
   }
 }
 

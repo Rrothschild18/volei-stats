@@ -108,10 +108,8 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
-do $$ begin
-  perform redeem_invite_code('ZZZZZZ');
-  raise exception 'FALHOU: codigo inexistente funcionou';
-exception when no_data_found then null; end $$;
+select assert((select reason from redeem_invite_code('ZZZZZZ'))='not_found',
+  'codigo inexistente nao entra');
 commit;
 
 -- ===== 6. CANCELAR O CONVITE TRANCA O CODIGO =====
@@ -124,10 +122,9 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
-do $$ begin
-  perform redeem_invite_code('TESTE-VOLEI');
-  raise exception 'FALHOU: codigo cancelado ainda entra';
-exception when raise_exception then null; end $$;
+select assert(
+  (select reason from redeem_invite_code('TESTE-VOLEI'))='revoked',
+  'codigo cancelado nao entra, e diz por que');
 commit;
 
 -- E o dono gera outro, com codigo novo.
@@ -166,11 +163,18 @@ begin
     exception when others then null; end;
   end loop;
 end $$;
-do $$ begin
-  perform redeem_invite_code((select code from novo));
-  raise exception 'FALHOU: a trava de codigo nao pegou';
-exception when raise_exception then null; end $$;
+select assert(
+  (select reason from redeem_invite_code((select code from novo)))='rate_limited',
+  'a trava pega inclusive com um codigo que existe');
 commit;
+
+-- A trava conta de verdade: dez erros ficaram GRAVADOS. Com `raise`, cada um
+-- deles desfazia o proprio registro e o contador voltava a zero — era o furo.
+-- A contagem roda FORA do papel `authenticated` de proposito: a tabela nao tem
+-- politica nenhuma, e nem o dono le as tentativas.
+select assert((select count(*) from invite_redeem_attempts
+  where user_id='55555555-5555-5555-5555-555555555555' and not succeeded)=10,
+  'as dez tentativas erradas ficaram gravadas');
 
 -- ===== 8. O CONVITE E SO DO DONO, E O MIOLO NAO E DE NINGUEM =====
 begin;

@@ -10,6 +10,19 @@ import {
   UnclaimedPlayer,
 } from './membership.service';
 
+/**
+ * Os motivos que `redeem_invite_code` devolve, em frases.
+ *
+ * "Código inválido" vale também para vôlei que não existe: o código não conta se
+ * há um vôlei do outro lado.
+ */
+const CODE_FAILURES: Record<string, string> = {
+  not_found: 'Código inválido',
+  revoked: 'Este convite foi cancelado',
+  expired: 'Este convite expirou',
+  rate_limited: 'Muitas tentativas. Espere alguns minutos.',
+};
+
 /** Os motivos que `claim_player` devolve, no vocabulário do app. */
 const FAILURES: Record<string, ClaimFailure> = {
   not_found: 'not-found',
@@ -53,17 +66,23 @@ export class SupabaseMembershipService implements MembershipService {
     };
   }
 
+  /**
+   * O banco devolve MOTIVO em vez de lançar exceção, para que o registro da
+   * tentativa não seja desfeito junto — então é aqui que o motivo vira frase.
+   */
   async redeemCode(code: string): Promise<{ groupId: string; groupName: string }> {
     const client = await this.ready();
     const { data, error } = await client.rpc('redeem_invite_code', { p_code: code });
     if (error) {
       throw new Error(this.readable(error.message));
     }
+
     const row = data?.[0];
-    if (!row) {
-      throw new Error('Código inválido');
+    const reason = row?.reason ?? 'not_found';
+    if (reason !== 'ok' || !row?.group_id) {
+      throw new Error(CODE_FAILURES[reason] ?? CODE_FAILURES['not_found']);
     }
-    return { groupId: row.group_id, groupName: row.group_name };
+    return { groupId: row.group_id, groupName: row.group_name ?? '' };
   }
 
   async unclaimedPlayers(groupId: string): Promise<readonly UnclaimedPlayer[]> {
@@ -128,38 +147,52 @@ export class SupabaseMembershipService implements MembershipService {
       throw new Error('Este vôlei não tem convite aberto');
     }
     const client = await this.ready();
+    // `limit(1)` e não `single()`: se o vôlei tiver dois convites abertos — um
+    // toque duplo em "gerar", um `renewInvite` que revogou e não inseriu —, o
+    // update funcionaria e a resposta estouraria com "multiple rows returned",
+    // dizendo que falhou algo que aconteceu.
     const { data, error } = await client
       .from('invites')
       .update({ code })
       .eq('group_id', groupId)
       .is('revoked_at', null)
       .select('code')
-      .single();
+      .limit(1);
     if (error) {
       throw new Error(this.readable(error.message));
     }
-    return { code: data.code, revoked: false };
+    return { code: data?.[0]?.code ?? code, revoked: false };
   }
 
+  /**
+   * Insere o convite novo ANTES de cancelar os antigos.
+   *
+   * Na ordem inversa, um insert que falhasse (sem rede, teto de tempo) deixava
+   * o vôlei sem convite nenhum: o código velho morto e nenhum novo no lugar. O
+   * pior momento para isso é exatamente quando se cancela um convite — alguém
+   * entrou que não devia.
+   */
   async renewInvite(groupId: string): Promise<Invite> {
     const client = await this.ready();
-    const { error: revokeError } = await client
-      .from('invites')
-      .update({ revoked_at: new Date().toISOString() })
-      .eq('group_id', groupId)
-      .is('revoked_at', null);
-    if (revokeError) {
-      throw new Error(`Não foi possível cancelar o convite: ${revokeError.message}`);
-    }
-
     const { data, error } = await client
       .from('invites')
       .insert({ group_id: groupId, label: 'Link do vôlei' })
-      .select('code')
+      .select('token, code')
       .single();
     if (error) {
       throw new Error(`Não foi possível gerar outro convite: ${error.message}`);
     }
+
+    const { error: revokeError } = await client
+      .from('invites')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('group_id', groupId)
+      .is('revoked_at', null)
+      .neq('token', data.token);
+    if (revokeError) {
+      throw new Error(`Não foi possível cancelar o convite antigo: ${revokeError.message}`);
+    }
+
     return { code: data.code, revoked: false };
   }
 

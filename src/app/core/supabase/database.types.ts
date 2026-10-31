@@ -270,8 +270,9 @@ export type Database = {
             group_id: string;
             group_name: string;
           } | null;
+          invite_state: string | null;
         };
-        ComputedFields: 'accept_invite';
+        ComputedFields: 'accept_invite' | 'invite_state';
         Insert: {
           code?: string;
           created_at?: string;
@@ -1126,6 +1127,15 @@ export type Database = {
         }[];
       };
       enter_group: { Args: { p_group_id: string }; Returns: undefined };
+      invite_state: {
+        Args: {
+          inv: Omit<
+            Database['public']['Tables']['invites']['Row'],
+            Database['public']['Tables']['invites']['ComputedFields']
+          >;
+        };
+        Returns: string;
+      };
       is_group_member: { Args: { p_group_id: string }; Returns: boolean };
       is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
       is_group_player: { Args: { p_group_id: string }; Returns: boolean };
@@ -1143,6 +1153,7 @@ export type Database = {
         Returns: {
           group_id: string;
           group_name: string;
+          reason: string;
         }[];
       };
       reset_player_birth_date: { Args: { p_player_id: string }; Returns: undefined };

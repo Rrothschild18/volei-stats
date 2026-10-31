@@ -154,8 +154,17 @@ export class InviteComponent implements OnInit {
     }
   }
 
+  /**
+   * O link que vai no zap.
+   *
+   * Sai de `document.baseURI`, e não de `location`: o app roteia por caminho
+   * (não há `withHashLocation`), e publicado no Pages ele vive sob um prefixo.
+   * A versão anterior montava `…/convite#/entrar/CODE` — um fragmento que o
+   * roteador ignora, então quem recebia caía na tela do dono e era mandado para
+   * `/entrar` sem código nenhum preenchido.
+   */
   private link(): string {
-    return `${location.origin}${location.pathname.replace(/\/$/, '')}#/entrar/${this.code()}`;
+    return new URL(`entrar/${this.code()}`, document.baseURI).href;
   }
 
   protected async copyLink(): Promise<void> {

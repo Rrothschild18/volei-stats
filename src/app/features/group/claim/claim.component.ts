@@ -55,6 +55,10 @@ const MESSAGES: Record<ClaimFailure, string> = {
 
         @if (loading()) {
           <p class="text-[13px] muted">Carregando os nomes…</p>
+        } @else if (error()) {
+          <app-blueprint class="p-4">
+            <p class="text-[14px]" aria-live="polite">{{ error() }}</p>
+          </app-blueprint>
         } @else if (names().length === 0) {
           <app-blueprint class="p-4">
             <p class="text-[14px]">
@@ -212,6 +216,10 @@ export class ClaimComponent implements OnInit {
     }
     try {
       this.names.set(await this.membership.unclaimedPlayers(groupId));
+    } catch (cause) {
+      // Sem isto, uma falha de leitura caía no estado de lista vazia — que diz
+      // "todos os nomes já têm dono" a quem acabou de entrar e nunca teve um.
+      this.error.set(describeError(cause, 'Não foi possível ler os nomes.'));
     } finally {
       this.loading.set(false);
     }

@@ -3,7 +3,14 @@ import { ActivatedRouteSnapshot, CanActivateFn, Router, UrlTree } from '@angular
 import { IdentityService } from '../identity';
 import { CurrentGroupStore } from '../stores/current-group.store';
 
-/** Entra no vôlei da rota e resolve o papel. */
+/**
+ * Entra no vôlei da rota e resolve o papel.
+ *
+ * Falha de leitura conta como "não é membro", e não como exceção. Um guard que
+ * REJEITA não navega para lugar nenhum: o Angular emite um `NavigationError` e a
+ * tela fica branca. Abrir o app em modo avião fazia exatamente isso — e assim
+ * nem chegava a rodar o tratamento de "sem conexão" que as telas têm.
+ */
 async function enterGroup(route: ActivatedRouteSnapshot): Promise<boolean> {
   const store = inject(CurrentGroupStore);
   const groupId = route.paramMap.get('groupId') ?? route.parent?.paramMap.get('groupId');
@@ -12,9 +19,23 @@ async function enterGroup(route: ActivatedRouteSnapshot): Promise<boolean> {
     return false;
   }
 
-  // `enter` já evita o retrabalho quando o vôlei e a pessoa são os mesmos —
-  // e é ele que percebe quando a pessoa mudou.
-  return store.enter(groupId);
+  try {
+    // `enter` já evita o retrabalho quando o vôlei e a pessoa são os mesmos —
+    // e é ele que percebe quando a pessoa mudou.
+    return await store.enter(groupId);
+  } catch {
+    return false;
+  }
+}
+
+/** Os meus vôleis, ou nenhum se a leitura falhou — nunca uma exceção. */
+async function myGroupCount(): Promise<number> {
+  const identity = inject(IdentityService);
+  try {
+    return (await identity.myGroups()).length;
+  } catch {
+    return 0;
+  }
 }
 
 /** Só entra nas telas do vôlei quem é membro dele. */
@@ -31,10 +52,9 @@ export const memberGuard: CanActivateFn = async (route): Promise<boolean | UrlTr
  * aberta a quem já participa de algo: entrar num SEGUNDO vôlei é o caso normal.
  */
 export const hasGroupsGuard: CanActivateFn = async (): Promise<boolean | UrlTree> => {
-  const identity = inject(IdentityService);
   const router = inject(Router);
-  const mine = await identity.myGroups();
-  return mine.length > 0 ? true : router.createUrlTree(['/entrar']);
+  const count = await myGroupCount();
+  return count > 0 ? true : router.createUrlTree(['/entrar']);
 };
 
 /**

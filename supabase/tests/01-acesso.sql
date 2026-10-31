@@ -148,6 +148,44 @@ insert into tournaments (id, group_id, session_id, draw_id, name, format_id, poi
 values ('7040000a-0000-0000-0000-000000000001',(select group_id from ctx),
         '5e550000-0000-0000-0000-000000000001','d2a00000-0000-0000-0000-000000000001','Teste','knockout-2',12);
 select assert((select count(*) from tournaments)=1,'jogadora criou campeonato');
+
+-- E DESFAZ o que ela mesma escreveu: desmarcar um nome da presenca, regravar a
+-- classificacao. Isto ja foi so do dono, e o efeito era pior que um erro —
+-- desmarcar nao fazia nada, e regravar batia em chave repetida porque o apagar
+-- anterior apagara zero linhas.
+insert into session_players (group_id, session_id, player_id)
+select (select group_id from ctx), '5e550000-0000-0000-0000-000000000001', id
+from players where group_id=(select group_id from ctx);
+select assert((select count(*) from session_players
+  where session_id='5e550000-0000-0000-0000-000000000001')=4,'quatro presentes');
+
+delete from session_players
+where session_id='5e550000-0000-0000-0000-000000000001'
+  and player_id=(select id from players where name='Be');
+select assert((select count(*) from session_players
+  where session_id='5e550000-0000-0000-0000-000000000001')=3,'jogadora desmarcou um nome');
+
+insert into tournament_teams (id, group_id, tournament_id, position, player1_id, player2_id)
+values ('aaaa0000-0000-4000-8000-00000000000a',(select group_id from ctx),
+        '7040000a-0000-0000-0000-000000000001',1,
+        (select id from players where name='Raul'),(select id from players where name='Vitoria'));
+insert into tournament_standings (group_id, tournament_id, team_id, position)
+values ((select group_id from ctx),'7040000a-0000-0000-0000-000000000001',
+        'aaaa0000-0000-4000-8000-00000000000a',1);
+delete from tournament_standings where tournament_id='7040000a-0000-0000-0000-000000000001';
+select assert((select count(*) from tournament_standings)=0,'jogadora regravou a classificacao');
+commit;
+
+-- Mas o que leva historia embora continua sendo do dono. A dupla em especial:
+-- apagar uma levaria as partidas por cascata, o que daria ao jogador uma porta
+-- lateral para apagar placar.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+delete from tournament_teams where id='aaaa0000-0000-4000-8000-00000000000a';
+select assert((select count(*) from tournament_teams)=1,'jogadora nao apaga dupla do campeonato');
+delete from sessions where id='5e550000-0000-0000-0000-000000000001';
+select assert((select count(*) from sessions)=1,'jogadora nao apaga a sessao');
 commit;
 
 -- ===== 9. JOGADORA NAO MEXE EM QUEM EXISTE NEM APAGA =====
@@ -329,10 +367,15 @@ exception when insufficient_privilege then null; end $$;
 commit;
 
 -- ===== 19. O VOLEI NUNCA FICA SEM DONO =====
-do $$ begin
-  update players set active=false where name='Willy';
-  raise exception 'FALHOU: inativou o dono';
-exception when raise_exception then null; end $$;
+do $$
+declare passou boolean := false;
+begin
+  begin
+    update players set active=false where name='Willy';
+    passou := true;
+  exception when raise_exception then null; end;
+  if passou then raise exception 'FALHOU: inativou o dono'; end if;
+end $$;
 
 do $$ begin
   delete from players where name='Willy';
@@ -349,10 +392,15 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
-do $$ begin
-  perform redeem_invite((select invite_token from ctx));
-  raise exception 'FALHOU: convite revogado funcionou';
-exception when raise_exception then null; end $$;
+do $$
+declare passou boolean := false;
+begin
+  begin
+    perform redeem_invite((select invite_token from ctx));
+    passou := true;
+  exception when raise_exception then null; end;
+  if passou then raise exception 'FALHOU: convite revogado funcionou'; end if;
+end $$;
 commit;
 
 begin;

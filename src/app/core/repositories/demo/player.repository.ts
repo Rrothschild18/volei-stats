@@ -14,7 +14,7 @@ export class DemoPlayerRepository extends PlayerRepository {
 
   override async create(groupId: string, name: string, gender: Gender): Promise<Player> {
     const now = new Date().toISOString();
-    return this.save({
+    const player = await this.save({
       id: crypto.randomUUID(),
       groupId,
       name,
@@ -23,6 +23,18 @@ export class DemoPlayerRepository extends PlayerRepository {
       createdAt: now,
       updatedAt: now,
     });
+
+    // E entra na lista de membros, que é o que responde "quem joga aqui" neste
+    // modo (ver `getByGroupId`). Sem esta linha, cadastrar parecia funcionar e a
+    // pessoa não aparecia em lugar nenhum — nem na presença, nem no ranking.
+    await this.db.put<GroupMember>(STORES.GROUP_MEMBERS, {
+      id: `${groupId}:${player.id}`,
+      groupId,
+      playerId: player.id,
+      role: 'player',
+    });
+
+    return player;
   }
 
   /**
