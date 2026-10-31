@@ -37,6 +37,20 @@ test.describe('lançar placar', () => {
     await expect(placar.botaoSalvar).toBeDisabled();
   });
 
+  test('terminar abaixo do limite de pontos pede confirmação', async ({ page, grupo }) => {
+    await grupo.abrir('inicio');
+    const placar = new PlacarPage(page);
+    await placar.abrir();
+
+    // Acabar antes do limite acontece (deu a hora, acabou a luz), mas é raro o
+    // bastante para a tela perguntar em vez de salvar calado.
+    await placar.marcar('primeira', 9);
+    await placar.marcar('segunda', 5);
+    await placar.botaoSalvar.click();
+
+    await expect(page.getByRole('dialog', { name: 'Confirmar placar' })).toBeVisible();
+  });
+
   test('o placar salvo trava a partida e registra quem lançou', async ({ page, grupo }) => {
     await grupo.abrir('inicio');
     const placar = new PlacarPage(page);
@@ -48,6 +62,10 @@ test.describe('lançar placar', () => {
     await placar.botaoSalvar.click();
 
     await expect(placar.gaveta).toContainText('PLACAR SALVO');
+    // Atenção ao que isto prova: que a tela MOSTRA quem lançou. Aqui o nome vem
+    // do cenário em memória. Que o servidor é quem assina — e que o cliente não
+    // consegue assinar por outro — é a metade `banco` que garante, em
+    // `e2e/campeonato.spec.ts`, mais os testes de `supabase/tests/`.
     await expect(placar.gaveta).toContainText('TRAVADO · lançado por você');
     await expect(placar.gaveta).toContainText('13');
   });

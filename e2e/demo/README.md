@@ -39,6 +39,21 @@ pela configuração `demo` do `angular.json`.
 | `campeonatos.spec.ts` | a sessão de hoje, o campeonato ao vivo, o histórico                    |
 | `rankings.spec.ts`    | individual, duplas e partidas                                          |
 
+## O que um verde aqui **não** prova
+
+Três testes desta metade afirmam coisas cuja implementação real mora no banco, e
+passariam mesmo com o banco quebrado — eles cobrem a tela, não o contrato:
+
+| Teste | O que ele prova | Quem prova o resto |
+| --- | --- | --- |
+| `placar.spec.ts` · "registra quem lançou" | que a tela mostra o nome | o gatilho que assina: `e2e/campeonato.spec.ts` e `supabase/tests/` |
+| `presenca.spec.ts` · "tirar alguém da presença" | que a contagem muda | que o jogador TEM permissão de apagar a linha: `supabase/tests/01-acesso.sql` |
+| `rankings.spec.ts` | a ordem e o formato da tabela | que os números vêm das views: `supabase/tests/02-regras.sql` |
+
+Sem RLS no caminho, aqui tudo é permitido — e foi justamente nessa diferença que
+moraram dois defeitos reais: desmarcar um nome não fazia nada, e regravar a
+classificação batia em chave repetida.
+
 ## O que **não** está coberto, e por quê
 
 Entrar por código, criar vôlei e dizer quem você é (`/entrar`, `/criar`,

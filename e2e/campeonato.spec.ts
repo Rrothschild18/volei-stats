@@ -73,20 +73,13 @@ test('um campeonato do zero até o fim', async ({ page }) => {
     .first()
     .click();
 
-  // Empate não existe no vôlei, e o banco recusa: a tela nem deixa chegar lá.
-  await ajustarPlacar(page, 0, 3);
-  await expect(page.getByRole('button', { name: /CORRIGIR 12 × 12/ })).toBeDisabled();
-
-  // Terminar ABAIXO do limite é possível (deu hora, acabou a luz), e aí a tela
-  // pergunta antes de salvar.
-  await ajustarPlacar(page, -2, -1);
-  await page.getByRole('button', { name: /CORRIGIR 10 × 11/ }).click();
-  await expect(page.getByRole('dialog', { name: 'Confirmar placar' })).toBeVisible();
-  await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-
-  // A assinatura de quem corrigiu é gravada por gatilho, não pelo cliente: é ela
-  // que torna aceitável deixar qualquer jogador corrigir.
-
+  // Empate recusado e a pergunta do placar abaixo do limite são regras de tela,
+  // e têm teste na metade `demo`, que é mais rápida. Aqui interessa o que só o
+  // banco prova: a assinatura de quem corrigiu é gravada por GATILHO, a partir
+  // de quem pediu — e é ela que torna aceitável deixar qualquer jogador
+  // corrigir. Como coluna comum, bastava não mandá-la.
+  await ajustarPlacar(page, 0, 4);
+  await page.getByRole('button', { name: /CORRIGIR 12 × 13/ }).click();
   await expect(page.getByText('Corrigido por Raul')).toBeVisible();
 
   // ===== o ranking somou =====
