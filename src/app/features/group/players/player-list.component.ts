@@ -101,7 +101,7 @@ type Filter = 'active' | 'inactive' | 'all';
                   <span class="tag tag-outline">DONO</span>
                 }
                 @if (entry.naoEntrou) {
-                  <span class="tag tag-neutral">NÃO ENTROU</span>
+                  <span class="tag tag-warning">NÃO ENTROU</span>
                 }
               </span>
               @if (!entry.player.active) {

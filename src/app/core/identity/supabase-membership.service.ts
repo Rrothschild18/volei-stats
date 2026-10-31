@@ -62,7 +62,7 @@ export class SupabaseMembershipService implements MembershipService {
       p_initial_birth_date: input.initialBirthDate,
     });
     if (error) {
-      throw new Error(this.readable(error.message));
+      throw new Error(error.message);
     }
     const row = data?.[0];
     if (!row) {
@@ -83,7 +83,7 @@ export class SupabaseMembershipService implements MembershipService {
     const client = await this.ready();
     const { data, error } = await client.rpc('redeem_invite_code', { p_code: code });
     if (error) {
-      throw new Error(this.readable(error.message));
+      throw new Error(error.message);
     }
 
     const row = data?.[0];
@@ -126,7 +126,7 @@ export class SupabaseMembershipService implements MembershipService {
       p_new_birth_date: input.newBirthDate ?? undefined,
     });
     if (error) {
-      throw new Error(this.readable(error.message));
+      throw new Error(error.message);
     }
     if (!data?.ok || !data.player_id) {
       return { ok: false, failure: FAILURES[data?.reason ?? ''] ?? 'not-found' };
@@ -138,7 +138,7 @@ export class SupabaseMembershipService implements MembershipService {
     const client = await this.ready();
     const { error } = await client.rpc('rename_me', { p_group_id: groupId, p_name: name });
     if (error) {
-      throw new Error(this.readable(error.message));
+      throw new Error(error.message);
     }
   }
 
@@ -154,7 +154,7 @@ export class SupabaseMembershipService implements MembershipService {
       p_new: input.next,
     });
     if (error) {
-      throw new Error(this.readable(error.message));
+      throw new Error(error.message);
     }
     return data === 'ok'
       ? { ok: true }
@@ -195,7 +195,7 @@ export class SupabaseMembershipService implements MembershipService {
       .select('code')
       .limit(1);
     if (error) {
-      throw new Error(this.readable(error.message));
+      throw new Error(error.message);
     }
     return { code: data?.[0]?.code ?? code, revoked: false };
   }
@@ -236,7 +236,7 @@ export class SupabaseMembershipService implements MembershipService {
     const client = await this.ready();
     const { error } = await client.rpc('reset_player_birth_date', { p_player_id: playerId });
     if (error) {
-      throw new Error(this.readable(error.message));
+      throw new Error(error.message);
     }
   }
 
@@ -247,30 +247,12 @@ export class SupabaseMembershipService implements MembershipService {
       p_player_id: playerId,
     });
     if (error) {
-      throw new Error(this.readable(error.message));
+      throw new Error(error.message);
     }
   }
 
   private async ready() {
     await this.supabase.ensureSession();
     return this.supabase.client;
-  }
-
-  /**
-   * As mensagens do banco já vêm escritas para a pessoa ler — as funções usam
-   * `raise exception` com texto em português. O que não vem é o caso do código
-   * repetido, que chega como violação de unicidade.
-   */
-  private readable(message: string): string {
-    if (message.includes('players_name_key')) {
-      return 'Já tem alguém com esse nome neste vôlei. Escolha outro.';
-    }
-    if (message.includes('invites_code_key')) {
-      return 'Esse código já está em uso por outro vôlei. Escolha outro.';
-    }
-    if (message.includes('invites_code_shape')) {
-      return 'O código aceita letras, números e hífen, com pelo menos 3 caracteres.';
-    }
-    return message;
   }
 }

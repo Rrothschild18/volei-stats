@@ -203,7 +203,7 @@ interface StandingRow {
             <button type="button" class="btn btn-secondary" (click)="confirmingDelete.set(false)">
               CANCELAR
             </button>
-            <button type="button" class="btn btn-primary" (click)="remove()">EXCLUIR</button>
+            <button type="button" class="btn btn-danger" (click)="remove()">EXCLUIR</button>
           </div>
         </app-blueprint>
       </div>

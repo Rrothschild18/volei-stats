@@ -2,7 +2,7 @@ import { Component, computed, input } from '@angular/core';
 import { IconComponent } from '../icon/icon.component';
 import { IconName } from '../icon/icon-data';
 
-/** Positiva, erro de validação ou evento de quadra. O sistema não tem vermelho. */
+/** Positiva, erro de validação ou evento de quadra. */
 export type NoteTone = 'positive' | 'error' | 'event';
 
 @Component({
@@ -39,9 +39,9 @@ export class InlineNoteComponent {
   protected readonly palette = computed(() => {
     switch (this.tone()) {
       case 'positive':
-        return 'bg-accent-100 text-accent-800';
+        return 'bg-success-100 text-success-800';
       case 'error':
-        return 'border border-dashed border-accent-800 text-accent-900 font-medium';
+        return 'border border-dashed border-danger-800 text-danger-800 font-medium';
       default:
         return 'border border-dashed border-neutral-500';
     }
