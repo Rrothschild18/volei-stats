@@ -11,7 +11,12 @@
     "build:gh": "ng build --base-href /volei-stats/",
     "test:e2e": "playwright test",
     "test:sql": "./supabase/tests/run.sh",
-    "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit"
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
+    "start:demo": "ng serve --configuration demo --port 4300",
+    "test:e2e:demo": "E2E_ALVO=demo playwright test --project=demo --project=demo-desktop --workers=4",
+    "test:e2e:banco": "E2E_ALVO=banco playwright test --project=banco",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "private": true,
   "packageManager": "pnpm@10.28.2",

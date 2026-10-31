@@ -26,10 +26,10 @@ pnpm start
 O `supabase/seed.sql` sobe dois vôleis para clicar, e em nenhum deles alguém
 está reivindicado — é digitando o código e tocando num nome que você entra:
 
-| Vôlei | Código | Data inicial | O que tem |
-| --- | --- | --- | --- |
-| Vôlei Segunda | `SEGUNDA` | 01/01/1990 | Oito jogadores, a sessão de hoje com um campeonato em andamento, a da semana passada encerrada. Dono: Rafa |
-| Vôlei Teste | `TESTE-VOLEI` | 01/01/1990 | Vazio de propósito, com Raul como dono |
+| Vôlei         | Código        | Data inicial | O que tem                                                                                                  |
+| ------------- | ------------- | ------------ | ---------------------------------------------------------------------------------------------------------- |
+| Vôlei Segunda | `SEGUNDA`     | 01/01/1990   | Oito jogadores, a sessão de hoje com um campeonato em andamento, a da semana passada encerrada. Dono: Rafa |
+| Vôlei Teste   | `TESTE-VOLEI` | 01/01/1990   | Vazio de propósito, com Raul como dono                                                                     |
 
 Entre como **Raul** nos dois: no Teste ele é dono (cadastra gente, gera o
 convite), na Segunda ele só joga. É assim que se vê as duas telas.
@@ -83,16 +83,6 @@ To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use th
 ng test
 ```
 
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
@@ -100,18 +90,28 @@ For more information on using the Angular CLI, including detailed command refere
 ## Testes
 
 ```bash
-pnpm lint        # eslint + angular-eslint
-pnpm test        # unidade: regras, stores e o cenário de exemplo
-pnpm test:sql    # o modelo de acesso e as regras que viraram constraints
-pnpm test:e2e    # os caminhos que atravessam o banco, num navegador de verdade
+pnpm lint             # eslint + angular-eslint
+pnpm test             # unidade: regras, stores e o cenário de exemplo
+pnpm test:sql         # o modelo de acesso e as regras que viraram constraints
+pnpm test:e2e         # ponta a ponta: as duas metades
+pnpm test:e2e:demo    # só a metade sem banco — rápida, boa para o dia a dia
+pnpm test:e2e:banco   # só a que atravessa o Postgres (pede `supabase start`)
 ```
+
+A suíte de ponta a ponta tem duas metades, porque o que elas exigem para rodar é
+diferente: `demo` roda contra o cenário em memória e cobre as telas de dentro do
+vôlei; `banco` sobe o Supabase local e cobre o que só existe com servidor —
+entrar, criar vôlei e um campeonato do zero ao fim. O que cada uma garante e como
+escrever teste novo está em `e2e/demo/README.md`.
 
 `pnpm test:sql` sobe um Postgres descartável em Docker e aplica as migrations —
 não precisa do `supabase start` nem de conta no Supabase.
 
-`pnpm test:e2e` precisa do Supabase local de pé (`supabase start`) e sobe o
-servidor de desenvolvimento sozinho. Cada teste **cria o próprio vôlei pelo
-fluxo de criação e apaga o que criou**: nenhum depende do cenário de exemplo nem
-da ordem dos outros, e dá para rodar a suíte duas vezes seguidas sem reset.
+A metade `banco` precisa do Supabase local de pé (`supabase start`); as duas
+sobem o servidor de desenvolvimento sozinhas. Lá cada teste **cria o próprio
+vôlei pelo fluxo de criação e apaga o que criou**: nenhum depende do cenário de
+exemplo nem da ordem dos outros, e dá para rodar a suíte duas vezes seguidas sem
+reset. Na metade `demo` o isolamento é de graça — o cenário vive na aba, e cada
+teste abre a sua.
 
 Tudo isso roda na pipeline em todo push e pull request (`.github/workflows/ci.yml`).
