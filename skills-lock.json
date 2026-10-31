@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "e2e-testing-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/e2e-testing-patterns/SKILL.md",
+      "computedHash": "42d2ee79ee4ec62c04ce413dbd5dd80e9bf5c2c02a2daf8f37a421416365ffe5"
+    }
+  }
+}
