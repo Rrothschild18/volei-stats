@@ -35,6 +35,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # As credenciais da nuvem entram aqui, não no repositório. Variáveis, e
+      # não segredos: a chave publicável termina no bundle que o Pages serve, de
+      # modo que esconder não é opção — e chamar de segredo o que é público só
+      # engana quem lê depois. Falta de variável derruba o deploy no passo.
+      - name: Apontar para o Supabase da nuvem
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/env-producao.mjs
+
       - name: Build
         run: pnpm run build --base-href "/${{ github.event.repository.name }}/"
 

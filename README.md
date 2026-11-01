@@ -56,6 +56,43 @@ O que você fizer sobrevive a um F5, porque o estado fica no `sessionStorage` da
 aba. Fechar a aba volta ao cenário inicial, e ele também se renova quando o dia
 vira, porque as datas são relativas a hoje.
 
+## O banco na nuvem (produção)
+
+O app publicado no GitHub Pages fala com um projeto do Supabase. As credenciais
+dele **não ficam no repositório**: o deploy as injeta em
+`src/environments/environment.prod.ts`, que está versionado com os valores
+vazios.
+
+No repositório, em **Settings → Secrets and variables → Actions**, aba
+**Variables**, crie duas:
+
+| Variável                   | Onde achar no Supabase                                                        |
+| -------------------------- | ----------------------------------------------------------------------------- |
+| `SUPABASE_URL`             | Project Settings → Data API → Project URL (`https://<ref>.supabase.co`)       |
+| `SUPABASE_PUBLISHABLE_KEY` | Project Settings → API Keys → a publicável (`sb_publishable_…`, antes `anon`) |
+
+São **variáveis, não segredos**, e isso é a parte que importa entender: o build
+inlina a chave no JavaScript que o Pages serve, então quem abrir o devtools lê
+ela. Esconder não é opção, e chamar de segredo o que é público engana quem ler
+depois. O que protege os dados são as políticas do banco — toda tabela só libera
+para `authenticated`, dentro do grupo de que a pessoa é membro — e o captcha no
+login anônimo.
+
+A chave **secreta** (`sb_secret_…`, antes `service_role`) ignora as políticas e
+nunca entra aqui, nem como segredo do Actions: o app não precisa dela. O
+`sb_secret_…` que existe em `e2e/apoio.ts` é a chave fixa do Supabase local,
+igual em qualquer máquina, e só abre o Postgres em Docker da sua.
+
+Ainda no dashboard, uma vez: **Authentication → Providers → Anonymous sign-ins**
+ligado (é o modelo de acesso do app), e **Authentication → Attack Protection →
+Captcha** ligado, que é a única proteção que o endpoint anônimo pede.
+
+Faltando uma das variáveis, o deploy falha no passo que as lê, de propósito — em
+vez de publicar uma tela que não carrega nada e não diz por quê.
+
+Projeto grátis é pausado após ~7 dias sem acesso, e o vôlei é semanal: o
+workflow `keepalive.yml` faz uma consulta trivial a cada três dias.
+
 ## Code scaffolding
 
 Angular CLI includes powerful code scaffolding tools. To generate a new component, run:

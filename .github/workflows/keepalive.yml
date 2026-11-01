@@ -1,0 +1,41 @@
+# Projeto grátis do Supabase é pausado após ~7 dias sem acesso, e o vôlei é
+# semanal — ou seja, é exatamente o caso que pausa. Uma consulta trivial a cada
+# três dias mantém o projeto de pé.
+#
+# A consulta atravessa o banco de verdade (a tabela, não só a porta): com a
+# chave publicável o papel é `anon`, e as políticas só liberam para
+# `authenticated`, então a resposta é uma lista vazia com 200. Isso basta — o
+# que conta como atividade é o banco ter sido consultado, não o que ele
+# devolveu.
+name: Keepalive
+
+on:
+  schedule:
+    - cron: '0 6 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  acordar:
+    name: Acordar o banco
+    runs-on: ubuntu-latest
+    steps:
+      - name: Uma consulta trivial
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "Faltam SUPABASE_URL e/ou SUPABASE_PUBLISHABLE_KEY em" \
+                 "Settings → Secrets and variables → Actions → Variables."
+            exit 1
+          fi
+          codigo=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            "$SUPABASE_URL/rest/v1/groups?select=id&limit=1")
+          echo "HTTP $codigo"
+          # Qualquer resposta do Postgres serve como prova de vida; o que não
+          # serve é o projeto não responder.
+          case "$codigo" in
+            2*|4*) exit 0 ;;
+            *) exit 1 ;;
+          esac

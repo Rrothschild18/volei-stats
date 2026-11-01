@@ -247,12 +247,20 @@ Criar vôlei, cadastrar os amigos, o link, a lista de nomes, a troca de data, o
 4. _(recomendado)_ Attack Protection → ligar **Captcha (Turnstile)**.
    O endpoint anônimo é aberto; sem captcha, alguém pode inflar a tabela de
    usuários. É a única proteção que esse modelo pede.
+5. No GitHub: **Settings → Secrets and variables → Actions → Variables** →
+   `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY`. Variáveis, não segredos — a
+   chave publicável vai para o bundle que o Pages serve, então ela é pública por
+   construção. O README detalha o porquê; a chave **secreta** não entra em lugar
+   nenhum.
 
 ### Fase 4 — Deploy
 
-- O workflow do GitHub Pages já existe e continua funcionando.
-- **Keepalive:** projetos grátis são pausados após ~7 dias sem acesso. Um cron
-  no GitHub Actions faz um `select` trivial a cada 3 dias.
+- O workflow do GitHub Pages já existe e continua funcionando. Antes do build,
+  `scripts/env-producao.mjs` escreve as credenciais em
+  `environment.prod.ts` (versionado vazio); variável faltando derruba o deploy
+  ali, em vez de publicar uma tela que não carrega nada.
+- **Keepalive:** projetos grátis são pausados após ~7 dias sem acesso.
+  `keepalive.yml` faz um `select` trivial a cada 3 dias.
 
 ### Fase 5 — Remover o IndexedDB (ticket 30)
 
