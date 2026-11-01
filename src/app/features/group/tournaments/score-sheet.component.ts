@@ -1,8 +1,9 @@
 import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { BracketMatch } from '../../../core/services/tournament.service';
-import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
+import { CorrectionRefusal, LiveTournamentStore } from '../../../core/stores/live-tournament.store';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { phaseLabel } from '../../../core/rules/bracket-phases';
+import { CORRECTION_WINDOW_MINUTES } from '../../../core/rules/tournament-timing';
 import { Match } from '../../../shared/models';
 import { formatTime } from '../../../shared/utils/date.util';
 import {
@@ -115,6 +116,12 @@ import {
             </app-blueprint>
           }
 
+          <div aria-live="polite">
+            @if (refusalMessage(); as message) {
+              <app-inline-note tone="error">{{ message }}</app-inline-note>
+            }
+          </div>
+
           @if (error(); as message) {
             <app-inline-note tone="error">{{ message }}</app-inline-note>
           } @else if (preview(); as message) {
@@ -200,6 +207,18 @@ export class ScoreSheetComponent {
   protected readonly scoreA = signal(0);
   protected readonly scoreB = signal(0);
   protected readonly busy = signal(false);
+  protected readonly refusal = signal<CorrectionRefusal | null>(null);
+
+  protected readonly refusalMessage = computed(() => {
+    switch (this.refusal()) {
+      case 'window-closed':
+        return `Este campeonato fechou. Placar só até ${CORRECTION_WINDOW_MINUTES} min depois do fim.`;
+      case 'not-found':
+        return 'Esta partida não existe mais.';
+      default:
+        return null;
+    }
+  });
   protected readonly confirming = signal(false);
   /** Preenchido depois de salvar: a tela vira "placar travado". */
   protected readonly saved = signal<Match | null>(null);
@@ -349,12 +368,22 @@ export class ScoreSheetComponent {
       const correcting = this.correcting();
       if (correcting) {
         // Correção é UPDATE, e fica registrado quem corrigiu.
-        await this.store.correctScore(
+        const result = await this.store.correctScore(
           correcting.id,
           this.scoreA(),
           this.scoreB(),
           this.group.playerId(),
         );
+
+        // Recusada, a folha NÃO fecha: fechar devolveria a pessoa à chave com o
+        // placar antigo e sem nada dito. O prazo é a recusa que ela vai ver —
+        // a tela de onde ela veio já tinha escondido o botão, então chegar aqui
+        // significa aba velha ou link antigo.
+        if (!result.saved) {
+          this.refusal.set(result.refusal);
+          return;
+        }
+
         this.closed.emit();
         return;
       }

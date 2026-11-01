@@ -19,7 +19,7 @@ describe('NetworkActivityService', () => {
 
   it('acende durante o pedido e apaga no fim', async () => {
     const activity = create();
-    let release: () => void = () => {};
+    let release!: () => void;
     const pending = activity.track(
       () =>
         new Promise<void>((resolve) => {
@@ -47,7 +47,7 @@ describe('NetworkActivityService', () => {
 
   it('o primeiro a voltar não apaga a espera do segundo', async () => {
     const activity = create();
-    let releaseSlow: () => void = () => {};
+    let releaseSlow!: () => void;
 
     const slow = activity.track(
       () =>

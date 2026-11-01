@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tournamentTiming } from './tournament-timing';
+import { TournamentTiming, correctionWindowOpen, tournamentTiming } from './tournament-timing';
 import { Match, MatchPhase } from '../../shared/models';
 
 function match(phase: MatchPhase, playedAt: string): Match {
@@ -76,5 +76,37 @@ describe('tournamentTiming', () => {
 
     expect(t.abandoned).toBe(true);
     expect(t.minutes).toBeNull();
+  });
+});
+
+describe('correctionWindowOpen', () => {
+  const FINAL = '2026-10-26T23:40:00.000Z';
+
+  function comFinal(playedAt: string): TournamentTiming {
+    return tournamentTiming('2026-10-26T22:00:00.000Z', [match('final', playedAt)], playedAt);
+  }
+
+  it('campeonato rolando: corrigir vale sem prazo', () => {
+    const timing = tournamentTiming('2026-10-26T22:00:00.000Z', [], '2026-10-26T23:00:00.000Z');
+
+    expect(timing.endedAt).toBeNull();
+    expect(correctionWindowOpen(timing, '2026-11-20T10:00:00.000Z')).toBe(true);
+  });
+
+  it('dentro dos 30 min depois da final, corrigir vale', () => {
+    expect(correctionWindowOpen(comFinal(FINAL), '2026-10-27T00:09:00.000Z')).toBe(true);
+  });
+
+  it('nos 30 min exatos ainda vale', () => {
+    expect(correctionWindowOpen(comFinal(FINAL), '2026-10-27T00:10:00.000Z')).toBe(true);
+  });
+
+  it('31 min depois da final, não vale mais', () => {
+    expect(correctionWindowOpen(comFinal(FINAL), '2026-10-27T00:11:00.000Z')).toBe(false);
+  });
+
+  it('o prazo conta do fim do campeonato, não de quando a tela abriu', () => {
+    // Duas semanas depois: o campeonato já virou ranking de todo mundo.
+    expect(correctionWindowOpen(comFinal(FINAL), '2026-11-09T20:00:00.000Z')).toBe(false);
   });
 });

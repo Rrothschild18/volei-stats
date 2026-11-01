@@ -6,11 +6,13 @@ import { CurrentGroupStore } from './current-group.store';
 import { findFormat } from '../rules/tournament-formats';
 import { phaseLabel, plannedPhases } from '../rules/bracket-phases';
 import { readRound1 } from '../rules/round-1-outcome';
+import { correctionWindowOpen, tournamentTiming } from '../rules/tournament-timing';
 import {
   Match,
   MatchPhase,
   PendingTiebreak,
   Player,
+  TiebreakDecision,
   Tournament,
   TournamentTeam,
 } from '../../shared/models';
@@ -52,6 +54,24 @@ export interface MatchResult {
 
 const UNDEFINED_SLOT = 'VENCEDOR';
 
+/**
+ * O que uma correção de placar levou embora.
+ *
+ * Existe para a tela poder **dizer**. Uma decisão de quadra desfeita em
+ * silêncio volta como uma chave que pausou sem explicação, e ninguém liga uma
+ * coisa à outra — alguém fez aquele par-ou-ímpar na beira da quadra.
+ */
+export interface CorrectionFallout {
+  readonly droppedDecisions: readonly TiebreakDecision[];
+}
+
+/** Por que uma correção não foi gravada. */
+export type CorrectionRefusal = 'not-found' | 'window-closed';
+
+export type CorrectionResult =
+  | { readonly saved: true; readonly fallout: CorrectionFallout }
+  | { readonly saved: false; readonly refusal: CorrectionRefusal };
+
 /** As prioridades do campeonato como texto comparável. */
 function priorityKeys(tournament: Tournament): string {
   return (tournament.priorityEntries ?? [])
@@ -85,6 +105,15 @@ export class LiveTournamentStore {
   readonly slots = signal<readonly BracketSlot[]>([]);
   readonly players = signal<readonly Player[]>([]);
   readonly loading = signal(false);
+
+  /**
+   * O que a última correção derrubou, enquanto a tela não disser.
+   *
+   * Mora na store, e não numa saída do componente, porque quem precisa falar é
+   * a tela da chave — e quem recebe o resultado é a folha de placar, dois
+   * componentes acima dela.
+   */
+  readonly correctionFallout = signal<CorrectionFallout | null>(null);
 
   readonly playersById = computed(
     () => new Map(this.players().map((player) => [player.id, player])),
@@ -273,16 +302,41 @@ export class LiveTournamentStore {
     return { saved: true, existing: null };
   }
 
+  /**
+   * Corrigir vale até 30 min depois de o campeonato encerrar?
+   *
+   * A pergunta é da tela (para esconder o botão) e da gravação (para recusar).
+   * Uma condição só, lida pelos dois: se a tela fosse a única guardiã, o estado
+   * errado entraria por outro caminho — a lição do ticket 32.
+   */
+  readonly correctionOpen = computed(() => {
+    const tournament = this.tournament();
+    if (!tournament) {
+      return false;
+    }
+
+    return correctionWindowOpen(
+      tournamentTiming(tournament.createdAt, this.matches(), new Date().toISOString()),
+      new Date().toISOString(),
+    );
+  });
+
   /** Correção de placar já lançado: de qualquer jogador, e registra quem foi. */
   async correctScore(
     matchId: string,
     scoreA: number,
     scoreB: number,
     correctedBy: string | null,
-  ): Promise<void> {
+  ): Promise<CorrectionResult> {
     const match = await this.facade.getMatchById(matchId);
     if (!match) {
-      return;
+      return { saved: false, refusal: 'not-found' };
+    }
+
+    // A recusa mora aqui, e não só na tela: é o mesmo caminho que um link
+    // antigo, uma aba aberta desde ontem ou a tela de outra pessoa alcançam.
+    if (!this.correctionOpen()) {
+      return { saved: false, refusal: 'window-closed' };
     }
 
     const corrected: Match = {
@@ -298,12 +352,21 @@ export class LiveTournamentStore {
 
     await this.facade.saveMatch(corrected);
 
+    let droppedDecisions: readonly TiebreakDecision[] = [];
+
     // A correção pode mudar quem saiu por mais pontos e quem vai ao encaixe.
     const tournament = this.tournament();
     if (tournament) {
       const before = priorityKeys(tournament);
       const allMatches = await this.facade.getMatchesByTournamentId(tournament.id);
+
+      // Primeiro o que a correção derrubou, e só então o que ela refaz: fechar
+      // a rodada 1 com uma decisão caduca ainda guardada seria derivar a chave
+      // a partir de um par-ou-ímpar que já não é sobre as duplas empatadas.
+      droppedDecisions = await this.tournaments.dropStaleTiebreaks(tournament, allMatches);
+
       await this.tournaments.closeRound1(tournament, allMatches);
+      await this.rederiveOutcome(tournament, allMatches);
 
       // O sorteio pendente nasceu destas prioridades. Mudou a prioridade, ou
       // a correção reabriu um desempate, e ele deixa de valer: o que depende
@@ -315,6 +378,45 @@ export class LiveTournamentStore {
     }
 
     await this.reload();
+
+    const fallout: CorrectionFallout = { droppedDecisions };
+    // Depois do `reload`: ele repinta a tela inteira, e a frase tem de
+    // sobreviver à repintura que ela explica.
+    this.correctionFallout.set(droppedDecisions.length > 0 ? fallout : null);
+
+    return { saved: true, fallout };
+  }
+
+  /** A tela já disse o que caiu. */
+  dismissFallout(): void {
+    this.correctionFallout.set(null);
+  }
+
+  /**
+   * A classificação e o `status` são derivados de novo, nunca mantidos.
+   *
+   * `finishIfComplete` só sabe **encerrar**: ele era gravado uma vez e nunca
+   * mais revisitado, então uma correção que reabre a chave deixava o campeonato
+   * marcado como encerrado e a classificação final do resultado antigo no banco,
+   * contando nos rankings (ticket 35).
+   */
+  private async rederiveOutcome(tournament: Tournament, matches: Match[]): Promise<void> {
+    const complete = await this.tournaments.isTournamentComplete(tournament, matches);
+
+    const status = complete ? 'completed' : 'in-progress';
+    const standings = complete ? this.tournaments.computeFinalStandings(tournament, matches) : [];
+
+    const same =
+      tournament.status === status &&
+      JSON.stringify(tournament.finalStandings) === JSON.stringify(standings);
+    if (same) {
+      return;
+    }
+
+    tournament.status = status;
+    tournament.finalStandings = standings;
+    tournament.updatedAt = new Date().toISOString();
+    await this.facade.saveTournament(tournament);
   }
 
   /** Registra quem venceu o par-ou-ímpar do encaixe. */

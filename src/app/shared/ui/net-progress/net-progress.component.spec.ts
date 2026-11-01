@@ -31,7 +31,7 @@ describe('NetProgressComponent', () => {
   it('espera o atraso antes de aparecer, e some quando o pedido volta', async () => {
     const { activity, fixture, bar } = setup();
 
-    let release: () => void = () => {};
+    let release!: () => void;
     const pending = activity.track(
       () =>
         new Promise<void>((resolve) => {

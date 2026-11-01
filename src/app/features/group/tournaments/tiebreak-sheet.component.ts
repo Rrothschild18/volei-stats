@@ -1,6 +1,6 @@
 import { Component, computed, inject, input, output } from '@angular/core';
 import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
-import { BottomSheetComponent, BusyDirective } from '../../../shared/ui';
+import { BottomSheetComponent, BusyDirective, InlineNoteComponent } from '../../../shared/ui';
 
 /**
  * Empate na diferença de pontos (1r), REGRAS.md §9.3.
@@ -12,9 +12,13 @@ import { BottomSheetComponent, BusyDirective } from '../../../shared/ui';
  */
 @Component({
   selector: 'app-tiebreak-sheet',
-  imports: [BottomSheetComponent, BusyDirective],
+  imports: [BottomSheetComponent, BusyDirective, InlineNoteComponent],
   template: `
     <app-bottom-sheet kicker="DESEMPATE" title="EMPATE NA DIFERENÇA" [dismissible]="false">
+      @if (note(); as message) {
+        <app-inline-note tone="event">{{ message }}</app-inline-note>
+      }
+
       <div class="border border-divider">
         @for (row of rows(); track row.teamId; let last = $last) {
           <div class="flex items-baseline gap-2 px-3 py-2" [class.row-rule]="!last">
@@ -57,6 +61,15 @@ export class TiebreakSheetComponent {
    * um estado aqui dentro deixaria a folha travada para sempre.
    */
   readonly registering = input<string | null>(null);
+
+  /**
+   * Por que a chave pausou **de novo**.
+   *
+   * Sem isto, uma correção que derruba o par-ou-ímpar devolve esta mesma folha
+   * sem nada dito, e quem já tinha decidido na quadra não liga uma coisa à
+   * outra (ticket 35).
+   */
+  readonly note = input<string | null>(null);
 
   readonly choose = output<string>();
 

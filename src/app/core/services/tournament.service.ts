@@ -7,6 +7,7 @@ import {
   Match,
   MatchPhase,
   PendingTiebreak,
+  TiebreakDecision,
   TiebreakKind,
   TournamentPriorityEntry,
 } from '../../shared/models';
@@ -436,6 +437,44 @@ export class TournamentService {
     ];
     tournament.updatedAt = new Date().toISOString();
     return this.facade.saveTournament(tournament);
+  }
+
+  /**
+   * Derruba as decisões de quadra que a rodada 1 corrigida já não sustenta.
+   *
+   * Alguém fez aquele par-ou-ímpar na beira da quadra, entre **aquelas** duas
+   * duplas. Se a correção mudou quem empatou, a decisão não se aplica ao empate
+   * novo: ela é descartada e a chave pausa pedindo outra. Manter decisão que
+   * ninguém revalida é a fonte do problema, e não a solução — é a mesma lição
+   * de quando `eliminated` virou estado derivado (tickets 32 e 35).
+   *
+   * Devolve o que caiu, para a tela poder **dizer** — uma decisão desfeita em
+   * silêncio reaparece como uma chave que pausou sem explicação.
+   */
+  async dropStaleTiebreaks(
+    tournament: Tournament,
+    matches: Match[],
+  ): Promise<readonly TiebreakDecision[]> {
+    this.normalizeTournament(tournament);
+
+    const round1 = matches.filter((match) => match.phase === 'round-1' && match.winnerId !== null);
+    const expected = this.generateInitialMatches(tournament).length;
+    if (expected === 0 || round1.length < expected) {
+      return [];
+    }
+
+    const { staleDecisions } = readRound1(round1, this.round1Options(tournament));
+    if (staleDecisions.length === 0) {
+      return [];
+    }
+
+    tournament.tiebreakDecisions = tournament.tiebreakDecisions.filter(
+      (decision) => !staleDecisions.includes(decision),
+    );
+    tournament.updatedAt = new Date().toISOString();
+    await this.facade.saveTournament(tournament);
+
+    return staleDecisions;
   }
 
   /**

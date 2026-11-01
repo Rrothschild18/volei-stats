@@ -503,3 +503,109 @@ describe('TournamentService · a vaga já reservada na final', () => {
     expect(await service.getNextSlots(cinco())).toEqual([]);
   });
 });
+
+describe('TournamentService.dropStaleTiebreaks', () => {
+  /**
+   * Seis duplas. t2 e t4 perdem por 3 e fazem par-ou-ímpar; t1 e t3 vencem por
+   * 3 e fazem o deles. Depois alguém corrige a primeira partida.
+   */
+  function sixTeams() {
+    return [
+      team('t1', ['rafa', 'bia']),
+      team('t2', ['thiago', 'nina']),
+      team('t3', ['duda', 'malu']),
+      team('t4', ['gui', 'paty']),
+      team('t5', ['leo', 'carol']),
+      team('t6', ['will', 'be']),
+    ];
+  }
+
+  const decisoes = [
+    {
+      kind: 'losers' as const,
+      teamIds: ['t2', 't4'],
+      winnerTeamId: 't4',
+      decidedBy: 'p-rafa',
+      decidedAt: '2026-10-26T23:28:00.000Z',
+    },
+    {
+      kind: 'winners' as const,
+      teamIds: ['t1', 't3'],
+      winnerTeamId: 't1',
+      decidedBy: 'p-rafa',
+      decidedAt: '2026-10-26T23:30:00.000Z',
+    },
+  ];
+
+  const original = [
+    match('m1', 'round-1', 't1', 't2', 12, 9),
+    match('m2', 'round-1', 't3', 't4', 12, 9),
+    match('m3', 'round-1', 't5', 't6', 12, 10),
+  ];
+
+  it('a correção que muda quem empatou derruba as decisões, e elas saem do campeonato', async () => {
+    // Corrigido: t2 venceu. Os empates passam a ser t1/t4 e t2/t3.
+    const corrected = [match('m1', 'round-1', 't1', 't2', 9, 12), original[1], original[2]];
+    const { service, saved } = setup(corrected);
+    const entry = tournament({
+      formatId: 'knockout-6',
+      teams: sixTeams(),
+      tiebreakDecisions: structuredClone(decisoes),
+    });
+
+    const dropped = await service.dropStaleTiebreaks(entry, corrected);
+
+    expect(dropped.map((decision) => decision.kind)).toEqual(['losers', 'winners']);
+    expect(entry.tiebreakDecisions).toEqual([]);
+    // Gravado: decisão que ninguém revalida não pode sobreviver no banco.
+    expect(saved.at(-1)?.tiebreakDecisions).toEqual([]);
+  });
+
+  it('e a chave volta a pausar, pedindo o par-ou-ímpar das duplas de agora', async () => {
+    const corrected = [match('m1', 'round-1', 't1', 't2', 9, 12), original[1], original[2]];
+    const { service } = setup(corrected);
+    const entry = tournament({
+      formatId: 'knockout-6',
+      teams: sixTeams(),
+      tiebreakDecisions: structuredClone(decisoes),
+    });
+
+    await service.dropStaleTiebreaks(entry, corrected);
+
+    expect(service.pendingTiebreak(entry, corrected)).toEqual({
+      kind: 'losers',
+      teamIds: ['t1', 't4'],
+    });
+  });
+
+  it('correção que não muda o par não derruba nada, e não grava', async () => {
+    // t2 continua perdendo por 3: o empate é o mesmo, com outros números.
+    const corrected = [match('m1', 'round-1', 't1', 't2', 11, 8), original[1], original[2]];
+    const { service, saved } = setup(corrected);
+    const entry = tournament({
+      formatId: 'knockout-6',
+      teams: sixTeams(),
+      tiebreakDecisions: structuredClone(decisoes),
+    });
+
+    const dropped = await service.dropStaleTiebreaks(entry, corrected);
+
+    expect(dropped).toEqual([]);
+    expect(entry.tiebreakDecisions).toHaveLength(2);
+    expect(saved).toHaveLength(0);
+    expect(service.pendingTiebreak(entry, corrected)).toBeNull();
+  });
+
+  it('rodada 1 pela metade não derruba decisão nenhuma', async () => {
+    const parcial = [original[0], original[1]];
+    const { service, saved } = setup(parcial);
+    const entry = tournament({
+      formatId: 'knockout-6',
+      teams: sixTeams(),
+      tiebreakDecisions: structuredClone(decisoes),
+    });
+
+    expect(await service.dropStaleTiebreaks(entry, parcial)).toEqual([]);
+    expect(saved).toHaveLength(0);
+  });
+});

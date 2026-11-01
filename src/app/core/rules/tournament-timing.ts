@@ -62,6 +62,40 @@ export function tournamentTiming(
   };
 }
 
+/**
+ * Quanto tempo depois do fim do campeonato um placar ainda pode ser corrigido.
+ *
+ * Corrigir um campeonato encerrado não tinha prazo nenhum, e o botão "Errou um
+ * placar?" abria para sempre. Mas um campeonato de duas semanas atrás já virou
+ * ranking, prioridade e estatística de todo mundo: mexer nele é reescrever o
+ * passado de gente que não está ali.
+ */
+export const CORRECTION_WINDOW_MINUTES = 30;
+
+/**
+ * Dá para corrigir um placar deste campeonato agora?
+ *
+ * Enquanto a final não saiu, vale sem prazo: o campeonato está acontecendo, e
+ * corrigir é parte de jogar. Depois da final, a noite fecha em
+ * `CORRECTION_WINDOW_MINUTES`.
+ *
+ * O corte conta do **fim do campeonato**, não da sessão nem da hora em que
+ * alguém lançou o placar: é o `endedAt` que `tournamentTiming` já calcula, e
+ * que de propósito não se move quando um número é consertado.
+ *
+ * Depois do prazo o campeonato é só leitura — o dono continua podendo
+ * **excluir**, que é a saída honesta para um resultado que ninguém pode mais
+ * consertar.
+ */
+export function correctionWindowOpen(timing: TournamentTiming, agora: string): boolean {
+  if (!timing.endedAt) {
+    return true;
+  }
+
+  const minutos = (Date.parse(agora) - Date.parse(timing.endedAt)) / 60_000;
+  return minutos <= CORRECTION_WINDOW_MINUTES;
+}
+
 /** "48 min", "1h12". */
 export function formatDuration(minutes: number): string {
   if (minutes < 60) {

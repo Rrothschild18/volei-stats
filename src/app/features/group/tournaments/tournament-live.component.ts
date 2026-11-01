@@ -85,6 +85,27 @@ function writeDismissed(tournamentId: string): void {
 
     <app-segmented [options]="tabs" [value]="tab()" (valueChange)="tab.set($any($event))" />
 
+    <!--
+      O que a correção derrubou. Fica na tela E dentro da folha de desempate:
+      quando a correção reabre o empate, a folha sobe por cima de tudo, e é lá
+      que a frase precisa estar. Quando o empate simplesmente deixou de existir,
+      não há folha, e é aqui.
+    -->
+    <div class="px-4" aria-live="polite">
+      @if (correctionNote(); as message) {
+        <div class="mt-4 flex flex-col items-start gap-2">
+          <app-inline-note tone="event">{{ message }}</app-inline-note>
+          <button
+            type="button"
+            class="text-[13px] text-accent-700"
+            (click)="store.dismissFallout()"
+          >
+            Entendi
+          </button>
+        </div>
+      }
+    </div>
+
     @if (store.paused() && !group.canPlay()) {
       <app-blueprint class="mx-4 mt-4 flex flex-col gap-2 p-4">
         <app-icon name="hand" [size]="26" class="text-accent-700" />
@@ -185,7 +206,7 @@ function writeDismissed(tournamentId: string): void {
                   @if (result.correctedByName; as corrector) {
                     <p class="px-3 pb-2 text-[12px] muted">Corrigido por {{ corrector }}</p>
                   }
-                  @if (group.canPlay()) {
+                  @if (group.canPlay() && store.correctionOpen()) {
                     <button
                       type="button"
                       class="flex items-center gap-1 px-3 pb-2 text-[13px] text-accent-700"
@@ -274,7 +295,11 @@ function writeDismissed(tournamentId: string): void {
     }
 
     @if (group.canPlay() && store.tiebreak()) {
-      <app-tiebreak-sheet [registering]="registering()" (choose)="resolveTiebreak($event)" />
+      <app-tiebreak-sheet
+        [registering]="registering()"
+        [note]="correctionNote()"
+        (choose)="resolveTiebreak($event)"
+      />
     } @else if (group.canPlay() && store.placementCandidate()) {
       <app-placement-sheet [registering]="registering()" (choose)="applyPlacement($event)" />
     }
@@ -305,6 +330,21 @@ export class TournamentLiveComponent implements OnInit {
   protected readonly inviteDismissed = signal(false);
   /** Quem está sendo gravado como vencedor do par-ou-ímpar (encaixe ou empate). */
   protected readonly registering = signal<string | null>(null);
+
+  /** O que a última correção de placar derrubou, em uma frase. */
+  protected readonly correctionNote = computed(() => {
+    const dropped = this.store.correctionFallout()?.droppedDecisions ?? [];
+    if (dropped.length === 0) {
+      return null;
+    }
+
+    if (dropped.length === 1) {
+      const duplas = dropped[0].teamIds.map((teamId) => this.store.teamLabel(teamId)).join(' × ');
+      return `A correção desfez o par-ou-ímpar de ${duplas}: o empate agora é entre outras duplas.`;
+    }
+
+    return 'A correção desfez os par-ou-ímpares já registrados: os empates agora são entre outras duplas.';
+  });
 
   protected readonly tabs = [
     { id: 'queue', label: 'Fila' },

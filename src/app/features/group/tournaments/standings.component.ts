@@ -8,7 +8,11 @@ import { TournamentService } from '../../../core/services/tournament.service';
 import { DrawService } from '../../../core/services/draw.service';
 import { TournamentPriorityEntry } from '../../../shared/models';
 import { formatTime } from '../../../shared/utils/date.util';
-import { formatDuration, tournamentTiming } from '../../../core/rules/tournament-timing';
+import {
+  CORRECTION_WINDOW_MINUTES,
+  formatDuration,
+  tournamentTiming,
+} from '../../../core/rules/tournament-timing';
 import {
   ActionBarComponent,
   BlueprintComponent,
@@ -185,15 +189,25 @@ interface StandingRow {
           errado para sempre: a tela do campeonato redireciona para cá, e o
           botão de corrigir mora lá. A frase "qualquer jogador corrige" não
           valia depois do último jogo.
+
+          Passado o prazo, o botão SAI — não fica desabilitado com explicação
+          em tooltip. Um botão cinza convida a tentar, e a tela em vez dele diz
+          o que aconteceu (ticket 35).
         -->
-        <button
-          type="button"
-          class="flex items-center gap-2 self-start text-[13px] text-accent-700"
-          (click)="correctScores()"
-        >
-          <app-icon name="pencil" [size]="16" />
-          Errou um placar? Corrigir as partidas deste campeonato
-        </button>
+        @if (store.correctionOpen()) {
+          <button
+            type="button"
+            class="flex items-center gap-2 self-start text-[13px] text-accent-700"
+            (click)="correctScores()"
+          >
+            <app-icon name="pencil" [size]="16" />
+            Errou um placar? Corrigir as partidas deste campeonato
+          </button>
+        } @else {
+          <p class="text-[13px] muted">
+            Este campeonato fechou. Placar só até {{ correctionMinutes }} min depois do fim.
+          </p>
+        }
       }
 
       @if (group.isOwner() && menuOpen()) {
@@ -278,6 +292,9 @@ export class StandingsComponent implements OnInit {
   private readonly sessions = inject(SessionStore);
 
   readonly tournamentId = input.required<string>();
+
+  /** O prazo, para a frase da tela e a recusa da store dizerem o mesmo número. */
+  protected readonly correctionMinutes = CORRECTION_WINDOW_MINUTES;
 
   protected readonly menuOpen = signal(false);
   protected readonly confirmingDelete = signal(false);

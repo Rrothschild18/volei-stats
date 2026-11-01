@@ -35,6 +35,15 @@ export interface Round1Outcome {
   readonly losers: readonly RankedTeam[];
   /** Preenchido quando a fronteira empatou e ninguém pode decidir sozinho. */
   readonly needsTiebreak: PendingTiebreak | null;
+  /**
+   * Decisões guardadas que já não descrevem empate nenhum desta rodada.
+   *
+   * Aparecem quando uma correção de placar muda quem empatou: o par-ou-ímpar
+   * foi feito entre duas duplas que agora não estão mais empatadas entre si.
+   * Decisão guardada que ninguém revalida é a fonte do problema, e não a
+   * solução — quem a lê daqui tem de apagá-la (ticket 35).
+   */
+  readonly staleDecisions: readonly TiebreakDecision[];
 }
 
 /** A dupla do empate que não venceu o par-ou-ímpar. */
@@ -42,13 +51,30 @@ function otherTeam(decision: TiebreakDecision, idA: string, idB: string): string
   return decision.winnerTeamId === idA ? idB : idA;
 }
 
+function sameSet(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id) => b.includes(id));
+}
+
+/**
+ * A decisão que resolve exatamente este empate: mesmo tipo, e as mesmas duplas.
+ *
+ * O "as mesmas duplas" é a regra inteira. Uma decisão guardada não vale para
+ * um empate novo entre outras duplas — alguém fez aquele par-ou-ímpar entre
+ * aqueles dois, e não entre quem a correção de placar colocou ali.
+ */
+function decisionFor(
+  decisions: readonly TiebreakDecision[],
+  kind: TiebreakKind,
+  teamIds: readonly string[],
+): TiebreakDecision | undefined {
+  return decisions.find((decision) => decision.kind === kind && sameSet(decision.teamIds, teamIds));
+}
+
 function rank(
   entries: readonly RankedTeam[],
   decisions: readonly TiebreakDecision[],
   kind: TiebreakKind,
 ): RankedTeam[] {
-  const decision = decisions.find((entry) => entry.kind === kind);
-
   return [...entries].sort((entryA, entryB) => {
     if (entryB.diff !== entryA.diff) {
       return entryB.diff - entryA.diff;
@@ -58,7 +84,14 @@ function rank(
     // par-ou-ímpar vai direto à final, então vem primeiro. Entre perdedores é o
     // contrário: quem ganhou disputa o encaixe (a última posição da lista) e
     // quem perdeu é a eliminada direta (a primeira).
-    if (decision && decision.teamIds.includes(entryA.id) && decision.teamIds.includes(entryB.id)) {
+    const decision = decisions.find(
+      (candidate) =>
+        candidate.kind === kind &&
+        candidate.teamIds.includes(entryA.id) &&
+        candidate.teamIds.includes(entryB.id),
+    );
+
+    if (decision) {
       const first =
         kind === 'winners' ? decision.winnerTeamId : otherTeam(decision, entryA.id, entryB.id);
       if (first === entryA.id) return -1;
@@ -77,31 +110,36 @@ function rank(
  * terceiro. Entre perdedores, a primeira posição diz quem está fora, e a
  * segunda só importa quando há disputa de 3º lugar.
  */
-function tiebreakAt(
-  ranked: readonly RankedTeam[],
-  kind: TiebreakKind,
-  decisions: readonly TiebreakDecision[],
-  boundaries: readonly number[],
-): PendingTiebreak | null {
-  if (decisions.some((decision) => decision.kind === kind)) {
-    return null;
-  }
+function tiesAt(ranked: readonly RankedTeam[], boundaries: readonly number[]): readonly string[][] {
+  const groups: string[][] = [];
 
   for (const index of boundaries) {
     if (index + 1 >= ranked.length) {
       continue;
     }
 
-    if (ranked[index].diff === ranked[index + 1].diff) {
-      const diff = ranked[index].diff;
-      return {
-        kind,
-        teamIds: ranked.filter((entry) => entry.diff === diff).map((entry) => entry.id),
-      };
+    if (ranked[index].diff !== ranked[index + 1].diff) {
+      continue;
+    }
+
+    const { diff } = ranked[index];
+    const group = ranked.filter((entry) => entry.diff === diff).map((entry) => entry.id);
+    if (!groups.some((known) => sameSet(known, group))) {
+      groups.push(group);
     }
   }
 
-  return null;
+  return groups;
+}
+
+/** O primeiro empate desta fronteira que ninguém decidiu ainda. */
+function pendingAt(
+  groups: readonly string[][],
+  kind: TiebreakKind,
+  decisions: readonly TiebreakDecision[],
+): PendingTiebreak | null {
+  const open = groups.find((group) => !decisionFor(decisions, kind, group));
+  return open ? { kind, teamIds: [...open] } : null;
 }
 
 export function readRound1(round1: readonly Match[], options: Round1Options = {}): Round1Outcome {
@@ -127,10 +165,23 @@ export function readRound1(round1: readonly Match[], options: Round1Options = {}
   const winnerBoundaries = winners.map((_, index) => index);
   const loserBoundaries = options.thirdPlaceEnabled ? [0, 1] : [0];
 
-  const needsTiebreak = !complete
-    ? null
-    : (tiebreakAt(losers, 'losers', decisions, loserBoundaries) ??
-      tiebreakAt(winners, 'winners', decisions, winnerBoundaries));
+  if (!complete) {
+    // Rodada pela metade não tem fronteira, e por isso também não tem decisão
+    // caduca: o empate que falta uma partida para se desfazer ainda pode voltar
+    // a ser o mesmo.
+    return { winners, losers, needsTiebreak: null, staleDecisions: [] };
+  }
 
-  return { winners, losers, needsTiebreak };
+  const loserTies = tiesAt(losers, loserBoundaries);
+  const winnerTies = tiesAt(winners, winnerBoundaries);
+
+  const needsTiebreak =
+    pendingAt(loserTies, 'losers', decisions) ?? pendingAt(winnerTies, 'winners', decisions);
+
+  const staleDecisions = decisions.filter((decision) => {
+    const groups = decision.kind === 'losers' ? loserTies : winnerTies;
+    return !groups.some((group) => sameSet(group, decision.teamIds));
+  });
+
+  return { winners, losers, needsTiebreak, staleDecisions };
 }

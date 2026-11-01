@@ -166,3 +166,97 @@ describe('readRound1 com a rodada 1 pela metade', () => {
     ).toEqual({ kind: 'losers', teamIds: ['b2', 'c2'] });
   });
 });
+
+describe('a decisão vale para o empate que a gerou', () => {
+  /**
+   * O cenário que o ticket 35 reproduziu, e em que o app decidia sozinho.
+   *
+   * Seis duplas. Na rodada 1, t2 e t4 perdem pela mesma diferença — e, como a
+   * diferença de uma partida vale para os dois lados, t1 e t3 empatam junto na
+   * frente dos vencedores. As duas decisões são tomadas na quadra.
+   *
+   * Depois alguém corrige o primeiro placar, e quem passa a perder é t1: o
+   * empate dos perdedores agora é entre **t1 e t4**, um par que ninguém
+   * decidiu.
+   *
+   * Com o curto-circuito por tipo, a decisão velha de `losers` calava o empate
+   * novo: `needsTiebreak` não o apontava e `losers[0]` virava t1 pela ordem das
+   * partidas. Ou seja, o app escolhia quem sai — o contrário do que REGRAS.md
+   * §9.3 manda.
+   */
+  const perdedores: TiebreakDecision = {
+    kind: 'losers',
+    teamIds: ['t2', 't4'],
+    winnerTeamId: 't4',
+    decidedBy: 'p-rafa',
+    decidedAt: '2026-10-26T23:28:00.000Z',
+  };
+
+  const vencedores: TiebreakDecision = {
+    kind: 'winners',
+    teamIds: ['t1', 't3'],
+    winnerTeamId: 't1',
+    decidedBy: 'p-rafa',
+    decidedAt: '2026-10-26T23:30:00.000Z',
+  };
+
+  const decisions = [perdedores, vencedores];
+
+  // t2 e t4 perdem por 3 (a fronteira de quem sai); t6 perde por 2.
+  const antes = [
+    round1Match('t1', 't2', 12, 9),
+    round1Match('t3', 't4', 12, 9),
+    round1Match('t5', 't6', 12, 10),
+  ];
+
+  // Corrigido: t2 venceu, e agora é t1 que perde por 3. Os empates passam a ser
+  // t1/t4 entre os perdedores e t2/t3 entre os vencedores.
+  const depois = [
+    round1Match('t1', 't2', 9, 12),
+    round1Match('t3', 't4', 12, 9),
+    round1Match('t5', 't6', 12, 10),
+  ];
+
+  it('antes da correção, as decisões resolvem os empates delas', () => {
+    const outcome = readRound1(antes, { expectedMatches: 3, decisions });
+
+    expect(outcome.needsTiebreak).toBeNull();
+    expect(outcome.staleDecisions).toEqual([]);
+  });
+
+  it('empate novo entre outras duplas pausa a chave de novo', () => {
+    const outcome = readRound1(depois, { expectedMatches: 3, decisions });
+
+    expect(outcome.needsTiebreak).toEqual({ kind: 'losers', teamIds: ['t1', 't4'] });
+  });
+
+  it('e as decisões que não descrevem mais empate nenhum são apontadas como caducas', () => {
+    const outcome = readRound1(depois, { expectedMatches: 3, decisions });
+
+    expect(outcome.staleDecisions).toEqual([perdedores, vencedores]);
+  });
+
+  it('correção que não muda o par deixa as decisões valendo', () => {
+    // t1 × t2 continua com t2 perdendo por 3: mesmos empates, outros números.
+    const mesmoPar = [
+      round1Match('t1', 't2', 11, 8),
+      round1Match('t3', 't4', 12, 9),
+      round1Match('t5', 't6', 12, 10),
+    ];
+
+    const outcome = readRound1(mesmoPar, { expectedMatches: 3, decisions });
+
+    expect(outcome.needsTiebreak).toBeNull();
+    expect(outcome.staleDecisions).toEqual([]);
+    // t4 venceu o par-ou-ímpar dos perdedores, então disputa o encaixe (fim da
+    // lista) e t2 é a eliminada direta.
+    expect(outcome.losers.slice(0, 2).map((entry) => entry.id)).toEqual(['t2', 't4']);
+  });
+
+  it('rodada pela metade não acusa decisão caduca', () => {
+    const outcome = readRound1(depois.slice(0, 2), { expectedMatches: 3, decisions });
+
+    expect(outcome.staleDecisions).toEqual([]);
+    expect(outcome.needsTiebreak).toBeNull();
+  });
+});

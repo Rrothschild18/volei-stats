@@ -195,12 +195,24 @@ export class SupabaseTournamentRepository
     }
   }
 
+  /**
+   * Limpa e regrava, como a classificação e as prioridades.
+   *
+   * Upsert sozinho não dava conta: uma correção de placar pode **derrubar** uma
+   * decisão (o empate que ela decidiu já não existe), e o que saiu da lista
+   * precisa sair da tabela. Com upsert, a linha velha ficava lá e o desempate
+   * ressuscitava no próximo carregamento da tela (ticket 35).
+   */
   private async saveTiebreaks(tournament: Tournament, groupId: string): Promise<void> {
+    const decisions = await this.table('tiebreak_decisions');
+    const { error: clearError } = await decisions.delete().eq('tournament_id', tournament.id);
+    if (clearError) {
+      throw new Error(`Não foi possível limpar os desempates: ${clearError.message}`);
+    }
     if (tournament.tiebreakDecisions.length === 0) {
       return;
     }
-    const decisions = await this.table('tiebreak_decisions');
-    const { error } = await decisions.upsert(
+    const { error } = await decisions.insert(
       tournament.tiebreakDecisions.map((decision) => ({
         tournament_id: tournament.id,
         group_id: groupId,
