@@ -649,6 +649,19 @@ export class TournamentLiveComponent implements OnInit {
         this.tournamentId(),
         'classificacao',
       ]);
+      return;
+    }
+
+    // A correção reabriu a chave: quem veio corrigir está na aba de PARTIDAS, e
+    // dali a partida nova só diz "aguarda" — não há como jogá-la. A tela
+    // parecia travada num campeonato que, por baixo, já tinha voltado a andar.
+    //
+    // Então a tela acompanha o que ela mesma causou: volta para a fila, que é
+    // onde se joga. Sem o `?partidas=1`, senão recarregar traz de volta a aba
+    // de onde não dá para seguir.
+    if (this.verPartidas() && this.store.pending().length > 0) {
+      this.tab.set('queue');
+      void this.router.navigate([], { queryParams: {}, replaceUrl: true });
     }
   }
 

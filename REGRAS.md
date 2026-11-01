@@ -216,8 +216,16 @@ Validações na hora de salvar uma partida:
 
 - ❌ **Empate é bloqueado** — "Vôlei não tem empate".
 - ❌ **0 × 0 é bloqueado**.
-- ⚠️ Se o placar do vencedor for **menor que o limite de pontos** configurado,
-  exibe aviso mas **permite salvar**.
+- ❌ **Chegou ao limite sem dois de diferença** — em 12 × 11 o jogo não acabou:
+  ele vai até alguém abrir dois.
+- ❌ **Passou do limite de outro jeito** — com limite 12, 13 × 9 é um jogo que
+  não existiu (teria acabado em 12 × 9). Acima do limite só existe o placar
+  empurrado: 13 × 11, 14 × 12, 18 × 16.
+- ⚠️ Se o placar do vencedor for **menor que o limite**, o app pergunta e
+  **permite salvar**: é o jogo interrompido — acabou o horário da quadra,
+  começou a chover —, e isso precisa ser registrável.
+
+A regra inteira mora em `src/app/core/rules/final-score.ts`.
 
 A diferença de pontos (`pointDifference`) é gravada e é o critério que comanda
 todo o chaveamento.
@@ -399,10 +407,11 @@ Toda a lógica de prioridade é **escopada à sessão** (`getTournamentsBySessio
 Quem foi prejudicado no último jogo de uma terça não leva nada para a quinta.
 Não está claro se isso é intencional.
 
-### 8.3. Limite de pontos não é aplicado
+### 8.3. Não há set
 
-O limite é só um aviso. Não há regra de "vantagem de 2 pontos", nem de set, nem
-bloqueio de placar acima do limite.
+O limite de pontos e a vantagem de dois passaram a valer (§4.4). O que continua
+não existindo é **set**: um campeonato é uma partida por fase, e não melhor de
+três.
 
 ### 8.4. Sexo do jogador só afeta o sorteio
 

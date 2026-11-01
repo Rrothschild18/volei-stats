@@ -78,8 +78,10 @@ test('um campeonato do zero até o fim', async ({ page }) => {
   // banco prova: a assinatura de quem corrigiu é gravada por GATILHO, a partir
   // de quem pediu — e é ela que torna aceitável deixar qualquer jogador
   // corrigir. Como coluna comum, bastava não mandá-la.
-  await ajustarPlacar(page, 0, 4);
-  await page.getByRole('button', { name: /CORRIGIR 12 × 13/ }).click();
+  // 12 × 14: o jogo empatou em 12 e foi até a segunda dupla abrir dois. Com
+  // limite 12, 12 × 13 seria um jogo que não acabou (REGRAS.md §4.4).
+  await ajustarPlacar(page, 0, 5);
+  await page.getByRole('button', { name: /CORRIGIR 12 × 14/ }).click();
   await expect(page.getByText('Corrigido por Raul')).toBeVisible();
 
   // ===== o ranking somou =====

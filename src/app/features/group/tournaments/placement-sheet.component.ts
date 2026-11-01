@@ -22,28 +22,30 @@ import { BottomSheetComponent, BusyDirective, IconComponent } from '../../../sha
       <p class="text-[14px]">{{ explanation() }}</p>
 
       @if (directEliminationLabel(); as label) {
-        <p class="flex items-start gap-2 text-[13px] muted">
-          <app-icon name="trending-down" [size]="18" />
-          {{ label }}
+        <p class="flex items-start gap-2 border border-divider px-[14px] py-[11px] text-[13px]">
+          <app-icon name="trending-down" [size]="18" class="shrink-0 text-accent-700" />
+          <span class="muted">{{ label }}</span>
         </p>
       }
 
-      <p class="kicker">QUEM VENCEU?</p>
-      <div class="grid grid-cols-2 gap-2">
-        @for (player of candidates(); track player.id) {
-          <button
-            type="button"
-            class="btn btn-secondary flex-col gap-1 py-3"
-            style="height: 76px"
-            [appBusy]="registering() === player.id"
-            [disabled]="registering() !== null"
-            (click)="choose.emit(player.id)"
-          >
-            <span class="text-[12px] normal-case opacity-70">venceu</span>
-            <span class="font-heading text-[22px] font-semibold uppercase">{{ player.name }}</span>
-          </button>
-        }
-      </div>
+      <section class="flex flex-col gap-3 border-t border-divider pt-[18px]">
+        <p class="kicker">QUEM VENCEU?</p>
+
+        <div class="grid grid-cols-2 gap-2">
+          @for (player of candidates(); track player.id) {
+            <button
+              type="button"
+              class="btn btn-secondary h-20 flex-col gap-[6px] px-3"
+              [appBusy]="registering() === player.id"
+              [disabled]="registering() !== null"
+              (click)="choose.emit(player.id)"
+            >
+              <span class="text-[12px] font-normal tracking-normal normal-case muted">venceu</span>
+              <span class="team-name text-[22px] leading-none">{{ player.name }}</span>
+            </button>
+          }
+        </div>
+      </section>
 
       <p class="text-[12px] muted">A chave fica pausada até a escolha.</p>
     </app-bottom-sheet>

@@ -25,7 +25,7 @@ export class PlacarPage {
     }
   }
 
-  /** O rótulo do botão traz o placar: "SALVAR 13 × 5". */
+  /** O rótulo do botão traz o placar: "SALVAR 12 × 5". */
   get botaoSalvar(): Locator {
     return this.page.getByRole('button', { name: /^SALVAR / });
   }

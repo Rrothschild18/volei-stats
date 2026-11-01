@@ -19,34 +19,39 @@ import { BottomSheetComponent, BusyDirective, InlineNoteComponent } from '../../
         <app-inline-note tone="event">{{ message }}</app-inline-note>
       }
 
-      <div class="border border-divider">
-        @for (row of rows(); track row.teamId; let last = $last) {
-          <div class="flex items-baseline gap-2 px-3 py-2" [class.row-rule]="!last">
-            <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
-              row.label
-            }}</span>
-            <span class="text-[13px] tnum muted">{{ row.score }} · {{ row.diff }}</span>
-          </div>
-        }
-      </div>
-
+      <!-- Primeiro POR QUE a chave parou, depois os números, e só então a
+           escolha: perguntar antes de explicar é o que fazia a folha parecer um
+           formulário sem contexto. -->
       <p class="text-[14px]">{{ explanation() }}</p>
 
-      <p class="kicker">QUEM VENCEU O PAR-OU-ÍMPAR?</p>
-      <div class="grid grid-cols-2 gap-2">
-        @for (row of rows(); track row.teamId) {
-          <button
-            type="button"
-            class="btn btn-secondary py-3"
-            style="height: 64px"
-            [appBusy]="registering() === row.teamId"
-            [disabled]="registering() !== null"
-            (click)="choose.emit(row.teamId)"
-          >
-            <span class="font-heading text-[19px] font-semibold uppercase">{{ row.label }}</span>
-          </button>
+      <section class="border border-divider">
+        <p class="kicker row-rule px-[14px] py-[9px]">COMO FICOU A RODADA 1</p>
+        @for (row of rows(); track row.teamId; let last = $last) {
+          <div class="flex items-center gap-3 px-[14px] py-[13px]" [class.row-rule]="!last">
+            <span class="team-name min-w-0 flex-1">{{ row.label }}</span>
+            <span class="text-[13px] tnum muted">{{ row.score }}</span>
+            <span class="figure w-12 text-right text-[20px]">{{ row.diff }}</span>
+          </div>
         }
-      </div>
+      </section>
+
+      <section class="flex flex-col gap-3 border-t border-divider pt-[18px]">
+        <p class="kicker">QUEM VENCEU O PAR-OU-ÍMPAR?</p>
+
+        <div class="grid grid-cols-2 gap-2">
+          @for (row of rows(); track row.teamId) {
+            <button
+              type="button"
+              class="btn btn-secondary h-16 px-3"
+              [appBusy]="registering() === row.teamId"
+              [disabled]="registering() !== null"
+              (click)="choose.emit(row.teamId)"
+            >
+              <span class="team-name text-[19px] leading-tight">{{ row.label }}</span>
+            </button>
+          }
+        </div>
+      </section>
 
       <p class="text-[12px] muted">{{ footer() }}</p>
     </app-bottom-sheet>

@@ -3,6 +3,7 @@ import { BracketMatch } from '../../../core/services/tournament.service';
 import { CorrectionRefusal, LiveTournamentStore } from '../../../core/stores/live-tournament.store';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { phaseLabel } from '../../../core/rules/bracket-phases';
+import { expectedStop, readFinalScore } from '../../../core/rules/final-score';
 import { CORRECTION_WINDOW_MINUTES } from '../../../core/rules/tournament-timing';
 import { Match } from '../../../shared/models';
 import { formatTime } from '../../../shared/utils/date.util';
@@ -129,8 +130,9 @@ import {
           }
 
           <p class="text-[13px] muted">
-            Limite: {{ pointLimit() }} pontos. Sem empate, sem 0 × 0. Abaixo do limite o app pede
-            confirmação.
+            Limite: {{ pointLimit() }} pontos, com dois de diferença — empatando em
+            {{ pointLimit() - 1 }}, o jogo vai até alguém abrir dois. Parou antes do limite, o app
+            pergunta.
           </p>
         }
       </div>
@@ -171,10 +173,10 @@ import {
     @if (confirming()) {
       <div class="dialog-backdrop items-center">
         <app-blueprint class="dialog" role="dialog" aria-modal="true" aria-label="Confirmar placar">
-          <h3 class="font-heading text-[20px] font-semibold uppercase">Abaixo do limite</h3>
+          <h3 class="font-heading text-[20px] font-semibold uppercase">Jogo parou antes</h3>
           <p class="text-[14px]">
-            O vencedor fez {{ maxScore() }}, abaixo do limite de {{ pointLimit() }}. Salvar mesmo
-            assim?
+            O vencedor fez {{ maxScore() }}, e o limite é {{ pointLimit() }}. Se o jogo foi
+            interrompido — acabou o horário, começou a chover — salve assim mesmo.
           </p>
           <div class="grid grid-cols-2 gap-2">
             <button type="button" class="btn btn-secondary" (click)="confirming.set(false)">
@@ -250,13 +252,28 @@ export class ScoreSheetComponent {
 
   protected readonly maxScore = computed(() => Math.max(this.scoreA(), this.scoreB()));
 
+  /** A leitura da regra: o mesmo veredito que a mensagem e o salvar usam. */
+  protected readonly veredito = computed(() =>
+    readFinalScore(this.scoreA(), this.scoreB(), this.pointLimit()),
+  );
+
   protected readonly error = computed(() => {
-    if (this.scoreA() === this.scoreB()) {
-      return this.scoreA() === 0
-        ? 'Ninguém jogou 0 × 0. Lance o placar da partida.'
-        : 'Vôlei não tem empate. Ajuste o placar para salvar.';
+    const limite = this.pointLimit();
+
+    switch (this.veredito()) {
+      case 'zero':
+        return 'Ninguém jogou 0 × 0. Lance o placar da partida.';
+      case 'tie':
+        return 'Vôlei não tem empate. Ajuste o placar para salvar.';
+      case 'needs-two':
+        return `Em ${limite} o jogo não acaba por um ponto: vai até alguém abrir dois.`;
+      case 'past-limit': {
+        const [a, b] = expectedStop(this.scoreA(), this.scoreB(), limite);
+        return `Com limite de ${limite}, o jogo teria parado em ${a} × ${b}.`;
+      }
+      default:
+        return null;
     }
-    return null;
   });
 
   protected readonly sides = computed(() => {
@@ -353,7 +370,9 @@ export class ScoreSheetComponent {
       return;
     }
 
-    if (this.maxScore() < this.pointLimit()) {
+    // Jogo interrompido é o único caso em que o placar não segue a regra e
+    // ainda assim vale: quem estava na quadra confirma.
+    if (this.veredito() === 'below-limit') {
       this.confirming.set(true);
       return;
     }

@@ -56,9 +56,11 @@ test.describe('lançar placar', () => {
     const placar = new PlacarPage(page);
     await placar.abrir();
 
-    await placar.marcar('primeira', 13);
+    // 12 é o limite deste campeonato, e com 5 do outro lado o jogo acaba aí:
+    // 13 × 5 seria um jogo que não existiu (REGRAS.md §4.4).
+    await placar.marcar('primeira', 12);
     await placar.marcar('segunda', 5);
-    await expect(placar.botaoSalvar).toHaveText(/SALVAR 13 × 5/);
+    await expect(placar.botaoSalvar).toHaveText(/SALVAR 12 × 5/);
     await placar.botaoSalvar.click();
 
     await expect(placar.gaveta).toContainText('PLACAR SALVO');
@@ -67,7 +69,7 @@ test.describe('lançar placar', () => {
     // consegue assinar por outro — é a metade `banco` que garante, em
     // `e2e/campeonato.spec.ts`, mais os testes de `supabase/tests/`.
     await expect(placar.gaveta).toContainText('TRAVADO · lançado por você');
-    await expect(placar.gaveta).toContainText('13');
+    await expect(placar.gaveta).toContainText('12');
   });
 
   test('salvo o placar, a chave anda para a fase seguinte', async ({ page, grupo }) => {
@@ -75,7 +77,7 @@ test.describe('lançar placar', () => {
     const placar = new PlacarPage(page);
     await placar.abrir();
 
-    await placar.marcar('primeira', 13);
+    await placar.marcar('primeira', 12);
     await placar.marcar('segunda', 5);
     await placar.botaoSalvar.click();
     await expect(placar.gaveta).toContainText('PLACAR SALVO');
