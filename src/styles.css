@@ -522,13 +522,22 @@
     animation: tab-abrindo-correr 1s ease-in-out infinite;
   }
 
+  /*
+   * Redondo, e esta é a única exceção de raio no sistema.
+   *
+   * O resto do app é de canto vivo de propósito, e por isso o anel nasceu
+   * quadrado — um quadradinho girando, que não lê como espera. "Girando" é uma
+   * convenção, e ela é circular: um anel com uma falta, dando voltas. Um
+   * quadrado em rotação parece defeito de renderização.
+   */
   .btn[aria-busy='true']::after {
     content: '';
     flex: none;
-    inline-size: 14px;
-    block-size: 14px;
+    inline-size: 15px;
+    block-size: 15px;
     border: 2px solid currentColor;
     border-block-start-color: transparent;
+    border-radius: 50%;
     animation: btn-busy-spin 0.7s linear infinite;
   }
 }
@@ -573,9 +582,11 @@
  * pedaço de barra travado no canto e um anel incompleto.
  */
 @media (prefers-reduced-motion: reduce) {
+  /* Sem rotação, um disco cheio — mas ainda redondo, que é o que diz "espere". */
   .btn[aria-busy='true']::after {
     border: 0;
     background: currentColor;
+    border-radius: 50%;
   }
 
   /* Sem a animação, o degradê ficaria parado num ponto qualquer dele. */
