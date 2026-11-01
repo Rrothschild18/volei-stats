@@ -11,6 +11,7 @@ import { formatShortDate } from '../../../shared/utils/date.util';
 import {
   ActionBarComponent,
   BlueprintComponent,
+  BusyDirective,
   IconComponent,
   InlineNoteComponent,
   InnerHeaderComponent,
@@ -48,6 +49,7 @@ interface TeamRow {
   imports: [
     ActionBarComponent,
     BlueprintComponent,
+    BusyDirective,
     IconComponent,
     InlineNoteComponent,
     InnerHeaderComponent,
@@ -172,6 +174,7 @@ interface TeamRow {
       <button
         type="button"
         class="btn btn-secondary h-13"
+        [appBusy]="busy()"
         [disabled]="busy()"
         (click)="regenerate()"
       >
@@ -181,6 +184,7 @@ interface TeamRow {
       <button
         type="button"
         class="btn btn-primary blueprint h-13 text-[17px]"
+        [appBusy]="busy()"
         [disabled]="busy() || proposals().length === 0"
         (click)="useProposal()"
       >
@@ -401,37 +405,44 @@ export class DrawComponent implements OnInit {
 
   protected async useProposal(): Promise<void> {
     const proposal = this.selectedProposal();
-    if (!proposal) {
+    if (!proposal || this.busy()) {
       return;
     }
 
-    // Sortear de novo por cima de um sorteio que ainda não virou campeonato
-    // substitui: o mais recente vale, o anterior não acumula (ticket 36). Vem
-    // antes de gravar, senão o descarte pegaria justamente o novo.
-    await this.draws.discardPendingDraw(this.sessionId());
+    // São três gravações seguidas contra um banco que está longe. Sem marcar a
+    // espera, o segundo toque abriria um sorteio em cima do outro.
+    this.busy.set(true);
+    try {
+      // Sortear de novo por cima de um sorteio que ainda não virou campeonato
+      // substitui: o mais recente vale, o anterior não acumula (ticket 36). Vem
+      // antes de gravar, senão o descarte pegaria justamente o novo.
+      await this.draws.discardPendingDraw(this.sessionId());
 
-    // Só a proposta escolhida é gravada como sorteio: as outras não
-    // aconteceram, e contá-las inflaria esperas e sorteios (REGRAS.md §7.6).
-    const chosen: DrawProposal = { ...proposal, selected: true };
-    await this.facade.saveDraw(chosen);
+      // Só a proposta escolhida é gravada como sorteio: as outras não
+      // aconteceram, e contá-las inflaria esperas e sorteios (REGRAS.md §7.6).
+      const chosen: DrawProposal = { ...proposal, selected: true };
+      await this.facade.saveDraw(chosen);
 
-    const session = this.sessionStore.session();
-    if (session) {
-      await this.facade.updateSession({
-        ...session,
-        drawIds: [...session.drawIds, chosen.id],
+      const session = this.sessionStore.session();
+      if (session) {
+        await this.facade.updateSession({
+          ...session,
+          drawIds: [...session.drawIds, chosen.id],
+        });
+      }
+
+      const voltarPara = this.voltarPara();
+      if (voltarPara) {
+        void this.router.navigate(['/g', this.group.groupId(), 'campeonatos', voltarPara]);
+        return;
+      }
+
+      void this.router.navigate(['/g', this.group.groupId(), 'campeonatos', 'novo'], {
+        queryParams: { drawId: chosen.id, proposta: this.letter(this.selectedIndex()) },
       });
+    } finally {
+      this.busy.set(false);
     }
-
-    const voltarPara = this.voltarPara();
-    if (voltarPara) {
-      void this.router.navigate(['/g', this.group.groupId(), 'campeonatos', voltarPara]);
-      return;
-    }
-
-    void this.router.navigate(['/g', this.group.groupId(), 'campeonatos', 'novo'], {
-      queryParams: { drawId: chosen.id, proposta: this.letter(this.selectedIndex()) },
-    });
   }
 
   protected letter(index: number): string {

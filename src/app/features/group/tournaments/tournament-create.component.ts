@@ -14,6 +14,7 @@ import { DrawProposal, TournamentTeam } from '../../../shared/models';
 import {
   ActionBarComponent,
   BlueprintComponent,
+  BusyDirective,
   IconComponent,
   InnerHeaderComponent,
   SectionBandComponent,
@@ -49,6 +50,7 @@ interface Suggestion {
   imports: [
     ActionBarComponent,
     BlueprintComponent,
+    BusyDirective,
     IconComponent,
     InnerHeaderComponent,
     SectionBandComponent,
@@ -230,6 +232,7 @@ interface Suggestion {
       <button
         type="button"
         class="btn btn-primary blueprint h-13 text-[17px]"
+        [appBusy]="busy()"
         [disabled]="!selectedFormat() || busy()"
         (click)="start()"
       >

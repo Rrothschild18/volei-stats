@@ -1,6 +1,6 @@
-import { Component, computed, inject, output } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
-import { BottomSheetComponent } from '../../../shared/ui';
+import { BottomSheetComponent, BusyDirective } from '../../../shared/ui';
 
 /**
  * Empate na diferença de pontos (1r), REGRAS.md §9.3.
@@ -12,7 +12,7 @@ import { BottomSheetComponent } from '../../../shared/ui';
  */
 @Component({
   selector: 'app-tiebreak-sheet',
-  imports: [BottomSheetComponent],
+  imports: [BottomSheetComponent, BusyDirective],
   template: `
     <app-bottom-sheet kicker="DESEMPATE" title="EMPATE NA DIFERENÇA" [dismissible]="false">
       <div class="border border-divider">
@@ -35,6 +35,8 @@ import { BottomSheetComponent } from '../../../shared/ui';
             type="button"
             class="btn btn-secondary py-3"
             style="height: 64px"
+            [appBusy]="registering() === row.teamId"
+            [disabled]="registering() !== null"
             (click)="choose.emit(row.teamId)"
           >
             <span class="font-heading text-[19px] font-semibold uppercase">{{ row.label }}</span>
@@ -48,6 +50,13 @@ import { BottomSheetComponent } from '../../../shared/ui';
 })
 export class TiebreakSheetComponent {
   private readonly store = inject(LiveTournamentStore);
+
+  /**
+   * A dupla cuja vitória está sendo gravada. Vem de fora porque quem grava é a
+   * tela do ao vivo: se a gravação falha, é ela que solta os botões de novo —
+   * um estado aqui dentro deixaria a folha travada para sempre.
+   */
+  readonly registering = input<string | null>(null);
 
   readonly choose = output<string>();
 

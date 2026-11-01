@@ -274,9 +274,9 @@ function writeDismissed(tournamentId: string): void {
     }
 
     @if (group.canPlay() && store.tiebreak()) {
-      <app-tiebreak-sheet (choose)="resolveTiebreak($event)" />
+      <app-tiebreak-sheet [registering]="registering()" (choose)="resolveTiebreak($event)" />
     } @else if (group.canPlay() && store.placementCandidate()) {
-      <app-placement-sheet (choose)="applyPlacement($event)" />
+      <app-placement-sheet [registering]="registering()" (choose)="applyPlacement($event)" />
     }
   `,
   host: { class: 'block' },
@@ -303,6 +303,8 @@ export class TournamentLiveComponent implements OnInit {
   protected readonly correcting = signal<Match | null>(null);
   /** Descartado não volta neste campeonato (ticket 37). */
   protected readonly inviteDismissed = signal(false);
+  /** Quem está sendo gravado como vencedor do par-ou-ímpar (encaixe ou empate). */
+  protected readonly registering = signal<string | null>(null);
 
   protected readonly tabs = [
     { id: 'queue', label: 'Fila' },
@@ -587,11 +589,32 @@ export class TournamentLiveComponent implements OnInit {
   }
 
   protected async applyPlacement(survivingPlayerId: string): Promise<void> {
-    await this.store.applyPlacement(survivingPlayerId);
+    await this.register(survivingPlayerId, () => this.store.applyPlacement(survivingPlayerId));
   }
 
   protected async resolveTiebreak(winnerTeamId: string): Promise<void> {
-    await this.store.resolveTiebreak(winnerTeamId);
+    await this.register(winnerTeamId, () => this.store.resolveTiebreak(winnerTeamId));
+  }
+
+  /**
+   * Registrar uma decisão de quadra: o botão tocado mostra que está gravando, e
+   * os outros fecham.
+   *
+   * Decisão de par-ou-ímpar é gesto de beira de quadra, com o celular passando
+   * de mão em mão — e o banco a uns segundos de distância. Sem travar, o toque
+   * repetido registraria duas.
+   */
+  private async register(id: string, action: () => Promise<void>): Promise<void> {
+    if (this.registering() !== null) {
+      return;
+    }
+
+    this.registering.set(id);
+    try {
+      await action();
+    } finally {
+      this.registering.set(null);
+    }
   }
 
   /**

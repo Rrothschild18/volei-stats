@@ -9,6 +9,7 @@ import { Match, Player, PlayerStats, TeamStats, Tournament } from '../../../shar
 import { formatDayMonthFromIso, formatTime } from '../../../shared/utils/date.util';
 import {
   BlueprintComponent,
+  BusyDirective,
   IconComponent,
   InlineNoteComponent,
   InnerHeaderComponent,
@@ -32,6 +33,7 @@ interface RecentMatch {
   selector: 'app-player-detail',
   imports: [
     BlueprintComponent,
+    BusyDirective,
     IconComponent,
     InlineNoteComponent,
     InnerHeaderComponent,
@@ -137,6 +139,7 @@ interface RecentMatch {
           <button
             type="button"
             class="btn btn-secondary mt-3 min-h-12 w-full"
+            [appBusy]="busy()"
             [disabled]="busy()"
             (click)="resetDate()"
           >
@@ -150,6 +153,7 @@ interface RecentMatch {
           <button
             type="button"
             class="btn btn-secondary mt-3 min-h-12 w-full"
+            [appBusy]="busy()"
             [disabled]="busy()"
             (click)="transfer()"
           >

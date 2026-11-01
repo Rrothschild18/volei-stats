@@ -4,11 +4,15 @@ import { MembershipService } from '../../../core/identity';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import {
   BlueprintComponent,
+  BusyDirective,
   IconComponent,
   InlineNoteComponent,
   InnerHeaderComponent,
 } from '../../../shared/ui';
 import { describeError } from '../../../shared/utils/error.util';
+
+/** As três escritas desta tela, cada uma com o seu botão. */
+type InviteAction = 'codigo' | 'senha' | 'convite';
 
 /**
  * O convite do vôlei: o código e o link que vão para o grupo do zap.
@@ -24,7 +28,13 @@ import { describeError } from '../../../shared/utils/error.util';
  */
 @Component({
   selector: 'app-invite',
-  imports: [BlueprintComponent, IconComponent, InlineNoteComponent, InnerHeaderComponent],
+  imports: [
+    BlueprintComponent,
+    BusyDirective,
+    IconComponent,
+    InlineNoteComponent,
+    InnerHeaderComponent,
+  ],
   template: `
     <app-inner-header context="VÔLEI" title="CONVITE" (back)="back()" />
 
@@ -35,7 +45,15 @@ import { describeError } from '../../../shared/utils/error.util';
         <app-blueprint class="p-4">
           <p class="text-[14px]">Este vôlei não tem convite aberto.</p>
         </app-blueprint>
-        <button type="button" class="btn btn-primary h-13" (click)="renew()">GERAR CONVITE</button>
+        <button
+          type="button"
+          class="btn btn-primary h-13"
+          [appBusy]="busy() === 'convite'"
+          [disabled]="busy() !== null"
+          (click)="renew()"
+        >
+          GERAR CONVITE
+        </button>
       } @else {
         <app-blueprint class="p-4">
           <p class="kicker">CÓDIGO DO VÔLEI</p>
@@ -89,7 +107,8 @@ import { describeError } from '../../../shared/utils/error.util';
           <button
             type="button"
             class="btn btn-secondary mt-3 min-h-12 w-full"
-            [disabled]="!canRename()"
+            [appBusy]="busy() === 'codigo'"
+            [disabled]="!canRename() || busy() !== null"
             (click)="rename()"
           >
             TROCAR O CÓDIGO
@@ -118,7 +137,8 @@ import { describeError } from '../../../shared/utils/error.util';
           <button
             type="button"
             class="btn btn-secondary mt-3 min-h-12 w-full"
-            [disabled]="senha().trim().length < 4"
+            [appBusy]="busy() === 'senha'"
+            [disabled]="senha().trim().length < 4 || busy() !== null"
             (click)="trocarSenha()"
           >
             SALVAR A SENHA
@@ -130,7 +150,13 @@ import { describeError } from '../../../shared/utils/error.util';
           <p class="mt-1 text-[13px] muted">
             O código atual para de funcionar e um novo é gerado. Quem já entrou continua dentro.
           </p>
-          <button type="button" class="btn btn-secondary mt-3 min-h-12 w-full" (click)="renew()">
+          <button
+            type="button"
+            class="btn btn-secondary mt-3 min-h-12 w-full"
+            [appBusy]="busy() === 'convite'"
+            [disabled]="busy() !== null"
+            (click)="renew()"
+          >
             CANCELAR E GERAR OUTRO
           </button>
         </div>
@@ -161,6 +187,15 @@ export class InviteComponent implements OnInit {
   protected readonly loading = signal(true);
   protected readonly notice = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
+
+  /**
+   * Qual ação está esperando o banco.
+   *
+   * Não é um booleano porque a tela tem três botões que escrevem: um booleano
+   * faria os três girarem juntos, e o anel tem de ficar no botão que a pessoa
+   * tocou.
+   */
+  protected readonly busy = signal<InviteAction | null>(null);
 
   protected readonly canRename = computed(() => this.draft().trim().length >= 3);
 
@@ -223,54 +258,73 @@ export class InviteComponent implements OnInit {
   }
 
   protected async rename(): Promise<void> {
-    const groupId = this.group.groupId();
-    if (!groupId || !this.canRename()) {
+    if (!this.canRename()) {
       return;
     }
-    this.error.set(null);
-    this.notice.set(null);
-    try {
-      const invite = await this.membership.setInviteCode(
-        groupId,
-        this.draft().trim().toUpperCase(),
-      );
-      this.code.set(invite.code);
-      this.draft.set('');
-      this.notice.set('Código trocado.');
-    } catch (cause) {
-      this.error.set(describeError(cause, 'Não foi possível trocar o código.'));
-    }
+
+    await this.run(
+      'codigo',
+      async (groupId) => {
+        const invite = await this.membership.setInviteCode(
+          groupId,
+          this.draft().trim().toUpperCase(),
+        );
+        this.code.set(invite.code);
+        this.draft.set('');
+        this.notice.set('Código trocado.');
+      },
+      'Não foi possível trocar o código.',
+    );
   }
 
   protected async trocarSenha(): Promise<void> {
-    const groupId = this.group.groupId();
-    if (!groupId || this.senha().trim().length < 4) {
+    if (this.senha().trim().length < 4) {
       return;
     }
-    this.error.set(null);
-    this.notice.set(null);
-    try {
-      await this.membership.setJoinPassword(groupId, this.senha().trim());
-      this.senha.set('');
-      this.notice.set('Senha trocada. Mande a nova para quem ainda vai entrar.');
-    } catch (cause) {
-      this.error.set(describeError(cause, 'Não foi possível trocar a senha.'));
-    }
+
+    await this.run(
+      'senha',
+      async (groupId) => {
+        await this.membership.setJoinPassword(groupId, this.senha().trim());
+        this.senha.set('');
+        this.notice.set('Senha trocada. Mande a nova para quem ainda vai entrar.');
+      },
+      'Não foi possível trocar a senha.',
+    );
   }
 
   protected async renew(): Promise<void> {
+    await this.run(
+      'convite',
+      async (groupId) => {
+        const invite = await this.membership.renewInvite(groupId);
+        this.code.set(invite.code);
+        this.notice.set('Convite novo gerado. O código antigo não entra mais.');
+      },
+      'Não foi possível gerar o convite.',
+    );
+  }
+
+  /** O que as três escritas da tela têm em comum: a espera, o aviso e o erro. */
+  private async run(
+    which: InviteAction,
+    action: (groupId: string) => Promise<void>,
+    fallback: string,
+  ): Promise<void> {
     const groupId = this.group.groupId();
-    if (!groupId) {
+    if (!groupId || this.busy() !== null) {
       return;
     }
+
     this.error.set(null);
     this.notice.set(null);
+    this.busy.set(which);
     try {
-      const invite = await this.membership.renewInvite(groupId);
-      this.code.set(invite.code);
-      this.notice.set('Convite novo gerado. O código antigo não entra mais.');
+      await action(groupId);
     } catch (cause) {
-      this.error.set(describeError(cause, 'Não foi possível gerar o convite.'));
+      this.error.set(describeError(cause, fallback));
+    } finally {
+      this.busy.set(null);
     }
   }
 

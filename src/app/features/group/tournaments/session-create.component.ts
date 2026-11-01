@@ -11,6 +11,7 @@ import { Player } from '../../../shared/models';
 import { formatShortDate, todayDateString } from '../../../shared/utils/date.util';
 import {
   ActionBarComponent,
+  BusyDirective,
   GenderBadgeComponent,
   HeroFieldComponent,
   IconComponent,
@@ -28,6 +29,7 @@ import {
   selector: 'app-session-create',
   imports: [
     ActionBarComponent,
+    BusyDirective,
     GenderBadgeComponent,
     HeroFieldComponent,
     IconComponent,
@@ -216,7 +218,8 @@ import {
       <button
         type="button"
         class="btn btn-primary blueprint h-13 text-[17px]"
-        [disabled]="count() < minPlayers"
+        [appBusy]="busy()"
+        [disabled]="count() < minPlayers || busy()"
         (click)="open()"
       >
         <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>
@@ -238,6 +241,7 @@ export class SessionCreateComponent implements OnInit {
 
   protected readonly minPlayers = MIN_SUPPORTED_PLAYERS;
   protected readonly term = signal('');
+  protected readonly busy = signal(false);
   protected readonly showInactive = signal(false);
   protected readonly selected = signal<ReadonlySet<string>>(new Set());
 
@@ -348,27 +352,35 @@ export class SessionCreateComponent implements OnInit {
 
   protected async open(): Promise<void> {
     const groupId = this.group.groupId();
-    if (!groupId || this.count() < this.minPlayers) {
+    if (!groupId || this.count() < this.minPlayers || this.busy()) {
       return;
     }
 
     const playerIds = [...this.selected()];
     const sessionId = this.sessionId();
 
-    if (sessionId) {
-      const session = await this.facade.getSessionById(sessionId);
-      if (session) {
-        await this.facade.updateSession({ ...session, playerIds });
+    // Abrir a sessão são duas idas ao banco, e a segunda pessoa marcando
+    // presença na beira da quadra é o caso comum: o botão trava enquanto a
+    // primeira não voltou.
+    this.busy.set(true);
+    try {
+      if (sessionId) {
+        const session = await this.facade.getSessionById(sessionId);
+        if (session) {
+          await this.facade.updateSession({ ...session, playerIds });
+        }
+      } else {
+        const created = await this.facade.createSession(groupId, playerIds);
+        await this.sessionStore.load(groupId);
+        void this.router.navigate(['/g', groupId, 'campeonatos', 'sessoes', created.id]);
+        return;
       }
-    } else {
-      const created = await this.facade.createSession(groupId, playerIds);
-      await this.sessionStore.load(groupId);
-      void this.router.navigate(['/g', groupId, 'campeonatos', 'sessoes', created.id]);
-      return;
-    }
 
-    await this.sessionStore.load(groupId);
-    void this.router.navigate(['/g', groupId, 'campeonatos', 'sessoes', sessionId]);
+      await this.sessionStore.load(groupId);
+      void this.router.navigate(['/g', groupId, 'campeonatos', 'sessoes', sessionId]);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected back(): void {

@@ -12,6 +12,7 @@ import { formatDuration, tournamentTiming } from '../../../core/rules/tournament
 import {
   ActionBarComponent,
   BlueprintComponent,
+  BusyDirective,
   HeroFieldComponent,
   IconComponent,
   InlineNoteComponent,
@@ -40,6 +41,7 @@ interface StandingRow {
   imports: [
     ActionBarComponent,
     BlueprintComponent,
+    BusyDirective,
     HeroFieldComponent,
     IconComponent,
     InlineNoteComponent,
@@ -154,6 +156,7 @@ interface StandingRow {
           <button
             type="button"
             class="mt-3 flex items-center gap-2 text-[13px] text-accent-700"
+            [disabled]="busy()"
             (click)="discardNext()"
           >
             <app-icon name="x" [size]="16" />
@@ -241,10 +244,23 @@ interface StandingRow {
             como desfazer.
           </p>
           <div class="grid grid-cols-2 gap-2">
-            <button type="button" class="btn btn-secondary" (click)="confirmingDelete.set(false)">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              [disabled]="busy()"
+              (click)="confirmingDelete.set(false)"
+            >
               CANCELAR
             </button>
-            <button type="button" class="btn btn-danger" (click)="remove()">EXCLUIR</button>
+            <button
+              type="button"
+              class="btn btn-danger"
+              [appBusy]="busy()"
+              [disabled]="busy()"
+              (click)="remove()"
+            >
+              EXCLUIR
+            </button>
           </div>
         </app-blueprint>
       </div>
@@ -265,6 +281,7 @@ export class StandingsComponent implements OnInit {
 
   protected readonly menuOpen = signal(false);
   protected readonly confirmingDelete = signal(false);
+  protected readonly busy = signal(false);
 
   private readonly stats = computed(() => {
     const tournament = this.store.tournament();
@@ -500,12 +517,17 @@ export class StandingsComponent implements OnInit {
 
   protected async discardNext(): Promise<void> {
     const sessionId = this.store.tournament()?.sessionId;
-    if (!sessionId) {
+    if (!sessionId || this.busy()) {
       return;
     }
 
-    await this.draws.discardPendingDraw(sessionId);
-    await this.sessions.reload();
+    this.busy.set(true);
+    try {
+      await this.draws.discardPendingDraw(sessionId);
+      await this.sessions.reload();
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected nameOf(playerId: string): string {
@@ -526,9 +548,21 @@ export class StandingsComponent implements OnInit {
   }
 
   protected async remove(): Promise<void> {
-    this.confirmingDelete.set(false);
-    await this.facade.deleteTournament(this.tournamentId());
-    void this.router.navigate(['/g', this.group.groupId(), 'campeonatos']);
+    if (this.busy()) {
+      return;
+    }
+
+    // O diálogo fica aberto até o banco responder. Excluir apaga partida por
+    // partida, o sorteio e a sessão — fechar antes deixaria a pessoa olhando
+    // uma classificação que já está sendo desmontada, sem saber se funcionou.
+    this.busy.set(true);
+    try {
+      await this.facade.deleteTournament(this.tournamentId());
+      this.confirmingDelete.set(false);
+      void this.router.navigate(['/g', this.group.groupId(), 'campeonatos']);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   /** "Começou 20:08 · durou 48 min". */

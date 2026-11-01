@@ -1,6 +1,6 @@
-import { Component, computed, inject, output } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
-import { BottomSheetComponent, IconComponent } from '../../../shared/ui';
+import { BottomSheetComponent, BusyDirective, IconComponent } from '../../../shared/ui';
 
 /**
  * Par-ou-ímpar do encaixe (1q).
@@ -12,7 +12,7 @@ import { BottomSheetComponent, IconComponent } from '../../../shared/ui';
  */
 @Component({
   selector: 'app-placement-sheet',
-  imports: [BottomSheetComponent, IconComponent],
+  imports: [BottomSheetComponent, BusyDirective, IconComponent],
   template: `
     <app-bottom-sheet
       [kicker]="'ENCAIXE DO AVULSO · ' + (waitingName() ?? '').toUpperCase()"
@@ -35,6 +35,8 @@ import { BottomSheetComponent, IconComponent } from '../../../shared/ui';
             type="button"
             class="btn btn-secondary flex-col gap-1 py-3"
             style="height: 76px"
+            [appBusy]="registering() === player.id"
+            [disabled]="registering() !== null"
             (click)="choose.emit(player.id)"
           >
             <span class="text-[12px] normal-case opacity-70">venceu</span>
@@ -49,6 +51,13 @@ import { BottomSheetComponent, IconComponent } from '../../../shared/ui';
 })
 export class PlacementSheetComponent {
   private readonly store = inject(LiveTournamentStore);
+
+  /**
+   * O jogador cuja vitória está sendo gravada. Vem de fora pelo mesmo motivo da
+   * folha de desempate: quem grava é a tela do ao vivo, e é ela que solta os
+   * botões se a gravação falhar.
+   */
+  readonly registering = input<string | null>(null);
 
   readonly choose = output<string>();
 

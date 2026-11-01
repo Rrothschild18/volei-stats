@@ -5,6 +5,7 @@ import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import {
   ActionBarComponent,
   BlueprintComponent,
+  BusyDirective,
   DateFieldComponent,
   GenderBadgeComponent,
   IconComponent,
@@ -40,6 +41,7 @@ const MESSAGES: Record<ClaimFailure, string> = {
   imports: [
     ActionBarComponent,
     BlueprintComponent,
+    BusyDirective,
     DateFieldComponent,
     GenderBadgeComponent,
     IconComponent,
@@ -170,6 +172,7 @@ const MESSAGES: Record<ClaimFailure, string> = {
         <button
           type="button"
           class="btn btn-primary blueprint h-13 text-[17px]"
+          [appBusy]="busy()"
           [disabled]="!canSubmit()"
           (click)="submit()"
         >

@@ -5,6 +5,7 @@ import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { describeError } from '../../../shared/utils/error.util';
 import {
   BlueprintComponent,
+  BusyDirective,
   DateFieldComponent,
   InlineNoteComponent,
   InnerHeaderComponent,
@@ -29,7 +30,13 @@ const MOTIVOS: Record<BirthDateFailure, string> = {
  */
 @Component({
   selector: 'app-me',
-  imports: [BlueprintComponent, DateFieldComponent, InlineNoteComponent, InnerHeaderComponent],
+  imports: [
+    BlueprintComponent,
+    BusyDirective,
+    DateFieldComponent,
+    InlineNoteComponent,
+    InnerHeaderComponent,
+  ],
   template: `
     <app-inner-header context="VÔLEI" title="SEUS DADOS" (back)="back()" />
 
@@ -55,6 +62,7 @@ const MOTIVOS: Record<BirthDateFailure, string> = {
         <button
           type="button"
           class="btn btn-primary mt-3 min-h-12 w-full"
+          [appBusy]="salvando()"
           [disabled]="!podeTrocarNome()"
           (click)="trocarNome()"
         >
@@ -91,6 +99,7 @@ const MOTIVOS: Record<BirthDateFailure, string> = {
           <button
             type="button"
             class="btn btn-primary mt-3 min-h-12 w-full"
+            [appBusy]="salvando()"
             [disabled]="!podeTrocarData()"
             (click)="trocarData()"
           >
@@ -129,7 +138,7 @@ export class MeComponent implements OnInit {
   protected readonly erroNome = signal<string | null>(null);
   protected readonly avisoData = signal<string | null>(null);
   protected readonly erroData = signal<string | null>(null);
-  private readonly salvando = signal(false);
+  protected readonly salvando = signal(false);
 
   /** Sem servidor não há senha: a seção da data não aparece. */
   protected readonly temSenha = computed(() => this.membership.available);

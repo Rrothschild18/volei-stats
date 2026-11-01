@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { createClient, Session, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
+import { NetworkActivityService } from '../net/network-activity.service';
 import { OFFLINE_MESSAGE } from '../../shared/utils/error.util';
 import { Database } from './database.types';
 
@@ -42,12 +43,22 @@ function fetchWithLimits(input: RequestInfo | URL, init?: RequestInit): Promise<
  */
 @Injectable({ providedIn: 'root' })
 export class SupabaseService {
+  readonly #activity = inject(NetworkActivityService);
+
+  /*
+   * Todo pedido ao banco passa por aqui, e é por isso que a conta de pedidos em
+   * voo mora neste ponto: não existe caminho até o Supabase que não seja este
+   * `fetch`. Uma tela que esquecesse de avisar que está esperando continuaria
+   * aparecendo na barra do topo.
+   */
   readonly client: SupabaseClient<Database> = createClient<Database>(
     environment.supabaseUrl,
     environment.supabasePublishableKey,
     {
       auth: { persistSession: true, autoRefreshToken: true },
-      global: { fetch: fetchWithLimits },
+      global: {
+        fetch: (input, init) => this.#activity.track(() => fetchWithLimits(input, init)),
+      },
     },
   );
 

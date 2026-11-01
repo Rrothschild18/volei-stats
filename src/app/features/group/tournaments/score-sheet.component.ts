@@ -7,6 +7,7 @@ import { Match } from '../../../shared/models';
 import { formatTime } from '../../../shared/utils/date.util';
 import {
   ActionBarComponent,
+  BusyDirective,
   FocusTrapDirective,
   BlueprintComponent,
   IconComponent,
@@ -26,6 +27,7 @@ import {
   imports: [
     ActionBarComponent,
     BlueprintComponent,
+    BusyDirective,
     FocusTrapDirective,
     IconComponent,
     InlineNoteComponent,
@@ -131,6 +133,7 @@ import {
           <button
             type="button"
             class="btn btn-primary blueprint h-14 text-[17px]"
+            [appBusy]="busy()"
             [disabled]="!!error() || busy()"
             (click)="save()"
           >
@@ -170,7 +173,15 @@ import {
             <button type="button" class="btn btn-secondary" (click)="confirming.set(false)">
               VOLTAR
             </button>
-            <button type="button" class="btn btn-primary" (click)="commit()">SALVAR</button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              [appBusy]="busy()"
+              [disabled]="busy()"
+              (click)="commit()"
+            >
+              SALVAR
+            </button>
           </div>
         </app-blueprint>
       </div>

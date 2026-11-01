@@ -1,7 +1,12 @@
 import { Component, inject, input, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { IdentityService, MembershipService } from '../../core/identity';
-import { BlueprintComponent, IconComponent, InlineNoteComponent } from '../../shared/ui';
+import {
+  BlueprintComponent,
+  BusyDirective,
+  IconComponent,
+  InlineNoteComponent,
+} from '../../shared/ui';
 import { describeError } from '../../shared/utils/error.util';
 
 /**
@@ -16,7 +21,7 @@ import { describeError } from '../../shared/utils/error.util';
  */
 @Component({
   selector: 'app-join',
-  imports: [BlueprintComponent, IconComponent, InlineNoteComponent],
+  imports: [BlueprintComponent, BusyDirective, IconComponent, InlineNoteComponent],
   template: `
     <header class="px-4 pt-10 pb-6">
       <p class="kicker">VÔLEI STATS</p>
@@ -55,6 +60,7 @@ import { describeError } from '../../shared/utils/error.util';
       <button
         type="submit"
         class="btn btn-primary blueprint h-13 text-[17px]"
+        [appBusy]="busy()"
         [disabled]="busy() || code().trim().length === 0"
       >
         <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>

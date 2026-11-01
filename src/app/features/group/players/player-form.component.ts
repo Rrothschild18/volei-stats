@@ -8,6 +8,7 @@ import { Gender } from '../../../shared/enums';
 import { PlayerStats } from '../../../shared/models';
 import {
   ActionBarComponent,
+  BusyDirective,
   InlineNoteComponent,
   InnerHeaderComponent,
   SegmentedComponent,
@@ -28,6 +29,7 @@ import { describeError } from '../../../shared/utils/error.util';
   selector: 'app-player-form',
   imports: [
     ActionBarComponent,
+    BusyDirective,
     FormField,
     InlineNoteComponent,
     InnerHeaderComponent,
@@ -98,7 +100,8 @@ import { describeError } from '../../../shared/utils/error.util';
       <button
         type="button"
         class="btn btn-primary blueprint h-13 text-[17px]"
-        [disabled]="playerForm().invalid()"
+        [appBusy]="busy()"
+        [disabled]="playerForm().invalid() || busy()"
         (click)="save()"
       >
         <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>
@@ -126,6 +129,7 @@ export class PlayerFormComponent implements OnInit {
   protected readonly active = signal(true);
   protected readonly stats = signal<PlayerStats | null>(null);
   protected readonly error = signal<string | null>(null);
+  protected readonly busy = signal(false);
 
   protected readonly genders = [
     { id: Gender.MALE, label: 'Masculino' },
@@ -161,13 +165,14 @@ export class PlayerFormComponent implements OnInit {
 
   protected async save(): Promise<void> {
     const groupId = this.group.groupId();
-    if (!groupId || this.playerForm().invalid()) {
+    if (!groupId || this.playerForm().invalid() || this.busy()) {
       return;
     }
 
     const { name } = this.model();
     const gender = this.gender() as Gender;
     this.error.set(null);
+    this.busy.set(true);
 
     try {
       const playerId = this.playerId();
@@ -188,6 +193,8 @@ export class PlayerFormComponent implements OnInit {
       this.cancel();
     } catch (cause) {
       this.error.set(describeError(cause, 'Não foi possível salvar.'));
+    } finally {
+      this.busy.set(false);
     }
   }
 

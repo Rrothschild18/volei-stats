@@ -457,6 +457,69 @@
   .tnum {
     font-feature-settings: 'tnum' 1;
   }
+
+  /*
+   * — espera —
+   *
+   * A barra do topo acompanha a coluna do app (480px no desktop), e não a
+   * largura da janela: colada na janela ela apareceria fora da tela que está
+   * carregando. Acima do véu do diálogo (z-index 50), senão o pedido disparado
+   * de dentro de um modal esperaria sem aviso.
+   */
+  .net-progress {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 60;
+    inline-size: min(480px, 100%);
+    block-size: 2px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  }
+
+  .net-progress::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inline-size: 40%;
+    background: var(--color-accent-700);
+    animation: net-progress-slide 1.1s ease-in-out infinite;
+  }
+
+  /*
+   * O botão que está esperando: um anel girando depois do rótulo. Onde a tela
+   * já troca o rótulo ("CRIANDO…"), os dois convivem — o anel é o que a pessoa
+   * vê de canto de olho, o rótulo é o que ela lê.
+   */
+  .btn[aria-busy='true'] {
+    cursor: progress;
+  }
+
+  .btn[aria-busy='true']::after {
+    content: '';
+    flex: none;
+    inline-size: 14px;
+    block-size: 14px;
+    border: 2px solid currentColor;
+    border-block-start-color: transparent;
+    animation: btn-busy-spin 0.7s linear infinite;
+  }
+}
+
+@keyframes net-progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(350%);
+  }
+}
+
+@keyframes btn-busy-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* O "ao vivo" é um quadrado estático; só sheets e modais se movem. */
@@ -466,6 +529,22 @@
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * Sem movimento, os dois indicadores de espera precisam dizer a mesma coisa
+ * parados: a regra acima zera as animações, então o que sobraria seria um
+ * pedaço de barra travado no canto e um anel incompleto.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .net-progress::after {
+    inline-size: 100%;
+  }
+
+  .btn[aria-busy='true']::after {
+    border: 0;
+    background: currentColor;
   }
 }
 

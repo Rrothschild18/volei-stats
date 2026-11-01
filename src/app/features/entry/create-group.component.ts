@@ -4,6 +4,7 @@ import { MembershipService } from '../../core/identity';
 import { Gender } from '../../shared/enums';
 import {
   ActionBarComponent,
+  BusyDirective,
   DateFieldComponent,
   InlineNoteComponent,
   InnerHeaderComponent,
@@ -26,6 +27,7 @@ import { describeError } from '../../shared/utils/error.util';
   selector: 'app-create-group',
   imports: [
     ActionBarComponent,
+    BusyDirective,
     DateFieldComponent,
     InlineNoteComponent,
     InnerHeaderComponent,
@@ -122,6 +124,7 @@ import { describeError } from '../../shared/utils/error.util';
       <button
         type="button"
         class="btn btn-primary blueprint h-13 text-[17px]"
+        [appBusy]="busy()"
         [disabled]="!canSubmit()"
         (click)="submit()"
       >
