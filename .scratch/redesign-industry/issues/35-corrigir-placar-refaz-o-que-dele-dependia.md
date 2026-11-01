@@ -8,7 +8,7 @@ campeonato encerrar, a noite está fechada.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 ## O que já é refeito
 
@@ -136,22 +136,97 @@ problema, não a solução.
 Seja qual for, a tela precisa **dizer** que a correção derrubou a decisão, em
 vez de a chave voltar a pausar sem explicação.
 
-- [ ] A decisão de par-ou-ímpar só vale para o empate que a gerou; empate novo
+- [x] A decisão de par-ou-ímpar só vale para o empate que a gerou; empate novo
       entre outras duplas pausa a chave de novo
-- [ ] O curto-circuito por tipo em `tiebreakAt` deixa de existir
+- [x] O curto-circuito por tipo em `tiebreakAt` deixa de existir
 - [ ] Corrigir a rodada 1 revisita o encaixe: dupla sintética e prioridade
       `coin-flip-loss` acompanham o resultado novo
-- [ ] A tela avisa quando uma correção derrubou uma decisão de quadra
-- [ ] Teste: empate decidido → correção muda o par → a chave pausa pedindo outro
-- [ ] Teste: empate decidido → correção não muda o par → a decisão continua valendo
+- [x] A tela avisa quando uma correção derrubou uma decisão de quadra
+- [x] Teste: empate decidido → correção muda o par → a chave pausa pedindo outro
+- [x] Teste: empate decidido → correção não muda o par → a decisão continua valendo
 - [ ] Teste: correção depois do encaixe aplicado refaz a dupla sintética
 - [ ] Corrigir a rodada 1 apaga as partidas de fases posteriores que o resultado
       novo não produz mais
-- [ ] `finalStandings`, `status` e as prioridades são re-derivados na correção,
+- [x] `finalStandings`, `status` e as prioridades são re-derivados na correção,
       não acumulados
 - [ ] Teste: correção que muda quem vai à final não deixa para trás a final
       antiga contando no saldo e nos rankings
-- [ ] Corrigir vale até 30 min depois do fim do campeonato; passado o prazo o
+- [x] Corrigir vale até 30 min depois do fim do campeonato; passado o prazo o
       botão sai e a tela explica
-- [ ] A store recusa a correção fora do prazo, não só a tela
-- [ ] Teste: correção 31 min depois do fim é recusada na store
+- [x] A store recusa a correção fora do prazo, não só a tela
+- [x] Teste: correção 31 min depois do fim é recusada na store
+
+## Comments
+
+**Três das quatro partes estão feitas** (commit `0e62b5e`): a decisão por par, o
+prazo de 30 min nas duas pontas, a re-derivação de `status` e `finalStandings`, e
+a frase que a tela diz quando uma correção derruba um par-ou-ímpar.
+
+Junto saiu um bug que não estava no ticket e que anulava o resto: `saveTiebreaks`
+no repositório do Supabase era **upsert sem limpar**. Tirar a decisão da lista na
+memória não apagava a linha, e o desempate ressuscitava no carregamento seguinte
+da tela. Agora limpa e regrava, como a classificação e as prioridades já faziam.
+
+### O que falta, e por que para aqui
+
+As partes 2 e 3 — refazer o encaixe, e apagar as partidas de fases posteriores
+que o resultado novo não produz — **batem na RLS**. O ticket mandava verificar, e
+a resposta é não.
+
+Sondado contra o Postgres de verdade (migrations aplicadas num banco
+descartável, papel `authenticated`, `request.jwt.claim.sub` de uma jogadora que
+não é dona):
+
+| Operação | Jogadora | Dono |
+| --- | --- | --- |
+| `update matches` (corrigir placar) | **pode** | pode |
+| `delete from matches` | não | pode |
+| `delete from tournament_teams` | não | pode |
+| `delete from tiebreak_decisions` | **pode** | pode |
+| `delete from odd_player_placements` | **pode** | pode |
+
+E o schema diz por que, em comentário, no bloco das políticas:
+
+> a dupla em particular levaria as partidas por cascata — o que daria ao jogador
+> uma porta lateral para apagar placar.
+
+Ou seja: não é descuido, é decisão. Apagar placar é do dono porque apagar leva
+história embora, enquanto corrigir deixa registrado quem corrigiu.
+
+**O detalhe que torna isto pior do que um erro:** a RLS não recusa o delete, ela
+filtra a linha. O `delete` volta com `DELETE 0` e sem erro nenhum. Um app que
+tentasse apagar acharia que limpou — e seguiria com a partida fantasma no banco,
+contando no saldo e nos rankings, exatamente o que o ticket quer evitar.
+
+Desfazer o encaixe tem o mesmo problema por outro caminho: a dupla sintética do
+encaixe é uma linha de `tournament_teams`, e tirá-la é delete de dono.
+
+### As saídas, e o que elas custam
+
+1. **Uma função `security definer` no banco** — `corrigir_placar(partida, placar,
+   partidas_a_apagar[])`. Autoriza por `is_group_player`, confere que as partidas
+   nomeadas são do mesmo campeonato e que nenhuma é da rodada 1, e faz a
+   correção e os apagamentos numa transação. A escolha de **quais** partidas caem
+   continua no TypeScript, que é quem sabe a chave; a função só autoriza e
+   garante atomicidade. De graça, o prazo de 30 min passa a valer no banco
+   também — que é mais forte do que "a store recusa", e é a própria lição do
+   ticket 32.
+   Custo: uma migration nova, e ela precisa ser aplicada **à mão** no SQL Editor
+   do projeto da nuvem (é como o schema inicial entrou — não há `db push` na
+   esteira).
+
+2. **Corrigir a rodada 1 passa a ser do dono.** Zero banco, zero migration. Mas
+   contradiz "a correção depois é de qualquer jogador", que é a regra que fez a
+   tela de classificação ganhar o botão de corrigir.
+
+3. **Não apagar: marcar.** A partida fantasma fica, com uma coluna dizendo que
+   não vale, e toda soma passa a filtrar. O ticket rejeita isso em uma frase —
+   "nada de resultado antigo 'desconsiderado' na prática mas presente no banco" —
+   e o custo real é que *cada* leitura futura precisa lembrar do filtro:
+   estatísticas, rankings, saldo da classificação, histórico do jogador.
+
+A recomendação é a **1**. A **2** é o atalho honesto se a migration na nuvem for
+o problema.
+
+- [ ] **Decidir** entre as três saídas acima antes de continuar
+- [ ] Aplicar a migration no projeto da nuvem, se a saída for a 1 (humano)
