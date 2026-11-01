@@ -60,3 +60,30 @@ describe('paraIso', () => {
     expect(paraIso(new Date(2000, 11, 31))).toBe('2000-12-31');
   });
 });
+
+describe('BrDateAdapter no meio da digitação', () => {
+  const adapter = TestBed.inject(BrDateAdapter);
+
+  /**
+   * O defeito que isto fecha: `Date.parse` responde alguma coisa para quase
+   * tudo, e o campo escrevia de volta o palpite. Digitar "2" virava
+   * "01/02/2001" na tela, e a tecla seguinte caía em cima disso.
+   */
+  it('data pela metade é "ainda não sei", não um palpite', () => {
+    for (const parcial of ['2', '23', '23/', '23/0', '23/07', '23/07/', '23/07/19', '2307']) {
+      expect(adapter.parse(parcial), `"${parcial}" não é uma data`).toBeNull();
+    }
+  });
+
+  it('e texto que não é data nenhuma também não vira data', () => {
+    expect(adapter.parse('ontem')).toBeNull();
+    expect(adapter.parse('23 de julho')).toBeNull();
+    expect(adapter.parse('--')).toBeNull();
+  });
+
+  it('a data inteira continua sendo lida, com ou sem separador', () => {
+    expect(paraIso(adapter.parse('23/07/1988'))).toBe('1988-07-23');
+    expect(paraIso(adapter.parse('23071988'))).toBe('1988-07-23');
+    expect(paraIso(adapter.parse('23 07 1988'))).toBe('1988-07-23');
+  });
+});

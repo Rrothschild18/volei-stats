@@ -21,7 +21,17 @@ export class BrDateAdapter extends NativeDateAdapter {
 
     const partes = DIGITADA.exec(valor.trim());
     if (!partes) {
-      return valor.trim() === '' ? null : super.parse(valor);
+      // Sem recorrer a `super.parse`, e esse é o ponto.
+      //
+      // `Date.parse` aceita quase tudo e responde alguma coisa: "2" vira
+      // 01/02/2001, "23/07" vira uma data de 2001. Como o campo escreve de
+      // volta o que o adaptador entendeu, cada tecla digitada era substituída
+      // por um palpite — e digitar "23071988" terminava com o campo vazio.
+      //
+      // Data incompleta não é uma data. Enquanto a pessoa está no meio da
+      // digitação, a resposta certa é "ainda não sei", e é isso que `null`
+      // quer dizer aqui.
+      return null;
     }
 
     const [, dia, mes, ano] = partes;
