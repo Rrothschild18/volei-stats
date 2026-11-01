@@ -63,6 +63,22 @@ const UNDEFINED_SLOT = 'VENCEDOR';
  */
 export interface CorrectionFallout {
   readonly droppedDecisions: readonly TiebreakDecision[];
+  /** O par-ou-ímpar do encaixe caiu junto: a chave vai pedir outro. */
+  readonly droppedPlacement: boolean;
+  /** Quantas partidas de fases posteriores deixaram de acontecer. */
+  readonly removedMatches: number;
+}
+
+const EMPTY_FALLOUT: CorrectionFallout = {
+  droppedDecisions: [],
+  droppedPlacement: false,
+  removedMatches: 0,
+};
+
+function hasFallout(fallout: CorrectionFallout): boolean {
+  return (
+    fallout.droppedDecisions.length > 0 || fallout.droppedPlacement || fallout.removedMatches > 0
+  );
 }
 
 /** Por que uma correção não foi gravada. */
@@ -350,39 +366,84 @@ export class LiveTournamentStore {
       correctedAt: new Date().toISOString(),
     };
 
-    await this.facade.saveMatch(corrected);
-
-    let droppedDecisions: readonly TiebreakDecision[] = [];
-
-    // A correção pode mudar quem saiu por mais pontos e quem vai ao encaixe.
     const tournament = this.tournament();
-    if (tournament) {
-      const before = priorityKeys(tournament);
-      const allMatches = await this.facade.getMatchesByTournamentId(tournament.id);
+    if (!tournament) {
+      // Sem o campeonato em mãos não dá para dizer o que a correção derruba, e
+      // gravar só o placar deixaria o resto apontando para o resultado antigo.
+      await this.facade.correctMatchScore({
+        matchId: match.id,
+        scoreA,
+        scoreB,
+        obsoleteMatchIds: [],
+        dissolvedTeamId: null,
+      });
+      await this.reload();
+      return { saved: true, fallout: EMPTY_FALLOUT };
+    }
 
-      // Primeiro o que a correção derrubou, e só então o que ela refaz: fechar
-      // a rodada 1 com uma decisão caduca ainda guardada seria derivar a chave
-      // a partir de um par-ou-ímpar que já não é sobre as duplas empatadas.
-      droppedDecisions = await this.tournaments.dropStaleTiebreaks(tournament, allMatches);
+    const before = priorityKeys(tournament);
+    const saved = await this.facade.getMatchesByTournamentId(tournament.id);
 
-      await this.tournaments.closeRound1(tournament, allMatches);
-      await this.rederiveOutcome(tournament, allMatches);
+    // A lista como ela FICA depois da correção. Tudo o que vem a seguir é a
+    // pergunta "o que este resultado ainda produz?", e perguntá-la sobre o
+    // placar antigo responderia que nada mudou.
+    const correctedMatches = saved.map((entry) => (entry.id === match.id ? corrected : entry));
 
-      // O sorteio pendente nasceu destas prioridades. Mudou a prioridade, ou
-      // a correção reabriu um desempate, e ele deixa de valer: o que depende
-      // de um resultado é derivado de novo (tickets 35 e 36).
-      const changed = priorityKeys(tournament) !== before;
-      if (changed || !this.tournaments.priorityFrozen(tournament, allMatches)) {
-        await this.draws.discardPendingDraw(tournament.sessionId);
-      }
+    // O encaixe primeiro, porque desfazê-lo muda a chave inteira: sem a dupla
+    // sintética, as fases que ela jogou deixam de existir, e é essa a chave
+    // que diz quais partidas sobraram.
+    const dissolvedTeamId = this.tournaments.staleOddPlayerPlacement(tournament, correctedMatches);
+    if (dissolvedTeamId) {
+      this.tournaments.undoOddPlayerPlacement(tournament);
+    }
+
+    const obsolete = this.tournaments.obsoleteMatches(tournament, correctedMatches);
+
+    // Uma chamada: o placar novo, as partidas que ele derrubou e a dupla do
+    // encaixe desfeita, numa transação do banco. Separado, o apagar seria
+    // recusado em silêncio — apagar partida é do dono.
+    await this.facade.correctMatchScore({
+      matchId: match.id,
+      scoreA,
+      scoreB,
+      obsoleteMatchIds: obsolete.map((entry) => entry.id),
+      dissolvedTeamId,
+    });
+
+    if (dissolvedTeamId) {
+      tournament.updatedAt = new Date().toISOString();
+      await this.facade.saveTournament(tournament);
+    }
+
+    const allMatches = await this.facade.getMatchesByTournamentId(tournament.id);
+
+    // Depois do que caiu, o que se refaz: fechar a rodada 1 com uma decisão
+    // caduca ainda guardada seria derivar a chave a partir de um par-ou-ímpar
+    // que já não é sobre as duplas empatadas.
+    const droppedDecisions = await this.tournaments.dropStaleTiebreaks(tournament, allMatches);
+
+    await this.tournaments.closeRound1(tournament, allMatches);
+    await this.rederiveOutcome(tournament, allMatches);
+
+    // O sorteio pendente nasceu destas prioridades. Mudou a prioridade, ou
+    // a correção reabriu um desempate, e ele deixa de valer: o que depende
+    // de um resultado é derivado de novo (tickets 35 e 36).
+    const changed = priorityKeys(tournament) !== before;
+    if (changed || !this.tournaments.priorityFrozen(tournament, allMatches)) {
+      await this.draws.discardPendingDraw(tournament.sessionId);
     }
 
     await this.reload();
 
-    const fallout: CorrectionFallout = { droppedDecisions };
+    const fallout: CorrectionFallout = {
+      droppedDecisions,
+      droppedPlacement: dissolvedTeamId !== null,
+      removedMatches: obsolete.length,
+    };
+
     // Depois do `reload`: ele repinta a tela inteira, e a frase tem de
     // sobreviver à repintura que ela explica.
-    this.correctionFallout.set(droppedDecisions.length > 0 ? fallout : null);
+    this.correctionFallout.set(hasFallout(fallout) ? fallout : null);
 
     return { saved: true, fallout };
   }

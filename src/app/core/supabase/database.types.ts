@@ -2,6 +2,26 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: { extensions?: Json; operationName?: string; query?: string; variables?: Json };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       draw_teams: {
@@ -1117,6 +1137,16 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      correct_match_score: {
+        Args: {
+          p_dissolved_team_id?: string;
+          p_match_id: string;
+          p_obsolete_match_ids?: string[];
+          p_score_a: number;
+          p_score_b: number;
+        };
+        Returns: undefined;
+      };
       create_group: {
         Args: {
           p_group_name: string;
@@ -1298,6 +1328,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       group_role: ['player', 'viewer'],

@@ -609,3 +609,209 @@ describe('TournamentService.dropStaleTiebreaks', () => {
     expect(saved).toHaveLength(0);
   });
 });
+
+describe('TournamentService.obsoleteMatches', () => {
+  /** Seis duplas: três partidas na rodada 1, depois semifinal e final. */
+  function sixTeams() {
+    return [
+      team('t1', ['rafa', 'bia']),
+      team('t2', ['thiago', 'nina']),
+      team('t3', ['duda', 'malu']),
+      team('t4', ['gui', 'paty']),
+      team('t5', ['leo', 'carol']),
+      team('t6', ['will', 'be']),
+    ];
+  }
+
+  // t1 vence por 10 (direto à final), t3 por 5, t5 por 2.
+  // Semifinal: t3 × t5. Final: t1 × vencedor.
+  const original = [
+    match('m1', 'round-1', 't1', 't2', 12, 2),
+    match('m2', 'round-1', 't3', 't4', 12, 7),
+    match('m3', 'round-1', 't5', 't6', 12, 10),
+    match('m4', 'semifinal', 't3', 't5', 12, 8),
+    match('m5', 'final', 't1', 't3', 12, 9),
+  ];
+
+  it('sem correção, nada está obsoleto', () => {
+    const { service } = setup(original);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeams() });
+
+    expect(service.obsoleteMatches(entry, original)).toEqual([]);
+  });
+
+  it('correção que muda quem vai à final derruba a semifinal e a final antigas', () => {
+    // t2 vence por 10: agora é t2 quem vai direto à final, e t1 perde por 10
+    // (eliminação direta). A semifinal passa a ser t3 × t5 ainda, mas a final
+    // antiga era t1 × t3 — e t1 não vai mais para lá.
+    const corrected = [
+      match('m1', 'round-1', 't1', 't2', 2, 12),
+      original[1],
+      original[2],
+      original[3],
+      original[4],
+    ];
+    const { service } = setup(corrected);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeams() });
+
+    const obsolete = service.obsoleteMatches(entry, corrected);
+
+    expect(obsolete.map((entry) => entry.id)).toEqual(['m5']);
+  });
+
+  it('a rodada 1 nunca entra na conta: ela é a causa, não a consequência', () => {
+    const corrected = [
+      match('m1', 'round-1', 't1', 't2', 2, 12),
+      original[1],
+      original[2],
+      original[3],
+      original[4],
+    ];
+    const { service } = setup(corrected);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeams() });
+
+    const obsolete = service.obsoleteMatches(entry, corrected);
+
+    expect(obsolete.some((entry) => entry.phase === 'round-1')).toBe(false);
+  });
+
+  it('a rodada INICIAL nunca é obsoleta, mesmo quando ela é a final', () => {
+    // Duas duplas: o formato não tem rodada 1 nenhuma — a rodada inicial É a
+    // final. Filtrar por fase acusava de obsoleta justamente a partida que
+    // estava sendo corrigida, e a correção apagava o próprio placar.
+    const duas = [team('t1', ['rafa', 'bia']), team('t2', ['thiago', 'nina'])];
+    const unica = [match('m1', 'final', 't1', 't2', 12, 9)];
+    const { service } = setup(unica);
+    const entry = tournament({ formatId: 'duelo', teams: duas });
+
+    expect(service.obsoleteMatches(entry, unica)).toEqual([]);
+  });
+
+  it('nem as semifinais de um formato de quatro duplas', () => {
+    const quatro = [
+      team('t1', ['rafa', 'bia']),
+      team('t2', ['thiago', 'nina']),
+      team('t3', ['duda', 'malu']),
+      team('t4', ['gui', 'paty']),
+    ];
+    const chave = [
+      match('m1', 'semifinal', 't1', 't2', 12, 9),
+      match('m2', 'semifinal', 't3', 't4', 12, 5),
+      match('m3', 'final', 't1', 't3', 12, 8),
+    ];
+    const { service } = setup(chave);
+    const entry = tournament({ formatId: 'knockout-4', teams: quatro });
+
+    expect(service.obsoleteMatches(entry, chave)).toEqual([]);
+  });
+
+  it('com a chave pausada por empate, tudo que veio depois da rodada 1 cai', () => {
+    // t1 e t3 passam a vencer por 5: empate na frente dos vencedores, e a chave
+    // não gera partida nenhuma até alguém registrar o par-ou-ímpar.
+    const empatado = [
+      match('m1', 'round-1', 't1', 't2', 12, 7),
+      original[1],
+      original[2],
+      original[3],
+      original[4],
+    ];
+    const { service } = setup(empatado);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeams() });
+
+    expect(service.obsoleteMatches(entry, empatado).map((entry) => entry.id)).toEqual(['m4', 'm5']);
+  });
+});
+
+describe('TournamentService e o encaixe depois de uma correção', () => {
+  /**
+   * Quatro duplas e um avulso: a dupla que perde a rodada 1 por MENOS
+   * diferença manda um jogador para o encaixe com o avulso, e a que perde por
+   * mais está fora.
+   */
+  function encaixe() {
+    const teams = [
+      team('t1', ['rafa', 'bia']),
+      team('t2', ['thiago', 'nina']),
+      team('t3', ['duda', 'malu']),
+      team('t4', ['gui', 'paty']),
+    ];
+    const matches = [
+      match('m1', 'round-1', 't1', 't2', 12, 2),
+      match('m2', 'round-1', 't3', 't4', 12, 9),
+    ];
+    return { teams, matches };
+  }
+
+  function comEncaixeAplicado(): { entry: Tournament; matches: Match[] } {
+    const { teams, matches } = encaixe();
+    // t4 perdeu por 3 (menos) e disputa o encaixe; t2 perdeu por 10 e está fora.
+    const sintetica = team('enc', ['gui', 'avulso'], true);
+    sintetica.originalPlayerIds = ['gui', 'paty'];
+
+    const entry = tournament({
+      formatId: 'knockout-4-avulso',
+      teams: [...teams, sintetica],
+      waitingPlayerId: 'avulso',
+      oddPlayerPlacementEnabled: true,
+      oddPlayerPlacement: {
+        sourceTeamId: 't4',
+        encaixeTeamId: 'enc',
+        survivingPlayerId: 'gui',
+        eliminatedPlayerId: 'paty',
+        decidedBy: 'p-rafa',
+        decidedAt: '2026-10-26T23:20:00.000Z',
+      },
+      priorityEntries: [{ playerId: 'paty', reason: 'coin-flip-loss' }],
+    });
+
+    entry.teams.find((candidate) => candidate.id === 't4')!.eliminated = true;
+    return { entry, matches };
+  }
+
+  it('correção que não muda quem perdeu por menos deixa o encaixe em pé', () => {
+    const { entry, matches } = comEncaixeAplicado();
+    // t4 continua perdendo por menos (3 contra 10).
+    const corrected = [matches[0], match('m2', 'round-1', 't3', 't4', 11, 8)];
+    const { service } = setup(corrected);
+
+    expect(service.staleOddPlayerPlacement(entry, corrected)).toBeNull();
+  });
+
+  it('correção que muda quem perdeu por menos derruba o encaixe', () => {
+    const { entry } = comEncaixeAplicado();
+    // Agora t2 perde por 3 e t4 por 10: quem disputa o encaixe passa a ser t2.
+    const corrected = [
+      match('m1', 'round-1', 't1', 't2', 12, 9),
+      match('m2', 'round-1', 't3', 't4', 12, 2),
+    ];
+    const { service } = setup(corrected);
+
+    expect(service.staleOddPlayerPlacement(entry, corrected)).toBe('enc');
+  });
+
+  it('desfazer devolve a dupla original, tira a sintética e a prioridade do par-ou-ímpar', () => {
+    const { entry } = comEncaixeAplicado();
+    const { service } = setup([]);
+
+    expect(service.undoOddPlayerPlacement(entry)).toBe('enc');
+
+    expect(entry.oddPlayerPlacement).toBeNull();
+    expect(entry.teams.some((team) => team.id === 'enc')).toBe(false);
+    expect(entry.teams.find((team) => team.id === 't4')!.eliminated).toBe(false);
+    expect(entry.priorityEntries).toEqual([]);
+  });
+
+  it('e a chave volta a pedir o par-ou-ímpar do encaixe, agora da dupla certa', async () => {
+    const { entry } = comEncaixeAplicado();
+    const corrected = [
+      match('m1', 'round-1', 't1', 't2', 12, 9),
+      match('m2', 'round-1', 't3', 't4', 12, 2),
+    ];
+    const { service } = setup(corrected);
+
+    service.undoOddPlayerPlacement(entry);
+
+    expect(service.needsOddPlayerPlacementDecision(entry, corrected)).toBe(true);
+    expect(service.getOddPlayerPlacementCandidate(entry, corrected)?.sourceTeam.id).toBe('t2');
+  });
+});

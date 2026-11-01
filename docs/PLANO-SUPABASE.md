@@ -242,7 +242,8 @@ Criar vôlei, cadastrar os amigos, o link, a lista de nomes, a troca de data, o
 
 1. Criar projeto em supabase.com (grátis). Guardar **Project URL** e a chave
    publicável.
-2. SQL Editor → colar a migration de `supabase/migrations/` → Run.
+2. SQL Editor → colar **cada** migration de `supabase/migrations/`, em ordem de
+   nome → Run. O deploy não aplica schema; o README diz quais são e por quê.
 3. Authentication → Providers → ligar **Anonymous sign-ins**.
 4. _(recomendado)_ Attack Protection → ligar **Captcha (Turnstile)**.
    O endpoint anônimo é aberto; sem captcha, alguém pode inflar a tabela de

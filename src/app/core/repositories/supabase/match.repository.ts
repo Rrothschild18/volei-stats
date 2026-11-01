@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Match, MatchPhase } from '../../../shared/models';
-import { MatchRepository } from '../repository.contracts';
+import { MatchRepository, ScoreCorrection } from '../repository.contracts';
 import { SupabaseRepositoryBase } from './supabase-repository.base';
 
 /**
@@ -63,6 +63,33 @@ export class SupabaseMatchRepository extends SupabaseRepositoryBase implements M
       .select(COLUMNS)
       .single();
     return toMatch(this.unwrap(data, error, 'Não foi possível salvar o placar'));
+  }
+
+  /**
+   * A correção inteira numa chamada: o placar novo, as partidas que ele
+   * derrubou e a dupla do encaixe desfeita.
+   *
+   * Vai por `correct_match_score` e não por `update` + `delete` porque apagar
+   * partida é do dono, e corrigir é de qualquer jogador. A função é quem
+   * reconcilia os dois: ela confere o alcance (mesmo campeonato, nunca a
+   * rodada 1, só a dupla sintética), o prazo dos 30 min, e faz tudo numa
+   * transação só.
+   */
+  async correctScore(correction: ScoreCorrection): Promise<void> {
+    const client = await this.rpc();
+    const { error } = await client.rpc('correct_match_score', {
+      p_match_id: correction.matchId,
+      p_score_a: correction.scoreA,
+      p_score_b: correction.scoreB,
+      p_obsolete_match_ids: [...correction.obsoleteMatchIds],
+      // O tipo gerado diz `string | undefined`: o argumento tem default no
+      // banco, então "sem dupla desfeita" é omitir, não mandar nulo.
+      p_dissolved_team_id: correction.dissolvedTeamId ?? undefined,
+    });
+
+    if (error) {
+      throw new Error(`Não foi possível corrigir o placar: ${error.message}`);
+    }
   }
 
   async delete(id: string): Promise<void> {

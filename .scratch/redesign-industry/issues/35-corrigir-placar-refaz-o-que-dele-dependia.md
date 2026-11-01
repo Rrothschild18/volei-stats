@@ -8,7 +8,7 @@ campeonato encerrar, a noite está fechada.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-human
+**Status:** done
 
 ## O que já é refeito
 
@@ -139,17 +139,17 @@ vez de a chave voltar a pausar sem explicação.
 - [x] A decisão de par-ou-ímpar só vale para o empate que a gerou; empate novo
       entre outras duplas pausa a chave de novo
 - [x] O curto-circuito por tipo em `tiebreakAt` deixa de existir
-- [ ] Corrigir a rodada 1 revisita o encaixe: dupla sintética e prioridade
+- [x] Corrigir a rodada 1 revisita o encaixe: dupla sintética e prioridade
       `coin-flip-loss` acompanham o resultado novo
 - [x] A tela avisa quando uma correção derrubou uma decisão de quadra
 - [x] Teste: empate decidido → correção muda o par → a chave pausa pedindo outro
 - [x] Teste: empate decidido → correção não muda o par → a decisão continua valendo
-- [ ] Teste: correção depois do encaixe aplicado refaz a dupla sintética
-- [ ] Corrigir a rodada 1 apaga as partidas de fases posteriores que o resultado
+- [x] Teste: correção depois do encaixe aplicado refaz a dupla sintética
+- [x] Corrigir a rodada 1 apaga as partidas de fases posteriores que o resultado
       novo não produz mais
 - [x] `finalStandings`, `status` e as prioridades são re-derivados na correção,
       não acumulados
-- [ ] Teste: correção que muda quem vai à final não deixa para trás a final
+- [x] Teste: correção que muda quem vai à final não deixa para trás a final
       antiga contando no saldo e nos rankings
 - [x] Corrigir vale até 30 min depois do fim do campeonato; passado o prazo o
       botão sai e a tela explica
@@ -228,5 +228,58 @@ encaixe é uma linha de `tournament_teams`, e tirá-la é delete de dono.
 A recomendação é a **1**. A **2** é o atalho honesto se a migration na nuvem for
 o problema.
 
-- [ ] **Decidir** entre as três saídas acima antes de continuar
-- [ ] Aplicar a migration no projeto da nuvem, se a saída for a 1 (humano)
+- [x] **Decidir** entre as três saídas acima antes de continuar
+- [ ] **Humano:** aplicar `20261101120000_correcao_de_placar.sql` no SQL Editor
+      do projeto da nuvem, ANTES do deploy que depende dela
+
+### A saída escolhida foi a 1, e ela está de pé
+
+`correct_match_score` (migration `20261101120000_correcao_de_placar.sql`): uma
+função `security definer` que faz a correção e os apagamentos numa transação só.
+A autorização não se perde — é feita explicitamente, com a mesma
+`is_group_player` que as políticas usam — e o alcance do apagar é conferido no
+corpo dela, não no cliente:
+
+- mesmo campeonato;
+- nunca a rodada 1;
+- **nunca a própria partida corrigida** (ver abaixo);
+- a única dupla desfeita é a sintética do encaixe.
+
+O prazo dos 30 min vive lá também. Agora são três portas — a tela esconde o
+botão, a store recusa a gravação, o banco recusa o comando — e só a terceira é
+a que uma aba velha, um link antigo ou outro cliente não contornam.
+
+Quem decide **quais** partidas caem continua no TypeScript, que é quem conhece a
+chave: `obsoleteMatches` refaz o caminho a partir da rodada inicial e vai
+aceitando, camada por camada, o que a chave de fato gera. O que nenhuma camada
+alcança não acontece mais.
+
+A suíte SQL ganhou `05-correcao-de-placar.sql`: a jogadora corrige e a fase
+posterior sai junto, e cada recusa tem o seu teste (rodada 1, outro campeonato,
+dupla do sorteio, quem só é membro, quem é de fora, 31 min depois do fim).
+
+### O defeito que o e2e do banco pegou
+
+A primeira versão de `obsoleteMatches` separava "causa" de "consequência" **por
+fase**: tudo que não fosse `round-1` era candidato a cair. Num formato de duas
+duplas a rodada inicial É a final — e de quatro, são as duas semifinais. O
+resultado foi a suíte `banco` falhando em "um campeonato do zero até o fim":
+corrigir o placar único apagava o próprio placar que acabara de ser consertado.
+
+A causa não é a fase, é a **origem**: a rodada inicial é montada do sorteio e não
+depende de resultado nenhum, então nunca é invalidada por uma correção. A
+derivação passou a partir de `generateInitialMatches`.
+
+E o banco ganhou a trava que não depende de conhecer formato: a partida
+corrigida nunca está na lista do que ela mesma apaga.
+
+Fica registrado porque é o tipo de coisa que só aparece atravessando o caminho
+inteiro — a cobertura de unidade estava verde com o defeito dentro.
+
+### Uma limitação que ficou, e não é deste ticket
+
+`tiebreak_decisions` tem chave primária `(tournament_id, kind)`: uma decisão de
+perdedores e uma de vencedores por campeonato. Com disputa de 3º lugar, a
+fronteira dos perdedores olha duas posições, e em tese dois empates separados
+entre perdedores pediriam duas decisões — a segunda substituiria a primeira.
+Precisa de mudança de chave para resolver, e nunca foi observado em quadra.

@@ -90,6 +90,18 @@ Captcha** ligado, que é a única proteção que o endpoint anônimo pede.
 Faltando uma das variáveis, o deploy falha no passo que as lê, de propósito — em
 vez de publicar uma tela que não carrega nada e não diz por quê.
 
+### Migrations na nuvem
+
+O deploy publica o **app**, não o schema: não há `db push` na esteira. Uma
+migration nova em `supabase/migrations/` precisa ser aplicada à mão — SQL Editor
+→ colar o arquivo → Run — e **antes** do deploy que depende dela, senão o app
+publicado chama uma função que ainda não existe lá.
+
+| Migration                               | O que ela adiciona                                                                         |
+| --------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `20261031000000_schema_inicial.sql`     | Tudo: tabelas, políticas e as funções de acesso                                            |
+| `20261101120000_correcao_de_placar.sql` | `correct_match_score`, que corrige um placar e apaga junto o que o resultado novo derrubou |
+
 Projeto grátis é pausado após ~7 dias sem acesso, e o vôlei é semanal: o
 workflow `keepalive.yml` faz uma consulta trivial a cada três dias.
 

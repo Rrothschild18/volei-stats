@@ -4,6 +4,7 @@ import {
   GroupRepository,
   MatchRepository,
   PlayerRepository,
+  ScoreCorrection,
   SessionRepository,
   TournamentRepository,
 } from '../repositories';
@@ -235,6 +236,17 @@ export class AppFacade {
 
   async saveMatch(match: Match): Promise<Match> {
     return this.#matchRepo.save(match);
+  }
+
+  /**
+   * Corrige um placar e leva junto o que o resultado novo derrubou.
+   *
+   * Uma chamada só, e não um `saveMatch` seguido de `deleteMatch`: apagar
+   * partida é do dono e corrigir é de qualquer jogador, então o apagar solto
+   * seria recusado — em silêncio (ticket 35).
+   */
+  async correctMatchScore(correction: ScoreCorrection): Promise<void> {
+    return this.#matchRepo.correctScore(correction);
   }
 
   // Statistics

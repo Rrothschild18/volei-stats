@@ -42,6 +42,15 @@ function jogavel(slot: BracketSlot): slot is BracketMatch {
   return slot.teamBId !== null;
 }
 
+/** A mesma fase e as mesmas duas duplas, em qualquer ordem. */
+function samePair(match: Match, phase: MatchPhase, teamAId: string, teamBId: string): boolean {
+  return (
+    match.phase === phase &&
+    ((match.teamAId === teamAId && match.teamBId === teamBId) ||
+      (match.teamAId === teamBId && match.teamBId === teamAId))
+  );
+}
+
 export const TOURNAMENT_NAMES = [
   'Escola Raul de forehand',
   'Escola vitoria tira casaco',
@@ -313,8 +322,20 @@ export class TournamentService {
 
   /** As vagas da chave, inteiras e pela metade. */
   async getNextSlots(tournament: Tournament): Promise<BracketSlot[]> {
-    this.normalizeTournament(tournament);
     const matches = await this.facade.getMatchesByTournamentId(tournament.id);
+    return this.nextSlotsFrom(tournament, matches);
+  }
+
+  /**
+   * O mesmo que `getNextSlots`, a partir de uma lista de partidas dada.
+   *
+   * Existe porque há uma pergunta que não se faz sobre o que está no banco: "se
+   * só estas partidas valessem, quais a chave geraria?". É assim que se
+   * descobre, depois de uma correção, o que o resultado novo ainda produz e o
+   * que ficou pelo caminho (ticket 35).
+   */
+  nextSlotsFrom(tournament: Tournament, matches: readonly Match[]): BracketSlot[] {
+    this.normalizeTournament(tournament);
     const completedMatches = matches.filter((match) => match.winnerId !== null);
 
     // Empate na fronteira que decide: ninguém gera partida até as duplas
@@ -322,8 +343,6 @@ export class TournamentService {
     if (this.pendingTiebreak(tournament, completedMatches)) {
       return [];
     }
-
-    tournament = await this.syncTournamentState(tournament);
 
     // Contagem das duplas originais (exclui a dupla sintética do encaixe, que é
     // adicionada após a rodada 1 e não deve mudar o formato do chaveamento).
@@ -437,6 +456,149 @@ export class TournamentService {
     ];
     tournament.updatedAt = new Date().toISOString();
     return this.facade.saveTournament(tournament);
+  }
+
+  /**
+   * O encaixe ainda é sobre a dupla que a rodada 1 corrigida manda para lá?
+   *
+   * `applyOddPlayerPlacement` sai na porta quando já existe decisão, e
+   * `closeRound1` devolve cedo quando o campeonato usa encaixe. Juntos, faziam
+   * com que corrigir a rodada 1 não revisitasse nada: a dupla sintética
+   * continuava montada com os jogadores da dupla que já não é a que perdeu por
+   * menos, e a prioridade `coin-flip-loss` continuava no jogador errado.
+   *
+   * Devolve o id da dupla sintética quando o par-ou-ímpar não se aplica mais;
+   * null quando ele sobrevive — ou quando ainda não dá para dizer, porque um
+   * empate pendente deixa a dupla de origem indefinida. Nesse caso a pergunta
+   * volta assim que o empate for decidido.
+   */
+  staleOddPlayerPlacement(tournament: Tournament, matches: readonly Match[]): string | null {
+    this.normalizeTournament(tournament);
+
+    const placement = tournament.oddPlayerPlacement;
+    if (!placement || !this.usesOddPlayerPlacement(tournament)) {
+      return null;
+    }
+
+    const completed = matches.filter((match) => match.winnerId !== null);
+    const resolved = this.resolvePlacementTeams(tournament, completed);
+    if (!resolved) {
+      return null;
+    }
+
+    return resolved.placementSource.id === placement.sourceTeamId ? null : placement.encaixeTeamId;
+  }
+
+  /**
+   * Desfaz o encaixe na memória, e devolve a dupla sintética que precisa sair
+   * do banco junto.
+   *
+   * A chave volta a pausar pedindo outro par-ou-ímpar — é a saída que o ticket
+   * 35 escolheu, pela mesma razão de sempre: decisão guardada que ninguém
+   * revalida é a fonte do problema. Quem grava é quem chama, depois de o banco
+   * ter apagado a dupla.
+   */
+  undoOddPlayerPlacement(tournament: Tournament): string | null {
+    this.normalizeTournament(tournament);
+
+    const placement = tournament.oddPlayerPlacement;
+    if (!placement) {
+      return null;
+    }
+
+    // A dupla desfeita volta a existir inteira...
+    const source = this.getTeamById(tournament, placement.sourceTeamId);
+    if (source) {
+      source.eliminated = false;
+      source.eliminatedDirectly = false;
+    }
+
+    // ...a sintética deixa de existir...
+    tournament.teams = tournament.teams.filter((team) => team.id !== placement.encaixeTeamId);
+
+    // ...e a prioridade que nasceu daquele par-ou-ímpar sai com ela.
+    tournament.priorityEntries = tournament.priorityEntries.filter(
+      (entry) =>
+        !(entry.reason === 'coin-flip-loss' && entry.playerId === placement.eliminatedPlayerId),
+    );
+
+    // A eliminação direta foi marcada junto com o encaixe, então cai junto: ela
+    // é refeita a partir do resultado novo, não acumulada — o mesmo cuidado que
+    // `closeRound1` já toma.
+    for (const team of tournament.teams) {
+      if (!team.eliminatedDirectly) {
+        continue;
+      }
+      team.eliminated = false;
+      team.eliminatedDirectly = false;
+      tournament.priorityEntries = tournament.priorityEntries.filter(
+        (entry) =>
+          !(entry.reason === 'direct-elimination' && team.playerIds.includes(entry.playerId)),
+      );
+    }
+
+    tournament.oddPlayerPlacement = null;
+    return placement.encaixeTeamId;
+  }
+
+  /**
+   * As partidas de fases posteriores que a chave já não produz.
+   *
+   * A chave é sequencial: quem joga a semifinal depende de quem venceu a
+   * rodada 1. Mudando a rodada 1, as partidas seguintes podem ter sido jogadas
+   * entre duplas que o resultado corrigido não manda mais para lá. E elas não
+   * são reconhecidas por ninguém — `findSavedMatch` casa por fase **e** par —
+   * então ficavam no banco contando nas estatísticas, nos rankings e no saldo
+   * da classificação (ticket 35).
+   *
+   * Em vez de adivinhar quais caíram, refaz o caminho: parte da rodada 1 e vai
+   * aceitando, camada por camada, as partidas que a chave de fato gera. O que
+   * não for alcançado por nenhuma camada não acontece mais.
+   */
+  obsoleteMatches(tournament: Tournament, matches: readonly Match[]): Match[] {
+    this.normalizeTournament(tournament);
+
+    const completed = matches.filter((match) => match.winnerId !== null);
+
+    // A rodada INICIAL é a causa da correção, nunca consequência dela: ela é
+    // montada do sorteio, sem depender de resultado nenhum. E ela nem sempre é
+    // a `round-1` — num formato de duas duplas a rodada inicial É a final, e de
+    // quatro são as duas semifinais. Filtrar por fase apagaria a partida que
+    // está sendo corrigida.
+    const initial = this.generateInitialMatches(tournament);
+    const accepted = completed.filter((match) =>
+      initial.some((slot) => samePair(match, slot.phase, slot.teamAId, slot.teamBId)),
+    );
+
+    const later = completed.filter((match) => !accepted.includes(match));
+    if (later.length === 0) {
+      return [];
+    }
+
+    let grew = true;
+    while (grew) {
+      grew = false;
+
+      for (const slot of this.nextSlotsFrom(tournament, accepted)) {
+        // Vaga pela metade (quem já se classificou e espera adversário) não
+        // casa com partida nenhuma.
+        const teamBId = slot.teamBId;
+        if (teamBId === null) {
+          continue;
+        }
+
+        const saved = later.find(
+          (match) =>
+            !accepted.includes(match) && samePair(match, slot.phase, slot.teamAId, teamBId),
+        );
+        if (saved) {
+          accepted.push(saved);
+          grew = true;
+        }
+      }
+    }
+
+    return later.filter((match) => !accepted.includes(match));
   }
 
   /**

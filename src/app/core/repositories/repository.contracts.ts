@@ -65,6 +65,23 @@ export abstract class TournamentRepository {
   abstract delete(id: string): Promise<void>;
 }
 
+/**
+ * Uma correção de placar e tudo o que ela derruba, numa coisa só.
+ *
+ * Não é `save` seguido de `delete` porque apagar partida é do dono e corrigir é
+ * de qualquer jogador: separado, o apagar seria recusado — em silêncio, porque
+ * a RLS filtra a linha em vez de recusar o comando (ticket 35).
+ */
+export interface ScoreCorrection {
+  readonly matchId: string;
+  readonly scoreA: number;
+  readonly scoreB: number;
+  /** Partidas de fases posteriores que o resultado novo não produz mais. */
+  readonly obsoleteMatchIds: readonly string[];
+  /** A dupla sintética do encaixe, quando a correção desfaz o par-ou-ímpar. */
+  readonly dissolvedTeamId: string | null;
+}
+
 export abstract class MatchRepository {
   abstract getAll(): Promise<Match[]>;
   abstract getByTournamentId(tournamentId: string): Promise<Match[]>;
@@ -72,6 +89,7 @@ export abstract class MatchRepository {
   abstract getById(id: string): Promise<Match | undefined>;
   abstract save(match: Match): Promise<Match>;
   abstract delete(id: string): Promise<void>;
+  abstract correctScore(correction: ScoreCorrection): Promise<void>;
 }
 
 /**

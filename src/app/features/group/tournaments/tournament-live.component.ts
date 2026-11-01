@@ -331,19 +331,41 @@ export class TournamentLiveComponent implements OnInit {
   /** Quem está sendo gravado como vencedor do par-ou-ímpar (encaixe ou empate). */
   protected readonly registering = signal<string | null>(null);
 
-  /** O que a última correção de placar derrubou, em uma frase. */
+  /**
+   * O que a última correção de placar derrubou, em uma frase.
+   *
+   * Três coisas podem cair, e cada uma precisa ser dita com o nome dela: o
+   * par-ou-ímpar do empate, o do encaixe, e as partidas que deixaram de
+   * acontecer. Juntar tudo num "algumas coisas mudaram" devolveria a chave
+   * pausada sem explicação, que é exatamente o que o ticket 35 proíbe.
+   */
   protected readonly correctionNote = computed(() => {
-    const dropped = this.store.correctionFallout()?.droppedDecisions ?? [];
-    if (dropped.length === 0) {
+    const fallout = this.store.correctionFallout();
+    if (!fallout) {
       return null;
     }
 
+    const partes: string[] = [];
+    const dropped = fallout.droppedDecisions;
+
     if (dropped.length === 1) {
       const duplas = dropped[0].teamIds.map((teamId) => this.store.teamLabel(teamId)).join(' × ');
-      return `A correção desfez o par-ou-ímpar de ${duplas}: o empate agora é entre outras duplas.`;
+      partes.push(`desfez o par-ou-ímpar de ${duplas} — o empate agora é entre outras duplas`);
+    } else if (dropped.length > 1) {
+      partes.push('desfez os par-ou-ímpares dos empates — eles agora são entre outras duplas');
     }
 
-    return 'A correção desfez os par-ou-ímpares já registrados: os empates agora são entre outras duplas.';
+    if (fallout.droppedPlacement) {
+      partes.push('desfez o encaixe: quem perdeu por menos já não é a mesma dupla');
+    }
+
+    if (fallout.removedMatches === 1) {
+      partes.push('apagou 1 partida que já não acontece');
+    } else if (fallout.removedMatches > 1) {
+      partes.push(`apagou ${fallout.removedMatches} partidas que já não acontecem`);
+    }
+
+    return partes.length > 0 ? `A correção ${partes.join('; ')}.` : null;
   });
 
   protected readonly tabs = [
