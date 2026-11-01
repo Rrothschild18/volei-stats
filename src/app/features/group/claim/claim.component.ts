@@ -11,6 +11,7 @@ import {
   IconComponent,
   InlineNoteComponent,
   InnerHeaderComponent,
+  SkeletonComponent,
 } from '../../../shared/ui';
 import { describeError } from '../../../shared/utils/error.util';
 
@@ -47,6 +48,7 @@ const MESSAGES: Record<ClaimFailure, string> = {
     IconComponent,
     InlineNoteComponent,
     InnerHeaderComponent,
+    SkeletonComponent,
   ],
   template: `
     <app-inner-header context="ENTRAR" title="QUEM VOCÊ É?" (back)="back()" />
@@ -58,7 +60,7 @@ const MESSAGES: Record<ClaimFailure, string> = {
         </p>
 
         @if (loading()) {
-          <p class="text-[13px] muted">Carregando os nomes…</p>
+          <app-skeleton [rows]="5" label="Carregando os nomes deste vôlei…" />
         } @else if (error()) {
           <app-blueprint class="p-4">
             <p class="text-[14px]" aria-live="polite">{{ error() }}</p>

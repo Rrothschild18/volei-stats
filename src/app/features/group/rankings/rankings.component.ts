@@ -19,6 +19,7 @@ import {
   RootHeaderComponent,
   SectionBandComponent,
   SegmentedComponent,
+  SkeletonComponent,
 } from '../../../shared/ui';
 
 type Tab = 'individual' | 'teams' | 'matches';
@@ -56,6 +57,7 @@ interface MatchGroup {
     RootHeaderComponent,
     SectionBandComponent,
     SegmentedComponent,
+    SkeletonComponent,
   ],
   template: `
     <app-root-header [context]="context()" title="RANKINGS" (switchGroup)="toGroups()">
@@ -74,133 +76,146 @@ interface MatchGroup {
       role="tablist"
     />
 
-    @switch (tab()) {
-      @case ('individual') {
-        <table class="w-full border-collapse">
-          <caption class="sr-only">
-            Ranking individual do grupo
-          </caption>
-          <thead>
-            <tr class="bg-accent-100 text-[11px] tracking-[0.06em] uppercase">
-              <th class="w-7 py-2 pl-4 text-left font-semibold">Nº</th>
-              <th class="py-2 text-left font-semibold">Jogador</th>
-              <th class="w-8 py-2 text-right font-semibold">J</th>
-              <th class="w-8 py-2 text-right font-semibold">V</th>
-              <th class="w-11 py-2 text-right font-semibold text-accent-700">%</th>
-              <th class="w-9 py-2 pr-4 text-right font-semibold">Esp</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of individual(); track row.stats.playerId; let index = $index) {
-              <tr class="row-rule h-11" [class.bg-accent-100]="row.isMe">
-                <td class="pl-4 text-[13px] tnum muted">{{ index + 1 }}</td>
-                <td class="font-heading text-[17px] font-semibold uppercase">{{ row.name }}</td>
-                <td class="text-right text-[14px] tnum">{{ row.stats.gamesPlayed }}</td>
-                <td class="text-right text-[14px] tnum">{{ row.stats.wins }}</td>
-                <td class="text-right font-heading text-[19px] font-semibold tnum">
-                  {{ row.stats.winPercentage }}
-                </td>
-                <td class="pr-4 text-right text-[14px] tnum muted">{{ row.stats.timesWaited }}</td>
+    <!--
+      As três abas somam do banco, e nenhuma delas tem o que dizer antes de a
+      soma chegar: a tabela vazia e as frases de "nenhuma dupla ainda" são
+      respostas sobre o vôlei, não sobre a espera.
+    -->
+    @if (carregando()) {
+      <div class="px-4 pt-4">
+        <app-skeleton [rows]="8" label="Somando os rankings do vôlei…" />
+      </div>
+    } @else {
+      @switch (tab()) {
+        @case ('individual') {
+          <table class="w-full border-collapse">
+            <caption class="sr-only">
+              Ranking individual do grupo
+            </caption>
+            <thead>
+              <tr class="bg-accent-100 text-[11px] tracking-[0.06em] uppercase">
+                <th class="w-7 py-2 pl-4 text-left font-semibold">Nº</th>
+                <th class="py-2 text-left font-semibold">Jogador</th>
+                <th class="w-8 py-2 text-right font-semibold">J</th>
+                <th class="w-8 py-2 text-right font-semibold">V</th>
+                <th class="w-11 py-2 text-right font-semibold text-accent-700">%</th>
+                <th class="w-9 py-2 pr-4 text-right font-semibold">Esp</th>
               </tr>
-            }
-          </tbody>
-        </table>
-        <p class="px-4 py-3 text-[12px] muted">
-          Ordem por aproveitamento. Esp = vezes que esperou, contando só o sorteio escolhido. Só
-          aparece quem já jogou.
-        </p>
-      }
+            </thead>
+            <tbody>
+              @for (row of individual(); track row.stats.playerId; let index = $index) {
+                <tr class="row-rule h-11" [class.bg-accent-100]="row.isMe">
+                  <td class="pl-4 text-[13px] tnum muted">{{ index + 1 }}</td>
+                  <td class="font-heading text-[17px] font-semibold uppercase">{{ row.name }}</td>
+                  <td class="text-right text-[14px] tnum">{{ row.stats.gamesPlayed }}</td>
+                  <td class="text-right text-[14px] tnum">{{ row.stats.wins }}</td>
+                  <td class="text-right font-heading text-[19px] font-semibold tnum">
+                    {{ row.stats.winPercentage }}
+                  </td>
+                  <td class="pr-4 text-right text-[14px] tnum muted">
+                    {{ row.stats.timesWaited }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <p class="px-4 py-3 text-[12px] muted">
+            Ordem por aproveitamento. Esp = vezes que esperou, contando só o sorteio escolhido. Só
+            aparece quem já jogou.
+          </p>
+        }
 
-      @case ('teams') {
-        <table class="w-full border-collapse">
-          <caption class="sr-only">
-            Ranking de duplas do grupo
-          </caption>
-          <thead>
-            <tr class="bg-accent-100 text-[11px] tracking-[0.06em] uppercase">
-              <th class="w-7 py-2 pl-4 text-left font-semibold">Nº</th>
-              <th class="py-2 text-left font-semibold">Dupla</th>
-              <th class="w-8 py-2 text-right font-semibold">J</th>
-              <th class="w-8 py-2 text-right font-semibold">V</th>
-              <th class="w-11 py-2 pr-4 text-right font-semibold text-accent-700">%</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of teams(); track row.key; let index = $index) {
-              <tr class="row-rule h-11" [class.bg-accent-100]="row.isMine">
-                <td class="pl-4 text-[13px] tnum muted">{{ index + 1 }}</td>
-                <td class="font-heading text-[17px] font-semibold uppercase">{{ row.label }}</td>
-                <td class="text-right text-[14px] tnum">{{ row.stats.gamesPlayed }}</td>
-                <td class="text-right text-[14px] tnum">{{ row.stats.wins }}</td>
-                <td class="pr-4 text-right font-heading text-[19px] font-semibold tnum">
-                  {{ row.stats.winPercentage }}
-                </td>
+        @case ('teams') {
+          <table class="w-full border-collapse">
+            <caption class="sr-only">
+              Ranking de duplas do grupo
+            </caption>
+            <thead>
+              <tr class="bg-accent-100 text-[11px] tracking-[0.06em] uppercase">
+                <th class="w-7 py-2 pl-4 text-left font-semibold">Nº</th>
+                <th class="py-2 text-left font-semibold">Dupla</th>
+                <th class="w-8 py-2 text-right font-semibold">J</th>
+                <th class="w-8 py-2 text-right font-semibold">V</th>
+                <th class="w-11 py-2 pr-4 text-right font-semibold text-accent-700">%</th>
               </tr>
-            } @empty {
-              <tr>
-                <td colspan="5" class="px-4 py-6 text-[14px] muted">
-                  Nenhuma dupla com 3 jogos juntos ainda.
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-        <p class="px-4 py-3 text-[12px] muted">
-          Só duplas com 3 jogos juntos ou mais — abaixo disso, o aproveitamento é sorte.
-        </p>
-      }
+            </thead>
+            <tbody>
+              @for (row of teams(); track row.key; let index = $index) {
+                <tr class="row-rule h-11" [class.bg-accent-100]="row.isMine">
+                  <td class="pl-4 text-[13px] tnum muted">{{ index + 1 }}</td>
+                  <td class="font-heading text-[17px] font-semibold uppercase">{{ row.label }}</td>
+                  <td class="text-right text-[14px] tnum">{{ row.stats.gamesPlayed }}</td>
+                  <td class="text-right text-[14px] tnum">{{ row.stats.wins }}</td>
+                  <td class="pr-4 text-right font-heading text-[19px] font-semibold tnum">
+                    {{ row.stats.winPercentage }}
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="5" class="px-4 py-6 text-[14px] muted">
+                    Nenhuma dupla com 3 jogos juntos ainda.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <p class="px-4 py-3 text-[12px] muted">
+            Só duplas com 3 jogos juntos ou mais — abaixo disso, o aproveitamento é sorte.
+          </p>
+        }
 
-      @case ('matches') {
-        <div class="flex flex-col gap-3 px-4 pt-4">
-          <app-segmented
-            [options]="periods"
-            [value]="period()"
-            (valueChange)="period.set($any($event))"
-            [tabs]="false"
-          />
-          <button
-            type="button"
-            class="btn btn-secondary justify-between normal-case"
-            (click)="cyclePlayer()"
-          >
-            <span class="flex items-center gap-2">
-              <app-icon name="user-round" [size]="16" />
-              {{ playerFilterLabel() }}
-            </span>
-            <app-icon name="chevron-down" [size]="16" />
-          </button>
-        </div>
+        @case ('matches') {
+          <div class="flex flex-col gap-3 px-4 pt-4">
+            <app-segmented
+              [options]="periods"
+              [value]="period()"
+              (valueChange)="period.set($any($event))"
+              [tabs]="false"
+            />
+            <button
+              type="button"
+              class="btn btn-secondary justify-between normal-case"
+              (click)="cyclePlayer()"
+            >
+              <span class="flex items-center gap-2">
+                <app-icon name="user-round" [size]="16" />
+                {{ playerFilterLabel() }}
+              </span>
+              <app-icon name="chevron-down" [size]="16" />
+            </button>
+          </div>
 
-        @for (entry of matchGroups(); track entry.key) {
-          <section class="mt-4">
-            <app-section-band [label]="entry.label" />
-            @for (row of entry.rows; track row.id) {
-              <div class="row-rule px-4 py-[11px]">
-                <p class="text-[11px] tracking-[0.06em] uppercase muted">
-                  {{ row.time }} · {{ row.phase }}
-                </p>
-                <p class="mt-1 flex items-baseline gap-2">
-                  <span
-                    class="flex-1 font-heading text-[17px] uppercase"
-                    [class.font-semibold]="row.winnerIsA"
-                    [class.muted]="!row.winnerIsA"
-                    >{{ row.teamA }}</span
-                  >
-                  <span class="font-heading text-[19px] font-semibold tnum"
-                    >{{ row.scoreA }} × {{ row.scoreB }}</span
-                  >
-                  <span
-                    class="flex-1 text-right font-heading text-[17px] uppercase"
-                    [class.font-semibold]="!row.winnerIsA"
-                    [class.muted]="row.winnerIsA"
-                    >{{ row.teamB }}</span
-                  >
-                </p>
-              </div>
-            }
-          </section>
-        } @empty {
-          <p class="px-4 py-6 text-[14px] muted">Nenhuma partida nesse período.</p>
+          @for (entry of matchGroups(); track entry.key) {
+            <section class="mt-4">
+              <app-section-band [label]="entry.label" />
+              @for (row of entry.rows; track row.id) {
+                <div class="row-rule px-4 py-[11px]">
+                  <p class="text-[11px] tracking-[0.06em] uppercase muted">
+                    {{ row.time }} · {{ row.phase }}
+                  </p>
+                  <p class="mt-1 flex items-baseline gap-2">
+                    <span
+                      class="flex-1 font-heading text-[17px] uppercase"
+                      [class.font-semibold]="row.winnerIsA"
+                      [class.muted]="!row.winnerIsA"
+                      >{{ row.teamA }}</span
+                    >
+                    <span class="font-heading text-[19px] font-semibold tnum"
+                      >{{ row.scoreA }} × {{ row.scoreB }}</span
+                    >
+                    <span
+                      class="flex-1 text-right font-heading text-[17px] uppercase"
+                      [class.font-semibold]="!row.winnerIsA"
+                      [class.muted]="row.winnerIsA"
+                      >{{ row.teamB }}</span
+                    >
+                  </p>
+                </div>
+              }
+            </section>
+          } @empty {
+            <p class="px-4 py-6 text-[14px] muted">Nenhuma partida nesse período.</p>
+          }
         }
       }
     }
@@ -214,6 +229,8 @@ export class RankingsComponent implements OnInit {
   private readonly router = inject(Router);
   protected readonly group = inject(CurrentGroupStore);
 
+  /** Só a PRIMEIRA carga: puxar para atualizar não desmonta o que está na tela. */
+  protected readonly carregando = signal(true);
   protected readonly tab = signal<Tab>('individual');
   protected readonly period = signal<Period>('today');
   protected readonly playerFilter = signal<string | null>(null);
@@ -382,9 +399,18 @@ export class RankingsComponent implements OnInit {
   private async load(): Promise<void> {
     const groupId = this.group.groupId();
     if (!groupId) {
+      this.carregando.set(false);
       return;
     }
 
+    try {
+      await this.somar(groupId);
+    } finally {
+      this.carregando.set(false);
+    }
+  }
+
+  private async somar(groupId: string): Promise<void> {
     // Os rankings vêm somados do banco: as views contam lá, por vôlei. Carregar
     // todas as partidas aqui para somar no navegador era o que o §7.12 pedia
     // para parar de fazer.

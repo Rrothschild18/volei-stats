@@ -8,6 +8,7 @@ import {
   HeroFieldComponent,
   IconComponent,
   PullToRefreshComponent,
+  SkeletonComponent,
   StatGridComponent,
 } from '../../shared/ui';
 
@@ -23,6 +24,7 @@ import {
     HeroFieldComponent,
     IconComponent,
     PullToRefreshComponent,
+    SkeletonComponent,
     StatGridComponent,
   ],
   template: `
@@ -36,6 +38,16 @@ import {
     </header>
 
     <div class="flex flex-col gap-4 px-4">
+      <!--
+        É a primeira tela depois de abrir o app: o pedido de sessão anônima e a
+        leitura dos vôleis acontecem aqui. Em branco ela parece um app que não
+        carregou.
+      -->
+      @if (loading()) {
+        <app-skeleton [rows]="3" label="Carregando os seus vôleis…" />
+        <app-skeleton [rows]="3" />
+      }
+
       @for (summary of summaries(); track summary.group.id) {
         @if (summary.liveTournament) {
           <app-hero-field kicker="HOJE · SESSÃO AO VIVO" [live]="true">

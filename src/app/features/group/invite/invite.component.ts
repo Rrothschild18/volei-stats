@@ -8,6 +8,7 @@ import {
   IconComponent,
   InlineNoteComponent,
   InnerHeaderComponent,
+  SkeletonComponent,
 } from '../../../shared/ui';
 import { describeError } from '../../../shared/utils/error.util';
 
@@ -34,13 +35,14 @@ type InviteAction = 'codigo' | 'senha' | 'convite';
     IconComponent,
     InlineNoteComponent,
     InnerHeaderComponent,
+    SkeletonComponent,
   ],
   template: `
     <app-inner-header context="VÔLEI" title="CONVITE" (back)="back()" />
 
     <div class="flex flex-col gap-5 px-4 pb-8">
       @if (loading()) {
-        <p class="text-[13px] muted">Carregando o convite…</p>
+        <app-skeleton [rows]="3" label="Carregando o convite…" />
       } @else if (code() === null) {
         <app-blueprint class="p-4">
           <p class="text-[14px]">Este vôlei não tem convite aberto.</p>

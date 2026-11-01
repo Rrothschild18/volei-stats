@@ -17,6 +17,7 @@ import {
   InnerHeaderComponent,
   PlayerChipComponent,
   SectionBandComponent,
+  SkeletonComponent,
 } from '../../../shared/ui';
 import { IconName } from '../../../shared/ui';
 
@@ -51,6 +52,7 @@ interface TeamRow {
     BlueprintComponent,
     BusyDirective,
     IconComponent,
+    SkeletonComponent,
     InlineNoteComponent,
     InnerHeaderComponent,
     PlayerChipComponent,
@@ -76,6 +78,9 @@ interface TeamRow {
 
       <section>
         <app-section-band index="02" label="PROPOSTAS" [meta]="proposals().length + ' distintas'" />
+        @if (proposals().length === 0) {
+          <app-skeleton [rows]="4" label="Sorteando as duplas…" />
+        }
         <ul class="grid list-none gap-0 p-0" [style.grid-template-columns]="proposalColumns()">
           @for (
             proposal of proposals();

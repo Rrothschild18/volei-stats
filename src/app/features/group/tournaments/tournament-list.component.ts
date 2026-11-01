@@ -22,6 +22,7 @@ import {
   ActionBarComponent,
   BlueprintComponent,
   IconComponent,
+  SkeletonComponent,
   PullToRefreshComponent,
   RoleTagComponent,
   RootHeaderComponent,
@@ -68,6 +69,7 @@ function describeTiming(timing: TournamentTiming): string {
     RoleTagComponent,
     RootHeaderComponent,
     SectionBandComponent,
+    SkeletonComponent,
   ],
   template: `
     <app-root-header [context]="context()" title="CAMPEONATOS" (switchGroup)="toGroups()">
@@ -81,106 +83,126 @@ function describeTiming(timing: TournamentTiming): string {
 
     <div class="px-4 pt-4">
       <!--
+        Enquanto as sessões não chegam, a tela NÃO diz "ninguém abriu a sessão
+        de hoje" nem "nenhuma sessão anterior": são as duas frases que ela
+        mostraria por falta de dado, e nenhuma delas é verdade ainda.
+      -->
+      @if (carregando()) {
+        <app-skeleton [rows]="2" label="Carregando as sessões do vôlei…" />
+        <div class="mt-6">
+          <app-section-band label="HOJE" />
+          <app-skeleton [rows]="3" />
+        </div>
+        <div class="mt-6">
+          <app-section-band label="ANTERIORES" />
+          <app-skeleton [rows]="3" />
+        </div>
+      } @else {
+        <!--
         A sessão do dia é uma coisa; os campeonatos dela são outra. Antes as
         duas moravam na mesma lista, sob uma faixa que dizia "HOJE" — e a
         sessão parecia o primeiro campeonato. Agora ela é um card com destaque
         próprio, e a faixa passou a rotular só os campeonatos.
       -->
-      @if (session()) {
-        <button
-          type="button"
-          class="flex w-full items-center gap-3 border border-accent bg-accent-100 px-[14px] py-[13px] text-left"
-          (click)="go(sessionTarget())"
-        >
-          <span class="min-w-0 flex-1">
-            <span
-              class="block font-heading text-[18px] leading-tight font-semibold text-accent-900 uppercase"
-            >
-              Sessão de hoje
-            </span>
-            <span class="block text-[13px] text-accent-800">
-              {{ present() }} presentes · presença e revezamento de espera
-            </span>
-          </span>
-          <app-icon name="chevron-right" [size]="18" class="text-accent-700" />
-        </button>
-
-        <section class="mt-6">
-          <app-section-band [label]="'HOJE · ' + today().toUpperCase()" [meta]="tournamentMeta()" />
-
-          @if (tournamentRows().length > 0) {
-            <app-blueprint>
-              @for (row of tournamentRows(); track row.id; let last = $last) {
-                <button
-                  type="button"
-                  class="flex w-full items-center gap-3 px-[14px] py-[13px] text-left"
-                  [class.row-rule]="!last"
-                  (click)="go(row.target)"
-                >
-                  <span class="min-w-0 flex-1">
-                    <span
-                      class="block font-heading text-[18px] leading-tight font-semibold uppercase"
-                    >
-                      {{ row.title }}
-                    </span>
-                    <span
-                      class="flex items-center gap-1 text-[13px]"
-                      [class]="row.live ? 'text-accent-700 font-medium' : 'muted'"
-                    >
-                      @if (row.live) {
-                        <span class="size-[7px] bg-accent-700" aria-hidden="true"></span>
-                      }
-                      @if (row.champions) {
-                        <app-icon name="crown" [size]="14" />
-                      }
-                      {{ row.detail }}
-                    </span>
-                    <span class="block text-[12px] tnum muted">{{ row.timing }}</span>
-                  </span>
-                  <app-icon name="chevron-right" [size]="18" class="muted" />
-                </button>
-              }
-            </app-blueprint>
-          } @else {
-            <p class="text-[14px] muted">
-              Nenhum campeonato ainda. O próximo passo é sortear as duplas.
-            </p>
-          }
-        </section>
-      } @else {
-        <section>
-          <app-section-band [label]="'HOJE · ' + today().toUpperCase()" meta="sem sessão" />
-          <app-blueprint class="p-4">
-            <p class="text-[14px]">
-              Ninguém abriu a sessão de hoje ainda.
-              @if (group.canPlay()) {
-                Marque quem apareceu para começar.
-              } @else {
-                Quando alguém marcar a presença, ela aparece aqui.
-              }
-            </p>
-          </app-blueprint>
-        </section>
-      }
-
-      <section class="mt-6 mb-4">
-        <app-section-band label="ANTERIORES" />
-        @for (row of pastRows(); track row.id) {
+        @if (session()) {
           <button
             type="button"
-            class="row-rule flex w-full items-center gap-3 py-[13px] text-left"
-            (click)="openSession(row.id)"
+            class="flex w-full items-center gap-3 border border-accent bg-accent-100 px-[14px] py-[13px] text-left"
+            (click)="go(sessionTarget())"
           >
-            <span class="w-16 font-heading text-[18px] font-semibold uppercase">{{
-              row.date
-            }}</span>
-            <span class="flex-1 text-[13px] muted">{{ row.detail }}</span>
-            <app-icon name="chevron-right" [size]="18" class="muted" />
+            <span class="min-w-0 flex-1">
+              <span
+                class="block font-heading text-[18px] leading-tight font-semibold text-accent-900 uppercase"
+              >
+                Sessão de hoje
+              </span>
+              <span class="block text-[13px] text-accent-800">
+                {{ present() }} presentes · presença e revezamento de espera
+              </span>
+            </span>
+            <app-icon name="chevron-right" [size]="18" class="text-accent-700" />
           </button>
-        } @empty {
-          <p class="py-4 text-[14px] muted">Nenhuma sessão anterior.</p>
+
+          <section class="mt-6">
+            <app-section-band
+              [label]="'HOJE · ' + today().toUpperCase()"
+              [meta]="tournamentMeta()"
+            />
+
+            @if (tournamentRows().length > 0) {
+              <app-blueprint>
+                @for (row of tournamentRows(); track row.id; let last = $last) {
+                  <button
+                    type="button"
+                    class="flex w-full items-center gap-3 px-[14px] py-[13px] text-left"
+                    [class.row-rule]="!last"
+                    (click)="go(row.target)"
+                  >
+                    <span class="min-w-0 flex-1">
+                      <span
+                        class="block font-heading text-[18px] leading-tight font-semibold uppercase"
+                      >
+                        {{ row.title }}
+                      </span>
+                      <span
+                        class="flex items-center gap-1 text-[13px]"
+                        [class]="row.live ? 'text-accent-700 font-medium' : 'muted'"
+                      >
+                        @if (row.live) {
+                          <span class="size-[7px] bg-accent-700" aria-hidden="true"></span>
+                        }
+                        @if (row.champions) {
+                          <app-icon name="crown" [size]="14" />
+                        }
+                        {{ row.detail }}
+                      </span>
+                      <span class="block text-[12px] tnum muted">{{ row.timing }}</span>
+                    </span>
+                    <app-icon name="chevron-right" [size]="18" class="muted" />
+                  </button>
+                }
+              </app-blueprint>
+            } @else {
+              <p class="text-[14px] muted">
+                Nenhum campeonato ainda. O próximo passo é sortear as duplas.
+              </p>
+            }
+          </section>
+        } @else {
+          <section>
+            <app-section-band [label]="'HOJE · ' + today().toUpperCase()" meta="sem sessão" />
+            <app-blueprint class="p-4">
+              <p class="text-[14px]">
+                Ninguém abriu a sessão de hoje ainda.
+                @if (group.canPlay()) {
+                  Marque quem apareceu para começar.
+                } @else {
+                  Quando alguém marcar a presença, ela aparece aqui.
+                }
+              </p>
+            </app-blueprint>
+          </section>
         }
-      </section>
+
+        <section class="mt-6 mb-4">
+          <app-section-band label="ANTERIORES" />
+          @for (row of pastRows(); track row.id) {
+            <button
+              type="button"
+              class="row-rule flex w-full items-center gap-3 py-[13px] text-left"
+              (click)="openSession(row.id)"
+            >
+              <span class="w-16 font-heading text-[18px] font-semibold uppercase">{{
+                row.date
+              }}</span>
+              <span class="flex-1 text-[13px] muted">{{ row.detail }}</span>
+              <app-icon name="chevron-right" [size]="18" class="muted" />
+            </button>
+          } @empty {
+            <p class="py-4 text-[14px] muted">Nenhuma sessão anterior.</p>
+          }
+        </section>
+      }
     </div>
 
     @if (group.canPlay()) {
@@ -212,6 +234,9 @@ export class TournamentListComponent implements OnInit {
   private readonly router = inject(Router);
   protected readonly group = inject(CurrentGroupStore);
   protected readonly sessionStore = inject(SessionStore);
+
+  /** Só a PRIMEIRA carga: puxar para atualizar não desmonta o que está na tela. */
+  protected readonly carregando = signal(true);
 
   private readonly pastSessions = signal<readonly Session[]>([]);
   private readonly pastTournaments = signal<readonly Tournament[]>([]);
@@ -338,9 +363,18 @@ export class TournamentListComponent implements OnInit {
   private async load(): Promise<void> {
     const groupId = this.group.groupId();
     if (!groupId) {
+      this.carregando.set(false);
       return;
     }
 
+    try {
+      await this.carregar(groupId);
+    } finally {
+      this.carregando.set(false);
+    }
+  }
+
+  private async carregar(groupId: string): Promise<void> {
     await this.sessionStore.load(groupId);
 
     const [sessions, players, tournaments] = await Promise.all([

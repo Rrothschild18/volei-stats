@@ -10,6 +10,7 @@ import {
   IconComponent,
   InnerHeaderComponent,
   SectionBandComponent,
+  SkeletonComponent,
 } from '../../../shared/ui';
 
 /**
@@ -25,90 +26,113 @@ import {
     IconComponent,
     InnerHeaderComponent,
     SectionBandComponent,
+    SkeletonComponent,
   ],
   template: `
     <app-inner-header [context]="context()" [title]="title()" (back)="back()" />
 
     <div class="flex flex-col gap-6 px-4 pb-6">
-      <section>
-        <app-section-band index="01" [label]="'PRESENTES · ' + present().length">
-          @if (group.canPlay()) {
-            <button type="button" class="text-[13px] text-accent-700" (click)="editPresence()">
-              Editar presença
-            </button>
-          }
-        </app-section-band>
-        <ul class="flex list-none flex-wrap gap-[6px] p-0">
-          @for (player of present(); track player.id) {
-            <li
-              class="inline-flex h-[30px] items-center gap-2 border border-divider px-[10px] text-[13px]"
-            >
-              {{ player.name }}
-              <app-gender-badge [gender]="player.gender" />
-            </li>
-          }
-        </ul>
-      </section>
+      <!--
+        As três seções desta tela respondem "ninguém" por falta de dado:
+        nenhum presente, ninguém esperou, nenhum campeonato. Enquanto a sessão
+        não chega, nenhuma dessas três é verdade.
+      -->
+      @if (store.loading()) {
+        <section>
+          <app-section-band index="01" label="PRESENTES" />
+          <app-skeleton [rows]="2" label="Carregando a sessão…" />
+        </section>
+        <section>
+          <app-section-band index="02" label="REVEZAMENTO DE ESPERA" />
+          <app-skeleton [rows]="3" />
+        </section>
+        <section>
+          <app-section-band index="03" label="CAMPEONATOS DO DIA" />
+          <app-skeleton [rows]="3" />
+        </section>
+      } @else {
+        <section>
+          <app-section-band index="01" [label]="'PRESENTES · ' + present().length">
+            @if (group.canPlay()) {
+              <button type="button" class="text-[13px] text-accent-700" (click)="editPresence()">
+                Editar presença
+              </button>
+            }
+          </app-section-band>
+          <ul class="flex list-none flex-wrap gap-[6px] p-0">
+            @for (player of present(); track player.id) {
+              <li
+                class="inline-flex h-[30px] items-center gap-2 border border-divider px-[10px] text-[13px]"
+              >
+                {{ player.name }}
+                <app-gender-badge [gender]="player.gender" />
+              </li>
+            }
+          </ul>
+        </section>
 
-      <section>
-        <app-section-band
-          index="02"
-          label="REVEZAMENTO DE ESPERA"
-          [meta]="waitEntries().length + ' de ' + present().length"
-        />
-        <app-blueprint>
-          @for (entry of waitEntries(); track entry.player.id; let last = $last) {
-            <div class="flex items-center gap-3 px-[14px] py-[11px]" [class.row-rule]="!last">
-              <app-icon name="hourglass" [size]="18" class="muted" />
-              <span class="font-heading text-[17px] font-semibold uppercase">{{
-                entry.player.name
-              }}</span>
-              <span class="flex-1 text-right text-[13px] muted">{{ entry.reason }}</span>
-            </div>
-          } @empty {
-            <p class="px-[14px] py-3 text-[13px] muted">Ninguém esperou ainda hoje.</p>
-          }
-        </app-blueprint>
-        <p class="mt-2 text-[12px] muted">
-          No próximo sorteio, a espera sai só entre os
-          <strong class="font-semibold">{{ yetToWait() }} que ainda não esperaram hoje</strong>.
-          Ninguém espera duas vezes antes de todos esperarem uma.
-        </p>
-      </section>
+        <section>
+          <app-section-band
+            index="02"
+            label="REVEZAMENTO DE ESPERA"
+            [meta]="waitEntries().length + ' de ' + present().length"
+          />
+          <app-blueprint>
+            @for (entry of waitEntries(); track entry.player.id; let last = $last) {
+              <div class="flex items-center gap-3 px-[14px] py-[11px]" [class.row-rule]="!last">
+                <app-icon name="hourglass" [size]="18" class="muted" />
+                <span class="font-heading text-[17px] font-semibold uppercase">{{
+                  entry.player.name
+                }}</span>
+                <span class="flex-1 text-right text-[13px] muted">{{ entry.reason }}</span>
+              </div>
+            } @empty {
+              <p class="px-[14px] py-3 text-[13px] muted">Ninguém esperou ainda hoje.</p>
+            }
+          </app-blueprint>
+          <p class="mt-2 text-[12px] muted">
+            No próximo sorteio, a espera sai só entre os
+            <strong class="font-semibold">{{ yetToWait() }} que ainda não esperaram hoje</strong>.
+            Ninguém espera duas vezes antes de todos esperarem uma.
+          </p>
+        </section>
 
-      <section>
-        <app-section-band index="03" label="CAMPEONATOS DO DIA" />
-        <app-blueprint>
-          @for (row of tournamentRows(); track row.id; let last = $last) {
-            <button
-              type="button"
-              class="flex w-full items-center gap-3 px-[14px] py-[13px] text-left"
-              [class.row-rule]="!last"
-              (click)="openTournament(row.id, row.live)"
-            >
-              <span class="min-w-0 flex-1">
-                <span class="block font-heading text-[18px] leading-tight font-semibold uppercase">
-                  {{ row.title }}
+        <section>
+          <app-section-band index="03" label="CAMPEONATOS DO DIA" />
+          <app-blueprint>
+            @for (row of tournamentRows(); track row.id; let last = $last) {
+              <button
+                type="button"
+                class="flex w-full items-center gap-3 px-[14px] py-[13px] text-left"
+                [class.row-rule]="!last"
+                (click)="openTournament(row.id, row.live)"
+              >
+                <span class="min-w-0 flex-1">
+                  <span
+                    class="block font-heading text-[18px] leading-tight font-semibold uppercase"
+                  >
+                    {{ row.title }}
+                  </span>
+                  <span
+                    class="flex items-center gap-1 text-[13px]"
+                    [class]="row.live ? 'text-accent-700 font-medium' : 'muted'"
+                  >
+                    @if (row.live) {
+                      <span class="size-[7px] bg-accent-700" aria-hidden="true"></span>
+                    }
+                    {{ row.detail }}
+                  </span>
                 </span>
-                <span
-                  class="flex items-center gap-1 text-[13px]"
-                  [class]="row.live ? 'text-accent-700 font-medium' : 'muted'"
-                >
-                  @if (row.live) {
-                    <span class="size-[7px] bg-accent-700" aria-hidden="true"></span>
-                  }
-                  {{ row.detail }}
-                </span>
-              </span>
-              <app-icon name="chevron-right" [size]="18" class="muted" />
-            </button>
-          } @empty {
-            <p class="px-[14px] py-3 text-[13px] muted">
-              Nenhum campeonato ainda. O próximo passo é sortear as duplas.
-            </p>
-          }
-        </app-blueprint>
-      </section>
+                <app-icon name="chevron-right" [size]="18" class="muted" />
+              </button>
+            } @empty {
+              <p class="px-[14px] py-3 text-[13px] muted">
+                Nenhum campeonato ainda. O próximo passo é sortear as duplas.
+              </p>
+            }
+          </app-blueprint>
+        </section>
+      }
     </div>
 
     @if (group.canPlay()) {

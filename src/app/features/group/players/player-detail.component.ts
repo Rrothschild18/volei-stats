@@ -14,6 +14,7 @@ import {
   InlineNoteComponent,
   InnerHeaderComponent,
   SectionBandComponent,
+  SkeletonComponent,
 } from '../../../shared/ui';
 import { describeError } from '../../../shared/utils/error.util';
 
@@ -38,6 +39,7 @@ interface RecentMatch {
     InlineNoteComponent,
     InnerHeaderComponent,
     SectionBandComponent,
+    SkeletonComponent,
   ],
   template: `
     <app-inner-header context="JOGADORES" [title]="player()?.name ?? ''" (back)="back()">
@@ -54,121 +56,133 @@ interface RecentMatch {
     </app-inner-header>
 
     <div class="flex flex-col gap-5 px-4 pb-8">
-      <app-blueprint>
-        <div class="grid grid-cols-3">
-          @for (stat of stats(); track stat.label) {
-            <div
-              class="px-3 py-3 not-nth-[3n+1]:border-l border-divider not-first:border-t-0 [&:nth-child(n+4)]:border-t"
-            >
-              <p class="figure">{{ stat.value }}</p>
-              <p class="text-[12px] muted">{{ stat.label }}</p>
-            </div>
-          }
-        </div>
-      </app-blueprint>
-
-      <section>
-        <app-section-band index="01" label="PARCEIROS FREQUENTES" />
+      <!--
+        Os números do jogador chegam de seis leituras somadas. Zerados por um
+        instante, eles leem como "nunca jogou" — e o nome no cabeçalho também
+        só aparece no fim.
+      -->
+      @if (carregando()) {
+        <app-skeleton [rows]="3" label="Carregando os números do jogador…" />
+        <app-skeleton [rows]="4" />
+      } @else {
         <app-blueprint>
-          @for (partner of partners(); track partner.name; let last = $last) {
-            <div class="flex items-center gap-3 px-[14px] py-[11px]" [class.row-rule]="!last">
-              <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
-                partner.name
-              }}</span>
-              <span class="text-[13px] muted">{{ partner.games }} jogos</span>
-              <span class="font-heading text-[19px] font-semibold tnum">{{ partner.pct }}%</span>
-            </div>
-          } @empty {
-            <p class="px-[14px] py-3 text-[13px] muted">Ainda sem dupla com 2 jogos ou mais.</p>
-          }
-        </app-blueprint>
-      </section>
-
-      <section>
-        <app-section-band index="02" label="ÚLTIMAS PARTIDAS" />
-        <app-blueprint>
-          @for (match of recent(); track match.id; let last = $last) {
-            <div class="flex items-center gap-3 px-[14px] py-[11px]" [class.row-rule]="!last">
-              <span class="min-w-0 flex-1">
-                <span class="block text-[11px] tracking-[0.06em] uppercase muted"
-                  >{{ match.when }} · {{ match.phase }}</span
-                >
-                <span class="block truncate font-heading text-[16px] font-semibold uppercase">
-                  {{ match.mine }} {{ match.myScore }} × {{ match.theirScore }} {{ match.theirs }}
-                </span>
-              </span>
-              <span
-                class="flex size-7 shrink-0 items-center justify-center border font-heading text-[14px] font-semibold"
-                [class]="
-                  match.won ? 'border-accent text-accent-800 bg-accent-100' : 'border-divider muted'
-                "
-                >{{ match.won ? 'V' : 'D' }}</span
+          <div class="grid grid-cols-3">
+            @for (stat of stats(); track stat.label) {
+              <div
+                class="px-3 py-3 not-nth-[3n+1]:border-l border-divider not-first:border-t-0 [&:nth-child(n+4)]:border-t"
               >
-            </div>
-          } @empty {
-            <p class="px-[14px] py-3 text-[13px] muted">Ainda não jogou nenhuma partida.</p>
-          }
-        </app-blueprint>
-      </section>
-
-      @if (isMe()) {
-        <section class="border-t border-divider pt-5">
-          <p class="kicker">É VOCÊ</p>
-          <p class="mt-1 text-[13px] muted">
-            O nome com que você aparece aqui e a sua data são seus — quem cadastrou escreveu o nome
-            de cabeça, e a data ninguém vê.
-          </p>
-          <button
-            type="button"
-            class="btn btn-secondary mt-3 min-h-12 w-full"
-            (click)="meusDados()"
-          >
-            TROCAR NOME OU DATA
-          </button>
-        </section>
-      }
-
-      @if (group.isOwner() && !isMe()) {
-        <section class="border-t border-divider pt-5">
-          <p class="kicker">COISAS DE DONO</p>
-
-          <p class="mt-3 text-[13px] muted">
-            Se {{ player()?.name }} travou por errar a data, devolva a data para a inicial do grupo
-            — e mande a data combinada de novo. Ninguém vê data de ninguém, nem você.
-          </p>
-          <button
-            type="button"
-            class="btn btn-secondary mt-3 min-h-12 w-full"
-            [appBusy]="busy()"
-            [disabled]="busy()"
-            (click)="resetDate()"
-          >
-            DEVOLVER O NOME PARA A LISTA
-          </button>
-
-          <p class="mt-5 text-[13px] muted">
-            Passar o vôlei para {{ player()?.name }} faz dele o dono, e você deixa de ser. O vôlei
-            nunca fica sem dono.
-          </p>
-          <button
-            type="button"
-            class="btn btn-secondary mt-3 min-h-12 w-full"
-            [appBusy]="busy()"
-            [disabled]="busy()"
-            (click)="transfer()"
-          >
-            PASSAR O VÔLEI
-          </button>
-
-          <div class="mt-3" aria-live="polite">
-            @if (notice()) {
-              <app-inline-note tone="event">{{ notice() }}</app-inline-note>
-            }
-            @if (error()) {
-              <app-inline-note tone="error">{{ error() }}</app-inline-note>
+                <p class="figure">{{ stat.value }}</p>
+                <p class="text-[12px] muted">{{ stat.label }}</p>
+              </div>
             }
           </div>
+        </app-blueprint>
+
+        <section>
+          <app-section-band index="01" label="PARCEIROS FREQUENTES" />
+          <app-blueprint>
+            @for (partner of partners(); track partner.name; let last = $last) {
+              <div class="flex items-center gap-3 px-[14px] py-[11px]" [class.row-rule]="!last">
+                <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
+                  partner.name
+                }}</span>
+                <span class="text-[13px] muted">{{ partner.games }} jogos</span>
+                <span class="font-heading text-[19px] font-semibold tnum">{{ partner.pct }}%</span>
+              </div>
+            } @empty {
+              <p class="px-[14px] py-3 text-[13px] muted">Ainda sem dupla com 2 jogos ou mais.</p>
+            }
+          </app-blueprint>
         </section>
+
+        <section>
+          <app-section-band index="02" label="ÚLTIMAS PARTIDAS" />
+          <app-blueprint>
+            @for (match of recent(); track match.id; let last = $last) {
+              <div class="flex items-center gap-3 px-[14px] py-[11px]" [class.row-rule]="!last">
+                <span class="min-w-0 flex-1">
+                  <span class="block text-[11px] tracking-[0.06em] uppercase muted"
+                    >{{ match.when }} · {{ match.phase }}</span
+                  >
+                  <span class="block truncate font-heading text-[16px] font-semibold uppercase">
+                    {{ match.mine }} {{ match.myScore }} × {{ match.theirScore }} {{ match.theirs }}
+                  </span>
+                </span>
+                <span
+                  class="flex size-7 shrink-0 items-center justify-center border font-heading text-[14px] font-semibold"
+                  [class]="
+                    match.won
+                      ? 'border-accent text-accent-800 bg-accent-100'
+                      : 'border-divider muted'
+                  "
+                  >{{ match.won ? 'V' : 'D' }}</span
+                >
+              </div>
+            } @empty {
+              <p class="px-[14px] py-3 text-[13px] muted">Ainda não jogou nenhuma partida.</p>
+            }
+          </app-blueprint>
+        </section>
+
+        @if (isMe()) {
+          <section class="border-t border-divider pt-5">
+            <p class="kicker">É VOCÊ</p>
+            <p class="mt-1 text-[13px] muted">
+              O nome com que você aparece aqui e a sua data são seus — quem cadastrou escreveu o
+              nome de cabeça, e a data ninguém vê.
+            </p>
+            <button
+              type="button"
+              class="btn btn-secondary mt-3 min-h-12 w-full"
+              (click)="meusDados()"
+            >
+              TROCAR NOME OU DATA
+            </button>
+          </section>
+        }
+
+        @if (group.isOwner() && !isMe()) {
+          <section class="border-t border-divider pt-5">
+            <p class="kicker">COISAS DE DONO</p>
+
+            <p class="mt-3 text-[13px] muted">
+              Se {{ player()?.name }} travou por errar a data, devolva a data para a inicial do
+              grupo — e mande a data combinada de novo. Ninguém vê data de ninguém, nem você.
+            </p>
+            <button
+              type="button"
+              class="btn btn-secondary mt-3 min-h-12 w-full"
+              [appBusy]="busy()"
+              [disabled]="busy()"
+              (click)="resetDate()"
+            >
+              DEVOLVER O NOME PARA A LISTA
+            </button>
+
+            <p class="mt-5 text-[13px] muted">
+              Passar o vôlei para {{ player()?.name }} faz dele o dono, e você deixa de ser. O vôlei
+              nunca fica sem dono.
+            </p>
+            <button
+              type="button"
+              class="btn btn-secondary mt-3 min-h-12 w-full"
+              [appBusy]="busy()"
+              [disabled]="busy()"
+              (click)="transfer()"
+            >
+              PASSAR O VÔLEI
+            </button>
+
+            <div class="mt-3" aria-live="polite">
+              @if (notice()) {
+                <app-inline-note tone="event">{{ notice() }}</app-inline-note>
+              }
+              @if (error()) {
+                <app-inline-note tone="error">{{ error() }}</app-inline-note>
+              }
+            </div>
+          </section>
+        }
       }
     </div>
   `,
@@ -193,6 +207,7 @@ export class PlayerDetailComponent implements OnInit {
   protected readonly notice = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal(false);
+  protected readonly carregando = signal(true);
 
   /** O dono não reseta a própria data nem passa o vôlei para si mesmo. */
   protected readonly isMe = computed(() => this.playerId() === this.group.playerId());
@@ -227,6 +242,14 @@ export class PlayerDetailComponent implements OnInit {
   });
 
   async ngOnInit(): Promise<void> {
+    try {
+      await this.carregar();
+    } finally {
+      this.carregando.set(false);
+    }
+  }
+
+  private async carregar(): Promise<void> {
     const playerId = this.playerId();
     const scope = await this.facade.getGroupScope(this.group.groupId() ?? '');
     const [player, allPlayers, allStats, teamStats, matches, tournaments] = await Promise.all([

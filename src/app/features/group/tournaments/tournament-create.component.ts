@@ -18,6 +18,7 @@ import {
   IconComponent,
   InnerHeaderComponent,
   SectionBandComponent,
+  SkeletonComponent,
   StatGridComponent,
   StepperComponent,
   SwitchComponent,
@@ -52,6 +53,7 @@ interface Suggestion {
     BlueprintComponent,
     BusyDirective,
     IconComponent,
+    SkeletonComponent,
     InnerHeaderComponent,
     SectionBandComponent,
     StatGridComponent,
@@ -69,7 +71,14 @@ interface Suggestion {
           [meta]="pairsLabel()"
         />
 
-        @if (options().length === 0) {
+        <!--
+          Sem o sorteio e a sessão carregados, a contagem de gente é zero e a
+          tela anuncia "Nenhum formato para 0 pessoas" com ícone de alerta. É a
+          frase mais assustadora do app, dita por falta de dado.
+        -->
+        @if (carregando()) {
+          <app-skeleton [rows]="4" label="Carregando os formatos que cabem…" />
+        } @else if (options().length === 0) {
           <app-blueprint class="flex flex-col gap-2 p-4">
             <app-icon name="triangle-alert" [size]="28" class="text-accent-700" />
             <h2 class="font-heading text-[22px] font-semibold uppercase">
@@ -263,6 +272,7 @@ export class TournamentCreateComponent implements OnInit {
   protected readonly loserPriority = signal(true);
   protected readonly name = signal(randomTournamentName());
   protected readonly busy = signal(false);
+  protected readonly carregando = signal(true);
 
   protected readonly context = computed(() => {
     const letter = this.proposta();
@@ -362,13 +372,17 @@ export class TournamentCreateComponent implements OnInit {
   });
 
   async ngOnInit(): Promise<void> {
-    const groupId = this.group.groupId();
-    if (groupId) {
-      await this.sessionStore.load(groupId);
-    }
+    try {
+      const groupId = this.group.groupId();
+      if (groupId) {
+        await this.sessionStore.load(groupId);
+      }
 
-    const draw = await this.facade.getDrawById(this.drawId());
-    this.draw.set(draw ?? null);
+      const draw = await this.facade.getDrawById(this.drawId());
+      this.draw.set(draw ?? null);
+    } finally {
+      this.carregando.set(false);
+    }
 
     const first = this.options()[0];
     if (first) {

@@ -18,6 +18,7 @@ import {
   RoleTagComponent,
   SectionBandComponent,
   SegmentedComponent,
+  SkeletonComponent,
 } from '../../../shared/ui';
 import { ScoreSheetComponent } from './score-sheet.component';
 import { PlacementSheetComponent } from './placement-sheet.component';
@@ -72,6 +73,7 @@ function writeDismissed(tournamentId: string): void {
     SectionBandComponent,
     SegmentedComponent,
     ScoreSheetComponent,
+    SkeletonComponent,
     TiebreakSheetComponent,
   ],
   template: `
@@ -106,169 +108,183 @@ function writeDismissed(tournamentId: string): void {
       }
     </div>
 
-    @if (store.paused() && !group.canPlay()) {
-      <app-blueprint class="mx-4 mt-4 flex flex-col gap-2 p-4">
-        <app-icon name="hand" [size]="26" class="text-accent-700" />
-        <h2 class="font-heading text-[22px] font-semibold uppercase">Chave pausada</h2>
-        <p class="font-heading text-[18px] font-semibold uppercase">{{ pausedLabel() }}</p>
-        <p class="text-[14px]">Quem está jogando registra quem venceu. Puxe para atualizar.</p>
-      </app-blueprint>
-    }
+    <!--
+      Antes de a chave chegar, a tela não diz "chave pausada" nem "nenhuma
+      partida concluída ainda": as duas são conclusões sobre o campeonato, e
+      aqui ainda não se sabe nada dele.
+    -->
+    @if (store.loading()) {
+      <div class="mt-4 px-4">
+        <app-skeleton [rows]="3" label="Carregando a chave do campeonato…" />
+        <div class="mt-6">
+          <app-skeleton [rows]="4" />
+        </div>
+      </div>
+    } @else {
+      @if (store.paused() && !group.canPlay()) {
+        <app-blueprint class="mx-4 mt-4 flex flex-col gap-2 p-4">
+          <app-icon name="hand" [size]="26" class="text-accent-700" />
+          <h2 class="font-heading text-[22px] font-semibold uppercase">Chave pausada</h2>
+          <p class="font-heading text-[18px] font-semibold uppercase">{{ pausedLabel() }}</p>
+          <p class="text-[14px]">Quem está jogando registra quem venceu. Puxe para atualizar.</p>
+        </app-blueprint>
+      }
 
-    @switch (tab()) {
-      @case ('queue') {
-        <div class="flex flex-col gap-5 pb-6">
-          @if (current(); as bracket) {
-            <app-hero-field class="mt-4" kicker="01 · AGORA" [live]="true">
-              <p class="text-[13px] text-accent-200">{{ currentPhase() }}</p>
-              <div class="flex flex-col gap-1">
-                @for (side of currentSides(); track side.teamId) {
-                  <p class="flex items-center gap-2">
-                    <span class="font-heading text-[26px] leading-none font-semibold uppercase">{{
-                      side.label
-                    }}</span>
-                    @if (side.note) {
-                      <span class="tag border border-accent-400 text-accent-200">{{
-                        side.note
+      @switch (tab()) {
+        @case ('queue') {
+          <div class="flex flex-col gap-5 pb-6">
+            @if (current(); as bracket) {
+              <app-hero-field class="mt-4" kicker="01 · AGORA" [live]="true">
+                <p class="text-[13px] text-accent-200">{{ currentPhase() }}</p>
+                <div class="flex flex-col gap-1">
+                  @for (side of currentSides(); track side.teamId) {
+                    <p class="flex items-center gap-2">
+                      <span class="font-heading text-[26px] leading-none font-semibold uppercase">{{
+                        side.label
                       }}</span>
-                    }
+                      @if (side.note) {
+                        <span class="tag border border-accent-400 text-accent-200">{{
+                          side.note
+                        }}</span>
+                      }
+                    </p>
+                  }
+                </div>
+                @if (canReport()) {
+                  <button type="button" class="btn btn-inverted" (click)="openScore(bracket)">
+                    <app-icon name="square-pen" [size]="20" />
+                    LANÇAR PLACAR
+                  </button>
+                  <p class="text-[13px] text-accent-200">
+                    Qualquer jogador do vôlei pode lançar. O primeiro placar salvo trava.
                   </p>
                 }
-              </div>
-              @if (canReport()) {
-                <button type="button" class="btn btn-inverted" (click)="openScore(bracket)">
-                  <app-icon name="square-pen" [size]="20" />
-                  LANÇAR PLACAR
-                </button>
-                <p class="text-[13px] text-accent-200">
-                  Qualquer jogador do vôlei pode lançar. O primeiro placar salvo trava.
-                </p>
-              }
-            </app-hero-field>
-          }
+              </app-hero-field>
+            }
 
-          @if (upcoming().length > 0) {
+            @if (upcoming().length > 0) {
+              <section class="px-4">
+                <app-section-band label="A SEGUIR" />
+                @for (bracket of upcoming(); track $index) {
+                  <div class="row-rule flex items-center gap-3 py-[11px]">
+                    <span class="text-[12px] tracking-[0.06em] uppercase muted">{{
+                      phaseOf(bracket)
+                    }}</span>
+                    <span class="flex-1 font-heading text-[17px] font-semibold uppercase">
+                      {{ store.teamLabel(bracket.teamAId) }}
+                      <span class="muted">× {{ store.teamLabel(bracket.teamBId) }}</span>
+                    </span>
+                    <span class="tag tag-neutral">aguarda</span>
+                  </div>
+                }
+              </section>
+            }
+
             <section class="px-4">
-              <app-section-band label="A SEGUIR" />
-              @for (bracket of upcoming(); track $index) {
-                <div class="row-rule flex items-center gap-3 py-[11px]">
-                  <span class="text-[12px] tracking-[0.06em] uppercase muted">{{
-                    phaseOf(bracket)
-                  }}</span>
-                  <span class="flex-1 font-heading text-[17px] font-semibold uppercase">
-                    {{ store.teamLabel(bracket.teamAId) }}
-                    <span class="muted">× {{ store.teamLabel(bracket.teamBId) }}</span>
-                  </span>
-                  <span class="tag tag-neutral">aguarda</span>
-                </div>
-              }
-            </section>
-          }
-
-          <section class="px-4">
-            <app-section-band label="CONCLUÍDOS" [meta]="resultsMeta()" />
-            <div class="flex flex-col gap-3">
-              @for (result of store.results(); track result.match.id) {
-                <app-blueprint>
-                  <p
-                    class="flex items-center gap-2 border-b border-hairline px-3 py-2 text-[12px] muted"
-                  >
-                    {{ result.phaseLabel.toUpperCase() }} · {{ time(result.match.playedAt) }}
-                    @if (result.reportedByName) {
-                      <span class="flex items-center gap-1">
-                        <app-icon name="lock" [size]="12" />
-                        {{ result.reportedByName }}
-                      </span>
-                    }
-                  </p>
-                  <div class="flex items-baseline gap-2 px-3 py-2">
-                    <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
-                      result.winnerLabel
-                    }}</span>
-                    @if (result.winnerConsequence) {
-                      <span class="tag tag-accent">{{ result.winnerConsequence }}</span>
-                    }
-                    <span class="font-heading text-[24px] font-semibold tnum">{{
-                      result.winnerScore
-                    }}</span>
-                  </div>
-                  <div class="flex items-baseline gap-2 px-3 pb-2 muted">
-                    <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
-                      result.loserLabel
-                    }}</span>
-                    @if (result.loserConsequence) {
-                      <span class="tag tag-neutral">{{ result.loserConsequence }}</span>
-                    }
-                    <span class="font-heading text-[24px] font-semibold tnum">{{
-                      result.loserScore
-                    }}</span>
-                  </div>
-                  @if (result.correctedByName; as corrector) {
-                    <p class="px-3 pb-2 text-[12px] muted">Corrigido por {{ corrector }}</p>
-                  }
-                  @if (group.canPlay() && store.correctionOpen()) {
-                    <button
-                      type="button"
-                      class="flex items-center gap-1 px-3 pb-2 text-[13px] text-accent-700"
-                      (click)="correct(result.match.id)"
+              <app-section-band label="CONCLUÍDOS" [meta]="resultsMeta()" />
+              <div class="flex flex-col gap-3">
+                @for (result of store.results(); track result.match.id) {
+                  <app-blueprint>
+                    <p
+                      class="flex items-center gap-2 border-b border-hairline px-3 py-2 text-[12px] muted"
                     >
-                      <app-icon name="pencil" [size]="14" />
-                      Corrigir
-                    </button>
-                  }
-                </app-blueprint>
-              } @empty {
-                <p class="text-[14px] muted">Nenhuma partida concluída ainda.</p>
-              }
-            </div>
-          </section>
+                      {{ result.phaseLabel.toUpperCase() }} · {{ time(result.match.playedAt) }}
+                      @if (result.reportedByName) {
+                        <span class="flex items-center gap-1">
+                          <app-icon name="lock" [size]="12" />
+                          {{ result.reportedByName }}
+                        </span>
+                      }
+                    </p>
+                    <div class="flex items-baseline gap-2 px-3 py-2">
+                      <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
+                        result.winnerLabel
+                      }}</span>
+                      @if (result.winnerConsequence) {
+                        <span class="tag tag-accent">{{ result.winnerConsequence }}</span>
+                      }
+                      <span class="font-heading text-[24px] font-semibold tnum">{{
+                        result.winnerScore
+                      }}</span>
+                    </div>
+                    <div class="flex items-baseline gap-2 px-3 pb-2 muted">
+                      <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
+                        result.loserLabel
+                      }}</span>
+                      @if (result.loserConsequence) {
+                        <span class="tag tag-neutral">{{ result.loserConsequence }}</span>
+                      }
+                      <span class="font-heading text-[24px] font-semibold tnum">{{
+                        result.loserScore
+                      }}</span>
+                    </div>
+                    @if (result.correctedByName; as corrector) {
+                      <p class="px-3 pb-2 text-[12px] muted">Corrigido por {{ corrector }}</p>
+                    }
+                    @if (group.canPlay() && store.correctionOpen()) {
+                      <button
+                        type="button"
+                        class="flex items-center gap-1 px-3 pb-2 text-[13px] text-accent-700"
+                        (click)="correct(result.match.id)"
+                      >
+                        <app-icon name="pencil" [size]="14" />
+                        Corrigir
+                      </button>
+                    }
+                  </app-blueprint>
+                } @empty {
+                  <p class="text-[14px] muted">Nenhuma partida concluída ainda.</p>
+                }
+              </div>
+            </section>
 
-          @if (placementEvent(); as event) {
-            <div class="px-4">
-              <app-inline-note tone="event" icon="hand">{{ event }}</app-inline-note>
-            </div>
-          }
-        </div>
-      }
+            @if (placementEvent(); as event) {
+              <div class="px-4">
+                <app-inline-note tone="event" icon="hand">{{ event }}</app-inline-note>
+              </div>
+            }
+          </div>
+        }
 
-      @case ('bracket') {
-        <div class="flex flex-col gap-4 px-4 py-4 pb-6">
-          @if (myTeamNote(); as note) {
-            <app-inline-note tone="positive">{{ note }}</app-inline-note>
-          }
+        @case ('bracket') {
+          <div class="flex flex-col gap-4 px-4 py-4 pb-6">
+            @if (myTeamNote(); as note) {
+              <app-inline-note tone="positive">{{ note }}</app-inline-note>
+            }
 
-          @if (encaixeNote(); as note) {
-            <div class="border border-dashed border-neutral-500 p-3">
-              <p class="flex items-center gap-2 kicker">
-                <app-icon name="git-merge" [size]="16" />
-                ENCAIXE
-              </p>
-              <p class="mt-1 text-[14px]">{{ note }}</p>
-            </div>
-          }
+            @if (encaixeNote(); as note) {
+              <div class="border border-dashed border-neutral-500 p-3">
+                <p class="flex items-center gap-2 kicker">
+                  <app-icon name="git-merge" [size]="16" />
+                  ENCAIXE
+                </p>
+                <p class="mt-1 text-[14px]">{{ note }}</p>
+              </div>
+            }
 
-          <section>
-            <app-section-band label="ESCADA ATÉ A FINAL" [meta]="progressMeta()" />
-            <app-ladder [steps]="store.ladder()" [championLabel]="championLabel()" />
-          </section>
+            <section>
+              <app-section-band label="ESCADA ATÉ A FINAL" [meta]="progressMeta()" />
+              <app-ladder [steps]="store.ladder()" [championLabel]="championLabel()" />
+            </section>
 
-          @if (outNote(); as note) {
-            <p class="text-[13px] muted">{{ note }}</p>
-          }
-        </div>
-      }
+            @if (outNote(); as note) {
+              <p class="text-[13px] muted">{{ note }}</p>
+            }
+          </div>
+        }
 
-      @case ('teams') {
-        <ul class="list-none p-0 pb-6">
-          @for (row of teamRows(); track row.teamId) {
-            <li class="row-rule flex items-center gap-3 px-4 py-3">
-              <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
-                row.label
-              }}</span>
-              <span class="tag" [class]="row.tagClass">{{ row.state }}</span>
-            </li>
-          }
-        </ul>
+        @case ('teams') {
+          <ul class="list-none p-0 pb-6">
+            @for (row of teamRows(); track row.teamId) {
+              <li class="row-rule flex items-center gap-3 px-4 py-3">
+                <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
+                  row.label
+                }}</span>
+                <span class="tag" [class]="row.tagClass">{{ row.state }}</span>
+              </li>
+            }
+          </ul>
+        }
       }
     }
 

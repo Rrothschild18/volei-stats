@@ -19,6 +19,7 @@ import {
   RoleTagComponent,
   RootHeaderComponent,
   SectionBandComponent,
+  SkeletonComponent,
   SpecListComponent,
   StatGridComponent,
 } from '../../../shared/ui';
@@ -51,6 +52,7 @@ interface Shortcut {
     RootHeaderComponent,
     ScoreSheetComponent,
     SectionBandComponent,
+    SkeletonComponent,
     SpecListComponent,
     StatGridComponent,
   ],
@@ -65,186 +67,208 @@ interface Shortcut {
     </app-root-header>
 
     <div class="flex flex-col gap-5 pb-6">
-      @if (!group.canPlay()) {
-        <!--
+      <!--
+        A tela de início é a que mais mente enquanto espera: sem a sessão
+        carregada ela anuncia "Sem sessão hoje" num campo em destaque, e o jogo
+        que está rolando aparece dois segundos depois por cima. Quem olha de
+        relance na beira da quadra lê a primeira.
+      -->
+      @if (carregando()) {
+        <div class="mt-4 px-4">
+          <app-skeleton [rows]="3" label="Carregando a sessão de hoje…" />
+        </div>
+        <div class="px-4">
+          <app-section-band index="01" label="HOJE" />
+          <app-skeleton [rows]="4" />
+        </div>
+      } @else {
+        @if (!group.canPlay()) {
+          <!--
           Visitante: entrou pelo código e ainda não disse quem é. Ele lê tudo e
           não escreve nada — inclusive não aparece na presença. Então a primeira
           coisa na tela é o caminho de resolver isso.
         -->
-        <app-blueprint class="mx-4 mt-4 p-4">
-          <p class="kicker">VOCÊ ESTÁ SÓ OLHANDO</p>
-          <h2 class="mt-1 font-heading text-[22px] leading-none font-semibold uppercase">
-            Diga quem você é
-          </h2>
-          <p class="mt-2 text-[13px] muted">
-            Enquanto não disser, você não entra na presença nem lança placar. Toque no seu nome e
-            use a data que o grupo combinou.
-          </p>
-          <button type="button" class="btn btn-primary mt-3 min-h-12 w-full" (click)="claim()">
-            SOU UM DELES
-          </button>
-        </app-blueprint>
-      }
-
-      @if (!sessionStore.session()) {
-        <app-hero-field class="mt-4" kicker="HOJE">
-          <p class="font-heading text-[28px] leading-none font-semibold uppercase">
-            Sem sessão hoje
-          </p>
-          <p class="text-[14px] text-accent-200">
-            @if (group.canPlay()) {
-              Marque quem apareceu para abrir a sessão do dia.
-            } @else {
-              Quando alguém marcar a presença, o seu jogo aparece aqui.
-            }
-          </p>
-          @if (group.canPlay()) {
-            <button
-              type="button"
-              class="btn btn-inverted"
-              (click)="go(['campeonatos', 'sessoes', 'nova'])"
-            >
-              <app-icon name="plus" [size]="20" />
-              NOVA SESSÃO
+          <app-blueprint class="mx-4 mt-4 p-4">
+            <p class="kicker">VOCÊ ESTÁ SÓ OLHANDO</p>
+            <h2 class="mt-1 font-heading text-[22px] leading-none font-semibold uppercase">
+              Diga quem você é
+            </h2>
+            <p class="mt-2 text-[13px] muted">
+              Enquanto não disser, você não entra na presença nem lança placar. Toque no seu nome e
+              use a data que o grupo combinou.
+            </p>
+            <button type="button" class="btn btn-primary mt-3 min-h-12 w-full" (click)="claim()">
+              SOU UM DELES
             </button>
-          }
-        </app-hero-field>
-      } @else if (currentMatch(); as bracket) {
-        <app-hero-field class="mt-4" [kicker]="heroKicker()" [live]="true">
-          <p class="text-[13px] text-accent-200">{{ heroMeta() }}</p>
-          <div class="flex flex-col gap-1">
-            @for (side of heroSides(); track side.teamId) {
-              <p class="flex items-center gap-2">
-                <span class="font-heading text-[26px] leading-none font-semibold uppercase">{{
-                  side.label
-                }}</span>
-                @if (side.mine) {
-                  <span class="text-[15px] text-accent-300">· você</span>
-                }
-                @if (side.note) {
-                  <span class="tag border border-accent-400 text-accent-200">{{ side.note }}</span>
-                }
-              </p>
-            }
-          </div>
+          </app-blueprint>
+        }
 
-          @if (group.canPlay()) {
-            <div class="grid grid-cols-[2fr_1fr] gap-2">
+        @if (!sessionStore.session()) {
+          <app-hero-field class="mt-4" kicker="HOJE">
+            <p class="font-heading text-[28px] leading-none font-semibold uppercase">
+              Sem sessão hoje
+            </p>
+            <p class="text-[14px] text-accent-200">
+              @if (group.canPlay()) {
+                Marque quem apareceu para abrir a sessão do dia.
+              } @else {
+                Quando alguém marcar a presença, o seu jogo aparece aqui.
+              }
+            </p>
+            @if (group.canPlay()) {
+              <button
+                type="button"
+                class="btn btn-inverted"
+                (click)="go(['campeonatos', 'sessoes', 'nova'])"
+              >
+                <app-icon name="plus" [size]="20" />
+                NOVA SESSÃO
+              </button>
+            }
+          </app-hero-field>
+        } @else if (currentMatch(); as bracket) {
+          <app-hero-field class="mt-4" [kicker]="heroKicker()" [live]="true">
+            <p class="text-[13px] text-accent-200">{{ heroMeta() }}</p>
+            <div class="flex flex-col gap-1">
+              @for (side of heroSides(); track side.teamId) {
+                <p class="flex items-center gap-2">
+                  <span class="font-heading text-[26px] leading-none font-semibold uppercase">{{
+                    side.label
+                  }}</span>
+                  @if (side.mine) {
+                    <span class="text-[15px] text-accent-300">· você</span>
+                  }
+                  @if (side.note) {
+                    <span class="tag border border-accent-400 text-accent-200">{{
+                      side.note
+                    }}</span>
+                  }
+                </p>
+              }
+            </div>
+
+            @if (group.canPlay()) {
+              <div class="grid grid-cols-[2fr_1fr] gap-2">
+                <button type="button" class="btn btn-inverted" (click)="openScore(bracket)">
+                  <app-icon name="square-pen" [size]="20" />
+                  LANÇAR PLACAR
+                </button>
+                <button
+                  type="button"
+                  class="btn border-accent-600 text-accent-200"
+                  (click)="openLive()"
+                >
+                  CHAVE
+                </button>
+              </div>
+            } @else if (canReport()) {
               <button type="button" class="btn btn-inverted" (click)="openScore(bracket)">
                 <app-icon name="square-pen" [size]="20" />
                 LANÇAR PLACAR
               </button>
-              <button
-                type="button"
-                class="btn border-accent-600 text-accent-200"
-                (click)="openLive()"
-              >
-                CHAVE
-              </button>
-            </div>
-          } @else if (canReport()) {
-            <button type="button" class="btn btn-inverted" (click)="openScore(bracket)">
-              <app-icon name="square-pen" [size]="20" />
-              LANÇAR PLACAR
-            </button>
-            <p class="text-[13px] text-accent-200">
-              Qualquer jogador desta partida pode lançar. O primeiro placar salvo trava.
-            </p>
-          }
-        </app-hero-field>
-      } @else if (live() && liveStore.paused()) {
-        <app-blueprint class="mx-4 mt-4 flex flex-col gap-2 p-4">
-          <app-icon name="hand" [size]="26" class="text-accent-700" />
-          <h2 class="font-heading text-[22px] font-semibold uppercase">Chave pausada</h2>
-          <p class="text-[14px]">
-            @if (group.canPlay()) {
-              Registre quem venceu o par-ou-ímpar na tela do campeonato.
-            } @else {
-              Quem está jogando registra quem venceu. Puxe para atualizar.
+              <p class="text-[13px] text-accent-200">
+                Qualquer jogador desta partida pode lançar. O primeiro placar salvo trava.
+              </p>
             }
-          </p>
-          <button type="button" class="btn btn-secondary mt-1 self-start px-3" (click)="openLive()">
-            VER CAMPEONATO
-          </button>
-        </app-blueprint>
-      }
-
-      @if (group.canPlay()) {
-        <div class="mx-4 grid grid-cols-3 border border-divider">
-          @for (shortcut of shortcuts(); track shortcut.label; let first = $first) {
+          </app-hero-field>
+        } @else if (live() && liveStore.paused()) {
+          <app-blueprint class="mx-4 mt-4 flex flex-col gap-2 p-4">
+            <app-icon name="hand" [size]="26" class="text-accent-700" />
+            <h2 class="font-heading text-[22px] font-semibold uppercase">Chave pausada</h2>
+            <p class="text-[14px]">
+              @if (group.canPlay()) {
+                Registre quem venceu o par-ou-ímpar na tela do campeonato.
+              } @else {
+                Quem está jogando registra quem venceu. Puxe para atualizar.
+              }
+            </p>
             <button
               type="button"
-              class="flex h-[76px] flex-col items-center justify-center gap-2 text-[13px] tracking-[0.04em] uppercase"
-              [class.border-l]="!first"
-              [class.border-divider]="!first"
-              (click)="go(shortcut.target)"
+              class="btn btn-secondary mt-1 self-start px-3"
+              (click)="openLive()"
             >
-              <app-icon [name]="shortcut.icon" [size]="22" class="text-accent-700" />
-              {{ shortcut.label }}
+              VER CAMPEONATO
             </button>
-          }
-        </div>
-
-        <section class="px-4">
-          <app-section-band index="01" label="DESTAQUES DO GRUPO">
-            <button type="button" class="text-[13px] text-accent-700" (click)="go(['rankings'])">
-              Rankings
-            </button>
-          </app-section-band>
-          <app-blueprint>
-            <app-spec-list
-              [items]="highlights()"
-              note="Melhor dupla exige 3 jogos juntos. Esperas contam só a proposta escolhida."
-            />
           </app-blueprint>
-        </section>
-
-        <div class="px-4">
-          <app-stat-grid [items]="groupStats()" />
-        </div>
-      } @else {
-        @if (myPath().length > 0) {
-          <section class="px-4">
-            <app-section-band index="01" label="SE VOCÊS VENCEREM" />
-            <app-ladder [steps]="myPath()" />
-          </section>
         }
 
-        <section class="px-4">
-          <app-section-band index="02" label="SEU DIA">
-            <button type="button" class="text-[13px] text-accent-700" (click)="openProfile()">
-              Seu perfil
-            </button>
-          </app-section-band>
-          <app-stat-grid [items]="myDay()" />
-          @if (waitNote(); as note) {
-            <app-inline-note class="mt-3" tone="positive" icon="hourglass">{{
-              note
-            }}</app-inline-note>
-          }
-        </section>
-
-        @if (live(); as tournament) {
-          <div class="px-4">
-            <app-blueprint>
+        @if (group.canPlay()) {
+          <div class="mx-4 grid grid-cols-3 border border-divider">
+            @for (shortcut of shortcuts(); track shortcut.label; let first = $first) {
               <button
                 type="button"
-                class="flex w-full items-center gap-3 p-4 text-left"
-                (click)="openLive()"
+                class="flex h-[76px] flex-col items-center justify-center gap-2 text-[13px] tracking-[0.04em] uppercase"
+                [class.border-l]="!first"
+                [class.border-divider]="!first"
+                (click)="go(shortcut.target)"
               >
-                <app-icon name="git-fork" [size]="22" class="text-accent-700" />
-                <span class="flex-1">
-                  <span class="block font-heading text-[18px] font-semibold uppercase"
-                    >Chave ao vivo</span
-                  >
-                  <span class="block text-[13px] muted">
-                    {{ tournament.name }} · {{ progress() }}
-                  </span>
-                </span>
-                <app-icon name="chevron-right" [size]="20" class="muted" />
+                <app-icon [name]="shortcut.icon" [size]="22" class="text-accent-700" />
+                {{ shortcut.label }}
               </button>
-            </app-blueprint>
+            }
           </div>
+
+          <section class="px-4">
+            <app-section-band index="01" label="DESTAQUES DO GRUPO">
+              <button type="button" class="text-[13px] text-accent-700" (click)="go(['rankings'])">
+                Rankings
+              </button>
+            </app-section-band>
+            <app-blueprint>
+              <app-spec-list
+                [items]="highlights()"
+                note="Melhor dupla exige 3 jogos juntos. Esperas contam só a proposta escolhida."
+              />
+            </app-blueprint>
+          </section>
+
+          <div class="px-4">
+            <app-stat-grid [items]="groupStats()" />
+          </div>
+        } @else {
+          @if (myPath().length > 0) {
+            <section class="px-4">
+              <app-section-band index="01" label="SE VOCÊS VENCEREM" />
+              <app-ladder [steps]="myPath()" />
+            </section>
+          }
+
+          <section class="px-4">
+            <app-section-band index="02" label="SEU DIA">
+              <button type="button" class="text-[13px] text-accent-700" (click)="openProfile()">
+                Seu perfil
+              </button>
+            </app-section-band>
+            <app-stat-grid [items]="myDay()" />
+            @if (waitNote(); as note) {
+              <app-inline-note class="mt-3" tone="positive" icon="hourglass">{{
+                note
+              }}</app-inline-note>
+            }
+          </section>
+
+          @if (live(); as tournament) {
+            <div class="px-4">
+              <app-blueprint>
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-3 p-4 text-left"
+                  (click)="openLive()"
+                >
+                  <app-icon name="git-fork" [size]="22" class="text-accent-700" />
+                  <span class="flex-1">
+                    <span class="block font-heading text-[18px] font-semibold uppercase"
+                      >Chave ao vivo</span
+                    >
+                    <span class="block text-[13px] muted">
+                      {{ tournament.name }} · {{ progress() }}
+                    </span>
+                  </span>
+                  <app-icon name="chevron-right" [size]="20" class="muted" />
+                </button>
+              </app-blueprint>
+            </div>
+          }
         }
       }
     </div>
@@ -264,6 +288,8 @@ export class HomeComponent implements OnInit {
   protected readonly sessionStore = inject(SessionStore);
   protected readonly liveStore = inject(LiveTournamentStore);
 
+  /** Só a PRIMEIRA carga: puxar para atualizar não desmonta o que está na tela. */
+  protected readonly carregando = signal(true);
   protected readonly scoreTarget = signal<BracketMatch | null>(null);
   private readonly dashboard = signal<Awaited<
     ReturnType<StatisticsService['getDashboardData']>
@@ -496,19 +522,24 @@ export class HomeComponent implements OnInit {
   private async load(): Promise<void> {
     const groupId = this.group.groupId();
     if (!groupId) {
+      this.carregando.set(false);
       return;
     }
 
-    await this.sessionStore.load(groupId);
+    try {
+      await this.sessionStore.load(groupId);
 
-    const live = this.sessionStore.liveTournament();
-    if (live) {
-      await this.liveStore.load(live.id);
+      const live = this.sessionStore.liveTournament();
+      if (live) {
+        await this.liveStore.load(live.id);
+      }
+
+      this.dashboard.set(
+        await this.statistics.getDashboardData(await this.facade.getGroupScope(groupId)),
+      );
+    } finally {
+      this.carregando.set(false);
     }
-
-    this.dashboard.set(
-      await this.statistics.getDashboardData(await this.facade.getGroupScope(groupId)),
-    );
   }
 
   protected openScore(bracket: BracketMatch): void {

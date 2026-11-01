@@ -22,6 +22,7 @@ import {
   InlineNoteComponent,
   InnerHeaderComponent,
   SectionBandComponent,
+  SkeletonComponent,
 } from '../../../shared/ui';
 
 interface StandingRow {
@@ -51,6 +52,7 @@ interface StandingRow {
     InlineNoteComponent,
     InnerHeaderComponent,
     SectionBandComponent,
+    SkeletonComponent,
   ],
   template: `
     <app-inner-header
@@ -72,119 +74,127 @@ interface StandingRow {
     </app-inner-header>
 
     <div class="flex flex-col gap-5 px-4 pb-6">
-      @if (myPosition() === null) {
-        @if (champions(); as team) {
-          <app-blueprint class="flex flex-col gap-1 p-4">
-            <app-icon name="crown" [size]="34" class="text-accent-700" />
-            <p class="kicker">{{ championsKicker() }}</p>
-            <p class="font-heading text-[36px] leading-none font-semibold uppercase">
-              {{ team.label }}
-            </p>
-          </app-blueprint>
-        }
+      <!--
+        A classificação é o resultado da noite: mostrá-la vazia por um instante
+        é mostrar um campeonato sem campeão.
+      -->
+      @if (store.loading()) {
+        <app-skeleton [rows]="2" label="Carregando a classificação…" />
+        <app-skeleton [rows]="5" />
       } @else {
-        <app-hero-field kicker="SEU RESULTADO">
-          <p class="flex items-baseline gap-3">
-            <span class="font-heading text-[56px] leading-none font-semibold">{{
-              myPosition() ?? '—'
-            }}</span>
-            <span class="font-heading text-[18px] font-semibold uppercase">{{ myNote() }}</span>
-          </p>
-        </app-hero-field>
-      }
-
-      <p class="text-[13px] tnum muted">{{ timing() }}</p>
-
-      <section>
-        <table class="w-full border-collapse">
-          <caption class="sr-only">
-            Classificação final do campeonato
-          </caption>
-          <thead>
-            <tr class="bg-accent-100 text-[11px] tracking-[0.06em] uppercase">
-              <th class="w-7 py-2 pl-1 text-left font-semibold">Nº</th>
-              <th class="py-2 text-left font-semibold">Dupla</th>
-              <th class="w-11 py-2 text-right font-semibold">V–D</th>
-              <th class="w-10 py-2 pr-1 text-right font-semibold">Saldo</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of rows(); track row.teamId) {
-              <tr class="row-rule h-11" [class.bg-accent-100]="row.isMine">
-                <td class="pl-1 text-[13px] tnum muted">{{ row.position }}</td>
-                <td>
-                  <span class="flex items-center gap-2">
-                    <span class="font-heading text-[17px] font-semibold uppercase">{{
-                      row.label
-                    }}</span>
-                    @if (row.tag) {
-                      <span class="tag tag-neutral">{{ row.tag }}</span>
-                    }
-                  </span>
-                </td>
-                <td class="text-right text-[14px] tnum">{{ row.record }}</td>
-                <td class="pr-1 text-right text-[14px] tnum">{{ row.balance }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-
-        @if (dissolvedNote(); as note) {
-          <p class="mt-2 text-[12px] muted">{{ note }}</p>
+        @if (myPosition() === null) {
+          @if (champions(); as team) {
+            <app-blueprint class="flex flex-col gap-1 p-4">
+              <app-icon name="crown" [size]="34" class="text-accent-700" />
+              <p class="kicker">{{ championsKicker() }}</p>
+              <p class="font-heading text-[36px] leading-none font-semibold uppercase">
+                {{ team.label }}
+              </p>
+            </app-blueprint>
+          }
+        } @else {
+          <app-hero-field kicker="SEU RESULTADO">
+            <p class="flex items-baseline gap-3">
+              <span class="font-heading text-[56px] leading-none font-semibold">{{
+                myPosition() ?? '—'
+              }}</span>
+              <span class="font-heading text-[18px] font-semibold uppercase">{{ myNote() }}</span>
+            </p>
+          </app-hero-field>
         }
-      </section>
 
-      @if (nextDraw()) {
+        <p class="text-[13px] tnum muted">{{ timing() }}</p>
+
         <section>
-          <app-section-band label="O PRÓXIMO JÁ ESTÁ SORTEADO" [meta]="nextDrawMeta()" />
-          @for (row of nextDrawRows(); track row.teamId) {
-            <div class="row-rule flex h-10 items-center gap-3">
-              <span class="w-6 font-heading text-[17px] font-semibold text-accent-700 tnum">{{
-                row.order
-              }}</span>
-              <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
-                row.label
-              }}</span>
-            </div>
-          }
-          @if (nextDrawWaiting(); as name) {
-            <p class="mt-2 text-[12px] muted">{{ name }} fica de espera.</p>
-          }
+          <table class="w-full border-collapse">
+            <caption class="sr-only">
+              Classificação final do campeonato
+            </caption>
+            <thead>
+              <tr class="bg-accent-100 text-[11px] tracking-[0.06em] uppercase">
+                <th class="w-7 py-2 pl-1 text-left font-semibold">Nº</th>
+                <th class="py-2 text-left font-semibold">Dupla</th>
+                <th class="w-11 py-2 text-right font-semibold">V–D</th>
+                <th class="w-10 py-2 pr-1 text-right font-semibold">Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of rows(); track row.teamId) {
+                <tr class="row-rule h-11" [class.bg-accent-100]="row.isMine">
+                  <td class="pl-1 text-[13px] tnum muted">{{ row.position }}</td>
+                  <td>
+                    <span class="flex items-center gap-2">
+                      <span class="font-heading text-[17px] font-semibold uppercase">{{
+                        row.label
+                      }}</span>
+                      @if (row.tag) {
+                        <span class="tag tag-neutral">{{ row.tag }}</span>
+                      }
+                    </span>
+                  </td>
+                  <td class="text-right text-[14px] tnum">{{ row.record }}</td>
+                  <td class="pr-1 text-right text-[14px] tnum">{{ row.balance }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
 
-          @if (presenceNote(); as note) {
-            <div class="mt-3">
-              <app-inline-note tone="error">{{ note }}</app-inline-note>
-            </div>
-          }
-
-          <button
-            type="button"
-            class="mt-3 flex items-center gap-2 text-[13px] text-accent-700"
-            [disabled]="busy()"
-            (click)="discardNext()"
-          >
-            <app-icon name="x" [size]="16" />
-            Descartar este sorteio
-          </button>
-        </section>
-      }
-
-      @if (priorities().length > 0) {
-        <section>
-          <app-section-band label="PRIORIDADE NO PRÓXIMO SORTEIO" />
-          @for (entry of priorities(); track entry.playerId) {
-            <div class="row-rule flex h-10 items-center gap-3">
-              <span class="font-heading text-[17px] font-semibold uppercase">{{
-                nameOf(entry.playerId)
-              }}</span>
-              <span class="flex-1 text-right text-[13px] muted">{{ reasonLabel(entry) }}</span>
-            </div>
+          @if (dissolvedNote(); as note) {
+            <p class="mt-2 text-[12px] muted">{{ note }}</p>
           }
         </section>
-      }
 
-      @if (group.canPlay()) {
-        <!--
+        @if (nextDraw()) {
+          <section>
+            <app-section-band label="O PRÓXIMO JÁ ESTÁ SORTEADO" [meta]="nextDrawMeta()" />
+            @for (row of nextDrawRows(); track row.teamId) {
+              <div class="row-rule flex h-10 items-center gap-3">
+                <span class="w-6 font-heading text-[17px] font-semibold text-accent-700 tnum">{{
+                  row.order
+                }}</span>
+                <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
+                  row.label
+                }}</span>
+              </div>
+            }
+            @if (nextDrawWaiting(); as name) {
+              <p class="mt-2 text-[12px] muted">{{ name }} fica de espera.</p>
+            }
+
+            @if (presenceNote(); as note) {
+              <div class="mt-3">
+                <app-inline-note tone="error">{{ note }}</app-inline-note>
+              </div>
+            }
+
+            <button
+              type="button"
+              class="mt-3 flex items-center gap-2 text-[13px] text-accent-700"
+              [disabled]="busy()"
+              (click)="discardNext()"
+            >
+              <app-icon name="x" [size]="16" />
+              Descartar este sorteio
+            </button>
+          </section>
+        }
+
+        @if (priorities().length > 0) {
+          <section>
+            <app-section-band label="PRIORIDADE NO PRÓXIMO SORTEIO" />
+            @for (entry of priorities(); track entry.playerId) {
+              <div class="row-rule flex h-10 items-center gap-3">
+                <span class="font-heading text-[17px] font-semibold uppercase">{{
+                  nameOf(entry.playerId)
+                }}</span>
+                <span class="flex-1 text-right text-[13px] muted">{{ reasonLabel(entry) }}</span>
+              </div>
+            }
+          </section>
+        }
+
+        @if (group.canPlay()) {
+          <!--
           Sem este caminho, um placar errado num campeonato encerrado ficava
           errado para sempre: a tela do campeonato redireciona para cá, e o
           botão de corrigir mora lá. A frase "qualquer jogador corrige" não
@@ -194,31 +204,32 @@ interface StandingRow {
           em tooltip. Um botão cinza convida a tentar, e a tela em vez dele diz
           o que aconteceu (ticket 35).
         -->
-        @if (store.correctionOpen()) {
+          @if (store.correctionOpen()) {
+            <button
+              type="button"
+              class="flex items-center gap-2 self-start text-[13px] text-accent-700"
+              (click)="correctScores()"
+            >
+              <app-icon name="pencil" [size]="16" />
+              Errou um placar? Corrigir as partidas deste campeonato
+            </button>
+          } @else {
+            <p class="text-[13px] muted">
+              Este campeonato fechou. Placar só até {{ correctionMinutes }} min depois do fim.
+            </p>
+          }
+        }
+
+        @if (group.isOwner() && menuOpen()) {
           <button
             type="button"
             class="flex items-center gap-2 self-start text-[13px] text-accent-700"
-            (click)="correctScores()"
+            (click)="confirmingDelete.set(true)"
           >
-            <app-icon name="pencil" [size]="16" />
-            Errou um placar? Corrigir as partidas deste campeonato
+            <app-icon name="trash-2" [size]="16" />
+            Excluir campeonato (some das prioridades e estatísticas)
           </button>
-        } @else {
-          <p class="text-[13px] muted">
-            Este campeonato fechou. Placar só até {{ correctionMinutes }} min depois do fim.
-          </p>
         }
-      }
-
-      @if (group.isOwner() && menuOpen()) {
-        <button
-          type="button"
-          class="flex items-center gap-2 self-start text-[13px] text-accent-700"
-          (click)="confirmingDelete.set(true)"
-        >
-          <app-icon name="trash-2" [size]="16" />
-          Excluir campeonato (some das prioridades e estatísticas)
-        </button>
       }
     </div>
 

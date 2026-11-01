@@ -16,6 +16,7 @@ import {
   RoleTagComponent,
   RootHeaderComponent,
   SegmentedComponent,
+  SkeletonComponent,
 } from '../../../shared/ui';
 
 type Filter = 'active' | 'inactive' | 'all';
@@ -31,6 +32,7 @@ type Filter = 'active' | 'inactive' | 'all';
     RoleTagComponent,
     RootHeaderComponent,
     SegmentedComponent,
+    SkeletonComponent,
   ],
   template: `
     <app-root-header [context]="context()" title="JOGADORES" (switchGroup)="toGroups()">
@@ -68,57 +70,68 @@ type Filter = 'active' | 'inactive' | 'all';
       [tabs]="false"
     />
 
-    <ul class="mt-2 list-none p-0">
-      @for (entry of visible(); track entry.player.id) {
-        <li class="row-rule">
-          <button
-            type="button"
-            class="flex h-14 w-full items-center gap-3 px-4 text-left"
-            (click)="open(entry.player)"
-          >
-            <span
-              class="flex size-9 shrink-0 items-center justify-center border border-divider font-heading font-semibold"
-              [class]="
-                entry.sigla.length > 2
-                  ? 'text-[11px]'
-                  : entry.sigla.length > 1
-                    ? 'text-[13px]'
-                    : 'text-[16px]'
-              "
-              aria-hidden="true"
-              >{{ entry.sigla }}</span
+    <!--
+      "Ninguém encontrado com esse nome" é a resposta para uma busca que não
+      achou, e não para uma lista que ainda não chegou. Enquanto os jogadores
+      não vêm, o lugar deles fica marcado.
+    -->
+    @if (carregando()) {
+      <div class="mt-4 px-4">
+        <app-skeleton [rows]="6" label="Carregando os jogadores do vôlei…" />
+      </div>
+    } @else {
+      <ul class="mt-2 list-none p-0">
+        @for (entry of visible(); track entry.player.id) {
+          <li class="row-rule">
+            <button
+              type="button"
+              class="flex h-14 w-full items-center gap-3 px-4 text-left"
+              (click)="open(entry.player)"
             >
-            <span class="min-w-0 flex-1">
-              <span class="flex items-center gap-2">
-                <span
-                  class="truncate font-heading text-[18px] leading-tight font-semibold uppercase"
-                  [class.muted]="!entry.player.active"
-                  >{{ entry.player.name }}</span
-                >
-                <app-gender-badge [gender]="entry.player.gender" />
-                @if (entry.isOwner) {
-                  <span class="tag tag-outline">DONO</span>
-                }
-                @if (entry.naoEntrou) {
-                  <span class="tag tag-warning">NÃO ENTROU</span>
+              <span
+                class="flex size-9 shrink-0 items-center justify-center border border-divider font-heading font-semibold"
+                [class]="
+                  entry.sigla.length > 2
+                    ? 'text-[11px]'
+                    : entry.sigla.length > 1
+                      ? 'text-[13px]'
+                      : 'text-[16px]'
+                "
+                aria-hidden="true"
+                >{{ entry.sigla }}</span
+              >
+              <span class="min-w-0 flex-1">
+                <span class="flex items-center gap-2">
+                  <span
+                    class="truncate font-heading text-[18px] leading-tight font-semibold uppercase"
+                    [class.muted]="!entry.player.active"
+                    >{{ entry.player.name }}</span
+                  >
+                  <app-gender-badge [gender]="entry.player.gender" />
+                  @if (entry.isOwner) {
+                    <span class="tag tag-outline">DONO</span>
+                  }
+                  @if (entry.naoEntrou) {
+                    <span class="tag tag-warning">NÃO ENTROU</span>
+                  }
+                </span>
+                @if (!entry.player.active) {
+                  <span class="text-[12px] muted">Inativo · fora da lista de presença</span>
+                } @else if (entry.naoEntrou) {
+                  <span class="text-[12px] muted">Cadastrado · ainda não disse quem é</span>
                 }
               </span>
-              @if (!entry.player.active) {
-                <span class="text-[12px] muted">Inativo · fora da lista de presença</span>
-              } @else if (entry.naoEntrou) {
-                <span class="text-[12px] muted">Cadastrado · ainda não disse quem é</span>
-              }
-            </span>
-            <span class="text-[13px] tnum muted">
-              {{ entry.stats.gamesPlayed }} J · {{ entry.stats.winPercentage }}%
-            </span>
-            <app-icon name="chevron-right" [size]="18" class="muted" />
-          </button>
-        </li>
-      } @empty {
-        <li class="px-4 py-6 text-[14px] muted">Ninguém encontrado com esse nome.</li>
-      }
-    </ul>
+              <span class="text-[13px] tnum muted">
+                {{ entry.stats.gamesPlayed }} J · {{ entry.stats.winPercentage }}%
+              </span>
+              <app-icon name="chevron-right" [size]="18" class="muted" />
+            </button>
+          </li>
+        } @empty {
+          <li class="px-4 py-6 text-[14px] muted">Ninguém encontrado com esse nome.</li>
+        }
+      </ul>
+    }
 
     @if (group.isOwner()) {
       <app-action-bar [withTabBar]="true" [pair]="true">
@@ -149,6 +162,8 @@ export class PlayerListComponent implements OnInit {
   private readonly playerStats = signal<readonly PlayerStats[]>([]);
   private readonly unclaimed = signal<ReadonlySet<string>>(new Set());
 
+  /** Só a PRIMEIRA carga: puxar para atualizar não desmonta o que está na tela. */
+  protected readonly carregando = signal(true);
   protected readonly term = signal('');
   protected readonly filter = signal<Filter>('active');
 
@@ -224,19 +239,24 @@ export class PlayerListComponent implements OnInit {
   private async load(): Promise<void> {
     const groupId = this.group.groupId();
     if (!groupId) {
+      this.carregando.set(false);
       return;
     }
 
-    const scope = await this.facade.getGroupScope(groupId);
-    const [players, stats, naoEntraram] = await Promise.all([
-      this.facade.getPlayersByGroupId(groupId),
-      this.stats.getAllPlayerStats({ includeWithoutGames: true, scope }),
-      this.membership.unclaimedPlayers(groupId),
-    ]);
+    try {
+      const scope = await this.facade.getGroupScope(groupId);
+      const [players, stats, naoEntraram] = await Promise.all([
+        this.facade.getPlayersByGroupId(groupId),
+        this.stats.getAllPlayerStats({ includeWithoutGames: true, scope }),
+        this.membership.unclaimedPlayers(groupId),
+      ]);
 
-    this.players.set(players);
-    this.playerStats.set(stats);
-    this.unclaimed.set(new Set(naoEntraram.map((player) => player.id)));
+      this.players.set(players);
+      this.playerStats.set(stats);
+      this.unclaimed.set(new Set(naoEntraram.map((player) => player.id)));
+    } finally {
+      this.carregando.set(false);
+    }
   }
 
   /** Quanto mais letras, menor a fonte — o círculo não muda de tamanho. */

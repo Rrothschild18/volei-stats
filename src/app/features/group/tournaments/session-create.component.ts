@@ -18,6 +18,7 @@ import {
   InlineNoteComponent,
   InnerHeaderComponent,
   SectionBandComponent,
+  SkeletonComponent,
 } from '../../../shared/ui';
 
 /**
@@ -30,6 +31,7 @@ import {
   imports: [
     ActionBarComponent,
     BusyDirective,
+    SkeletonComponent,
     GenderBadgeComponent,
     HeroFieldComponent,
     IconComponent,
@@ -134,41 +136,52 @@ import {
         }
       </app-section-band>
 
-      <ul class="list-none p-0">
-        @for (player of visibleActive(); track player.id) {
-          <li class="row-rule">
-            <button
-              type="button"
-              class="flex h-[50px] w-full items-center gap-3 px-4 text-left"
-              [attr.aria-pressed]="selected().has(player.id)"
-              (click)="toggle(player.id)"
-            >
-              <span
-                class="flex size-6 shrink-0 items-center justify-center border"
-                [class]="
-                  selected().has(player.id)
-                    ? 'bg-accent-700 border-accent-700 text-bg'
-                    : 'border-[1.5px] border-neutral-500'
-                "
-                aria-hidden="true"
+      <!--
+        Sem a lista de gente, o bloco do topo responde "0 presentes, nenhum
+        formato cabe" — que é a resposta para um vôlei vazio, não para um que
+        ainda não foi lido.
+      -->
+      @if (carregando()) {
+        <div class="px-4 py-2">
+          <app-skeleton [rows]="6" label="Carregando quem está cadastrado…" />
+        </div>
+      } @else {
+        <ul class="list-none p-0">
+          @for (player of visibleActive(); track player.id) {
+            <li class="row-rule">
+              <button
+                type="button"
+                class="flex h-[50px] w-full items-center gap-3 px-4 text-left"
+                [attr.aria-pressed]="selected().has(player.id)"
+                (click)="toggle(player.id)"
               >
-                @if (selected().has(player.id)) {
-                  <app-icon name="check" [size]="16" [strokeWidth]="2.25" />
+                <span
+                  class="flex size-6 shrink-0 items-center justify-center border"
+                  [class]="
+                    selected().has(player.id)
+                      ? 'bg-accent-700 border-accent-700 text-bg'
+                      : 'border-[1.5px] border-neutral-500'
+                  "
+                  aria-hidden="true"
+                >
+                  @if (selected().has(player.id)) {
+                    <app-icon name="check" [size]="16" [strokeWidth]="2.25" />
+                  }
+                </span>
+                <span
+                  class="flex-1 text-[16px] font-medium"
+                  [class.muted]="!selected().has(player.id)"
+                  >{{ player.name }}</span
+                >
+                @if (isOwner(player.id)) {
+                  <span class="tag tag-outline">DONO</span>
                 }
-              </span>
-              <span
-                class="flex-1 text-[16px] font-medium"
-                [class.muted]="!selected().has(player.id)"
-                >{{ player.name }}</span
-              >
-              @if (isOwner(player.id)) {
-                <span class="tag tag-outline">DONO</span>
-              }
-              <app-gender-badge [gender]="player.gender" />
-            </button>
-          </li>
-        }
-      </ul>
+                <app-gender-badge [gender]="player.gender" />
+              </button>
+            </li>
+          }
+        </ul>
+      }
 
       @if (inactive().length > 0) {
         <button
@@ -242,6 +255,7 @@ export class SessionCreateComponent implements OnInit {
   protected readonly minPlayers = MIN_SUPPORTED_PLAYERS;
   protected readonly term = signal('');
   protected readonly busy = signal(false);
+  protected readonly carregando = signal(true);
   protected readonly showInactive = signal(false);
   protected readonly selected = signal<ReadonlySet<string>>(new Set());
 
@@ -304,6 +318,14 @@ export class SessionCreateComponent implements OnInit {
   protected readonly inactive = computed(() => this.players().filter((player) => !player.active));
 
   async ngOnInit(): Promise<void> {
+    try {
+      await this.carregar();
+    } finally {
+      this.carregando.set(false);
+    }
+  }
+
+  private async carregar(): Promise<void> {
     const groupId = this.group.groupId();
     if (!groupId) {
       return;
