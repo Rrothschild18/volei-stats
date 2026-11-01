@@ -1,15 +1,45 @@
+import { execFileSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import { expect, Page } from '@playwright/test';
 import { environment } from '../src/environments/environment';
 
 /**
- * A chave de serviço do Supabase **local**.
+ * A chave de serviço do Supabase **local**, perguntada ao CLI.
  *
- * É fixa e igual em qualquer máquina — o `supabase start` a gera do mesmo
- * segredo de desenvolvimento. Não é segredo, e não serve para nada fora do
- * Docker da sua máquina ou do runner.
+ * Ela é uma constante pública do binário do `supabase` — igual em qualquer
+ * máquina, e sem valor fora do Docker de quem a roda: o projeto da nuvem
+ * responde "Invalid API key" a ela. Mesmo assim não fica escrita aqui, porque um
+ * `sb_secret_…` no código é indistinguível de um segredo de verdade para quem lê
+ * e para os scanners — e o GitHub recusa o push por causa dela. Quem sabe o
+ * valor é o CLI, então é a ele que perguntamos.
+ *
+ * `SUPABASE_SECRET_KEY` tem precedência, para quem roda contra um Supabase que
+ * não é o `supabase start` desta pasta.
  */
-const SERVICE_KEY = 'CHAVE-LOCAL-REMOVIDA-DA-HISTORIA';
+let chaveDeServico: string | null = null;
+
+function serviceKey(): string {
+  chaveDeServico ??= process.env['SUPABASE_SECRET_KEY'] ?? perguntaAoCli();
+  return chaveDeServico;
+}
+
+function perguntaAoCli(): string {
+  let saida: string;
+  try {
+    saida = execFileSync('supabase', ['status', '-o', 'json'], { encoding: 'utf8' });
+  } catch {
+    throw new Error(
+      'Não deu para perguntar a chave ao `supabase status`. O Supabase local ' +
+        'está de pé (`supabase start`)? Dá para passar a chave em ' +
+        'SUPABASE_SECRET_KEY e dispensar o CLI.',
+    );
+  }
+  const chave: unknown = JSON.parse(saida)['SECRET_KEY'];
+  if (typeof chave !== 'string' || chave.length === 0) {
+    throw new Error('`supabase status` respondeu sem SECRET_KEY.');
+  }
+  return chave;
+}
 
 /** O prefixo que marca o que é dos testes, para a limpeza saber o que apagar. */
 export const E2E_PREFIX = 'e2e';
@@ -29,7 +59,7 @@ export function nomeDeVolei(qual: string): string {
  * mesma ordem do `seed.sql`, e pelo mesmo motivo.
  */
 export async function limparVoleisDeTeste(): Promise<void> {
-  const admin = createClient(environment.supabaseUrl, SERVICE_KEY, {
+  const admin = createClient(environment.supabaseUrl, serviceKey(), {
     auth: { persistSession: false },
   });
 
@@ -65,7 +95,7 @@ export async function matarUsuarioDaSessao(page: Page): Promise<boolean> {
     return false;
   }
 
-  const admin = createClient(environment.supabaseUrl, SERVICE_KEY, {
+  const admin = createClient(environment.supabaseUrl, serviceKey(), {
     auth: { persistSession: false },
   });
   const { error } = await admin.auth.admin.deleteUser(id);
