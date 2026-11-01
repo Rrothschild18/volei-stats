@@ -14,6 +14,7 @@ import {
   IconComponent,
   PullToRefreshComponent,
   RoleTagComponent,
+  NavigatesDirective,
   RootHeaderComponent,
   SegmentedComponent,
   SkeletonComponent,
@@ -31,6 +32,7 @@ type Filter = 'active' | 'inactive' | 'all';
     PullToRefreshComponent,
     RoleTagComponent,
     RootHeaderComponent,
+    NavigatesDirective,
     SegmentedComponent,
     SkeletonComponent,
   ],
@@ -135,11 +137,16 @@ type Filter = 'active' | 'inactive' | 'all';
 
     @if (group.isOwner()) {
       <app-action-bar [withTabBar]="true" [pair]="true">
-        <button type="button" class="btn btn-secondary h-13" (click)="invite()">
+        <button type="button" class="btn btn-secondary h-13" appNavigates (click)="invite()">
           <app-icon name="send" [size]="20" />
           CONVITE
         </button>
-        <button type="button" class="btn btn-primary blueprint h-13" (click)="create()">
+        <button
+          type="button"
+          class="btn btn-primary blueprint h-13"
+          appNavigates
+          (click)="create()"
+        >
           <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>
           <i class="corner br"></i>
           <app-icon name="user-plus" [size]="20" />

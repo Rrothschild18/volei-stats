@@ -21,6 +21,7 @@ import {
   IconComponent,
   InlineNoteComponent,
   InnerHeaderComponent,
+  NavigatesDirective,
   SectionBandComponent,
   SkeletonComponent,
 } from '../../../shared/ui';
@@ -51,6 +52,7 @@ interface StandingRow {
     IconComponent,
     InlineNoteComponent,
     InnerHeaderComponent,
+    NavigatesDirective,
     SectionBandComponent,
     SkeletonComponent,
   ],
@@ -245,6 +247,7 @@ interface StandingRow {
         <button
           type="button"
           class="btn btn-primary blueprint h-13 text-[17px]"
+          appNavigates
           (click)="canStartNext() ? startNext() : newDraw()"
         >
           <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>

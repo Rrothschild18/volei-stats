@@ -22,6 +22,7 @@ import {
   ActionBarComponent,
   BlueprintComponent,
   IconComponent,
+  NavigatesDirective,
   SkeletonComponent,
   PullToRefreshComponent,
   RoleTagComponent,
@@ -65,6 +66,7 @@ function describeTiming(timing: TournamentTiming): string {
     ActionBarComponent,
     BlueprintComponent,
     IconComponent,
+    NavigatesDirective,
     PullToRefreshComponent,
     RoleTagComponent,
     RootHeaderComponent,
@@ -210,6 +212,7 @@ function describeTiming(timing: TournamentTiming): string {
         <button
           type="button"
           class="btn btn-primary blueprint h-13 text-[17px]"
+          appNavigates
           (click)="primaryAction()"
         >
           <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>

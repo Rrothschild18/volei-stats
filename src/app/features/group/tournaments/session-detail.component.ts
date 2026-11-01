@@ -9,6 +9,7 @@ import {
   GenderBadgeComponent,
   IconComponent,
   InnerHeaderComponent,
+  NavigatesDirective,
   SectionBandComponent,
   SkeletonComponent,
 } from '../../../shared/ui';
@@ -25,6 +26,7 @@ import {
     GenderBadgeComponent,
     IconComponent,
     InnerHeaderComponent,
+    NavigatesDirective,
     SectionBandComponent,
     SkeletonComponent,
   ],
@@ -137,10 +139,15 @@ import {
 
     @if (group.canPlay()) {
       <app-action-bar [pair]="true" [withTabBar]="true">
-        <button type="button" class="btn btn-secondary h-13" (click)="editPresence()">
+        <button type="button" class="btn btn-secondary h-13" appNavigates (click)="editPresence()">
           PRESENÇA
         </button>
-        <button type="button" class="btn btn-primary blueprint h-13 text-[17px]" (click)="draw()">
+        <button
+          type="button"
+          class="btn btn-primary blueprint h-13 text-[17px]"
+          appNavigates
+          (click)="draw()"
+        >
           <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>
           <i class="corner br"></i>
           <app-icon name="dices" [size]="20" />

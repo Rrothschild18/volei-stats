@@ -487,15 +487,13 @@
    * já troca o rótulo ("CRIANDO…"), os dois convivem — o anel é o que a pessoa
    * vê de canto de olho, o rótulo é o que ela lê.
    *
-   * E esperando não é desabilitado. O botão fica `disabled` enquanto espera —
-   * é o que impede o toque duplo — e com isso herdava os 45% de opacidade, que
-   * leem como "morto" e derrubam o contraste do rótulo. A opacidade volta a 1,
-   * e o contraste AA do preenchimento continua sendo o verificado.
+   * E ele fica DESABILITADO enquanto espera, com a opacidade de desabilitado:
+   * é isso que impede o toque duplo, e o esmaecido é o que diz que o botão não
+   * aceita mais nada agora. O anel por cima separa "esperando" de "indisponível
+   * por outro motivo" — a opacidade sozinha não distingue os dois.
    */
-  .btn[aria-busy='true'],
-  .btn:disabled[aria-busy='true'] {
+  .btn[aria-busy='true'] {
     cursor: progress;
-    opacity: 1;
   }
 
   /*

@@ -15,6 +15,7 @@ import {
   IconComponent,
   InlineNoteComponent,
   LadderComponent,
+  NavigatesDirective,
   PullToRefreshComponent,
   RoleTagComponent,
   RootHeaderComponent,
@@ -47,6 +48,7 @@ interface Shortcut {
     IconComponent,
     InlineNoteComponent,
     LadderComponent,
+    NavigatesDirective,
     PullToRefreshComponent,
     RoleTagComponent,
     RootHeaderComponent,
@@ -97,7 +99,12 @@ interface Shortcut {
               Enquanto não disser, você não entra na presença nem lança placar. Toque no seu nome e
               use a data que o grupo combinou.
             </p>
-            <button type="button" class="btn btn-primary mt-3 min-h-12 w-full" (click)="claim()">
+            <button
+              type="button"
+              class="btn btn-primary mt-3 min-h-12 w-full"
+              appNavigates
+              (click)="claim()"
+            >
               SOU UM DELES
             </button>
           </app-blueprint>
@@ -119,6 +126,7 @@ interface Shortcut {
               <button
                 type="button"
                 class="btn btn-inverted"
+                appNavigates
                 (click)="go(['campeonatos', 'sessoes', 'nova'])"
               >
                 <app-icon name="plus" [size]="20" />
@@ -156,6 +164,7 @@ interface Shortcut {
                 <button
                   type="button"
                   class="btn border-accent-600 text-accent-200"
+                  appNavigates
                   (click)="openLive()"
                 >
                   CHAVE
@@ -185,6 +194,7 @@ interface Shortcut {
             <button
               type="button"
               class="btn btn-secondary mt-1 self-start px-3"
+              appNavigates
               (click)="openLive()"
             >
               VER CAMPEONATO

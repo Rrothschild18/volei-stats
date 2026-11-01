@@ -8,6 +8,7 @@ import {
   IconComponent,
   InlineNoteComponent,
   InnerHeaderComponent,
+  NavigatesDirective,
   SkeletonComponent,
 } from '../../../shared/ui';
 import { describeError } from '../../../shared/utils/error.util';
@@ -35,6 +36,7 @@ type InviteAction = 'codigo' | 'senha' | 'convite';
     IconComponent,
     InlineNoteComponent,
     InnerHeaderComponent,
+    NavigatesDirective,
     SkeletonComponent,
   ],
   template: `
@@ -169,7 +171,12 @@ type InviteAction = 'codigo' | 'senha' | 'convite';
             Cadastre cada pessoa com nome e sexo. A data você não escolhe: todos entram com a
             inicial do grupo e trocam pela deles.
           </p>
-          <button type="button" class="btn btn-primary mt-3 min-h-12 w-full" (click)="players()">
+          <button
+            type="button"
+            class="btn btn-primary mt-3 min-h-12 w-full"
+            appNavigates
+            (click)="players()"
+          >
             CADASTRAR JOGADORES
           </button>
         </div>

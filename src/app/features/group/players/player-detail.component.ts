@@ -13,6 +13,7 @@ import {
   IconComponent,
   InlineNoteComponent,
   InnerHeaderComponent,
+  NavigatesDirective,
   SectionBandComponent,
   SkeletonComponent,
 } from '../../../shared/ui';
@@ -38,6 +39,7 @@ interface RecentMatch {
     IconComponent,
     InlineNoteComponent,
     InnerHeaderComponent,
+    NavigatesDirective,
     SectionBandComponent,
     SkeletonComponent,
   ],
@@ -48,6 +50,7 @@ interface RecentMatch {
           type="button"
           class="btn btn-ghost btn-icon border-0"
           aria-label="Editar jogador"
+          appNavigates
           (click)="edit()"
         >
           <app-icon name="square-pen" [size]="22" />
