@@ -473,7 +473,7 @@
     transform: translateX(-50%);
     z-index: 60;
     inline-size: min(480px, 100%);
-    block-size: 2px;
+    block-size: 3px;
     overflow: hidden;
     background: color-mix(in srgb, var(--color-accent) 20%, transparent);
   }
@@ -492,8 +492,18 @@
    * já troca o rótulo ("CRIANDO…"), os dois convivem — o anel é o que a pessoa
    * vê de canto de olho, o rótulo é o que ela lê.
    */
-  .btn[aria-busy='true'] {
+  /*
+   * Esperando não é desabilitado.
+   *
+   * O botão fica `disabled` enquanto espera — é o que impede o toque duplo — e
+   * com isso herdava os 45% de opacidade, que leem como "morto" e derrubam o
+   * contraste do rótulo. Quem está esperando vê o anel girando; a opacidade
+   * volta a 1 e o contraste AA do preenchimento continua sendo o verificado.
+   */
+  .btn[aria-busy='true'],
+  .btn:disabled[aria-busy='true'] {
     cursor: progress;
+    opacity: 1;
   }
 
   .btn[aria-busy='true']::after {
