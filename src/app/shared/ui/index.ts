@@ -21,3 +21,4 @@ export * from './role-tag.component';
 export * from './focus-trap.directive';
 export * from './pull-to-refresh/pull-to-refresh.component';
 export * from './date-field/date-field.component';
+export * from './floating-invite/floating-invite.component';

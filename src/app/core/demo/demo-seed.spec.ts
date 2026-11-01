@@ -121,14 +121,19 @@ describe('cenário de exemplo do redesign', () => {
     expect(candidates).not.toContain('p-malu');
   });
 
-  it('as prioridades do próximo sorteio vêm do último campeonato concluído', async () => {
+  it('as prioridades do próximo sorteio já vêm do campeonato que está rolando', async () => {
     const session = (await facade.getTodaySession(GROUP_SEGUNDA))!;
     const entries = await draws.getPriorityEntries(session.id);
 
+    // O campeonato 2 ainda está em andamento, mas a rodada 1 fechou e o
+    // par-ou-ímpar do encaixe já foi aplicado: daí em diante nada do que
+    // acontece nele muda o próximo sorteio, e é dele que a prioridade sai
+    // (ticket 36). Antes disto a prioridade era a do campeonato 1, que é o
+    // último concluído — e sortear durante a final saía sem prioridade.
     expect(entries).toEqual([
-      { playerId: 'p-thiago', reason: 'direct-elimination' },
-      { playerId: 'p-nina', reason: 'direct-elimination' },
-      { playerId: 'p-carol', reason: 'coin-flip-loss' },
+      { playerId: 'p-carol', reason: 'direct-elimination' },
+      { playerId: 'p-gui', reason: 'direct-elimination' },
+      { playerId: 'p-paty', reason: 'coin-flip-loss' },
     ]);
   });
 

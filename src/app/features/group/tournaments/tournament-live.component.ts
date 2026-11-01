@@ -3,11 +3,13 @@ import { Router } from '@angular/router';
 import { TeamState, teamStates } from '../../../core/rules/team-state';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
+import { SessionStore } from '../../../core/stores/session.store';
 import { BracketMatch } from '../../../core/services/tournament.service';
 import { Match } from '../../../shared/models';
 import { formatTime } from '../../../shared/utils/date.util';
 import {
   BlueprintComponent,
+  FloatingInviteComponent,
   HeroFieldComponent,
   IconComponent,
   InlineNoteComponent,
@@ -24,6 +26,32 @@ import { TiebreakSheetComponent } from './tiebreak-sheet.component';
 type Tab = 'queue' | 'bracket' | 'teams';
 
 /**
+ * O convite descartado, lembrado por campeonato.
+ *
+ * `sessionStorage` porque a memória não precisa durar mais que a noite, e
+ * porque isto não é dado do grupo: é a escolha de quem está com o telefone na
+ * mão. Pode não existir (aba privada, armazenamento bloqueado), e aí o convite
+ * simplesmente volta — nada quebra.
+ */
+const DISMISSED_KEY = 'convite-sorteio';
+
+function readDismissed(tournamentId: string): boolean {
+  try {
+    return sessionStorage.getItem(`${DISMISSED_KEY}:${tournamentId}`) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function writeDismissed(tournamentId: string): void {
+  try {
+    sessionStorage.setItem(`${DISMISSED_KEY}:${tournamentId}`, '1');
+  } catch {
+    // Sem armazenamento, o convite volta na próxima visita. Tudo bem.
+  }
+}
+
+/**
  * Campeonato ao vivo: a fila (1k), a chave em escada (1l/1m) e as duplas.
  *
  * Quando falta uma decisão de quadra, a chave pausa: quem joga vê o sheet para
@@ -33,6 +61,7 @@ type Tab = 'queue' | 'bracket' | 'teams';
   selector: 'app-tournament-live',
   imports: [
     BlueprintComponent,
+    FloatingInviteComponent,
     HeroFieldComponent,
     IconComponent,
     InlineNoteComponent,
@@ -222,6 +251,24 @@ type Tab = 'queue' | 'bracket' | 'teams';
       }
     }
 
+    <!--
+      O respiro do convite flutuante: sem ele, o botão come a última fila da
+      lista quando a rolagem chega ao fim (ticket 37).
+    -->
+    @if (invite()) {
+      <div class="h-16" aria-hidden="true"></div>
+    }
+
+    @if (group.canPlay()) {
+      <app-floating-invite
+        [label]="invite()?.label ?? null"
+        [hint]="invite()?.hint ?? null"
+        dismissLabel="Descartar o convite de sortear o próximo"
+        (act)="drawNext()"
+        (dismissed)="dismissInvite()"
+      />
+    }
+
     @if (scoreTarget(); as bracket) {
       <app-score-sheet [bracket]="bracket" [correcting]="correcting()" (closed)="closeScore()" />
     }
@@ -238,6 +285,7 @@ export class TournamentLiveComponent implements OnInit {
   private readonly router = inject(Router);
   protected readonly group = inject(CurrentGroupStore);
   protected readonly store = inject(LiveTournamentStore);
+  private readonly sessions = inject(SessionStore);
 
   readonly tournamentId = input.required<string>();
   /**
@@ -253,6 +301,8 @@ export class TournamentLiveComponent implements OnInit {
   protected readonly tab = signal<Tab>('queue');
   protected readonly scoreTarget = signal<BracketMatch | null>(null);
   protected readonly correcting = signal<Match | null>(null);
+  /** Descartado não volta neste campeonato (ticket 37). */
+  protected readonly inviteDismissed = signal(false);
 
   protected readonly tabs = [
     { id: 'queue', label: 'Fila' },
@@ -439,8 +489,37 @@ export class TournamentLiveComponent implements OnInit {
     });
   });
 
+  /**
+   * O convite de sortear o próximo: aparece quando as prioridades congelam, e
+   * some se a condição deixar de valer (tickets 36 e 37).
+   *
+   * Dois estados, um lugar: com um sorteio pendente ele já não convida a
+   * sortear, e diz que o próximo está pronto.
+   */
+  protected readonly invite = computed<{ label: string; hint: string | null } | null>(() => {
+    if (!this.group.canPlay() || this.inviteDismissed()) {
+      return null;
+    }
+
+    const tournament = this.store.tournament();
+    if (!tournament || tournament.status === 'completed' || !this.store.priorityFrozen()) {
+      return null;
+    }
+
+    return this.sessions.pendingDraw()
+      ? { label: 'O PRÓXIMO JÁ ESTÁ SORTEADO', hint: 'toque para sortear de novo' }
+      : { label: 'JÁ DÁ PARA SORTEAR O PRÓXIMO', hint: null };
+  });
+
   async ngOnInit(): Promise<void> {
     await this.store.load(this.tournamentId());
+
+    const sessionId = this.store.tournament()?.sessionId;
+    if (sessionId) {
+      await this.sessions.loadById(sessionId);
+    }
+
+    this.inviteDismissed.set(readDismissed(this.tournamentId()));
 
     // Campeonato que já terminou abre na classificação — a menos que a pessoa
     // tenha vindo justamente para corrigir um placar (`?partidas=1`).
@@ -513,6 +592,33 @@ export class TournamentLiveComponent implements OnInit {
 
   protected async resolveTiebreak(winnerTeamId: string): Promise<void> {
     await this.store.resolveTiebreak(winnerTeamId);
+  }
+
+  /**
+   * Descartar não insiste: um botão que reaparece a cada rolagem é um anúncio.
+   * Vale só para este campeonato, e só nesta aba — o próximo campeonato
+   * convida de novo.
+   */
+  protected dismissInvite(): void {
+    this.inviteDismissed.set(true);
+    writeDismissed(this.tournamentId());
+  }
+
+  /**
+   * Vai para o sorteio de sempre — as mesmas três propostas, a mesma troca por
+   * toque. O `?voltarPara=` é o que traz de volta para cá: a final ainda
+   * precisa de placar (ticket 36).
+   */
+  protected drawNext(): void {
+    const sessionId = this.store.tournament()?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+
+    void this.router.navigate(
+      ['/g', this.group.groupId(), 'campeonatos', 'sessoes', sessionId, 'sorteio'],
+      { queryParams: { voltarPara: this.tournamentId() } },
+    );
   }
 
   protected back(): void {

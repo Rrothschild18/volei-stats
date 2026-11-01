@@ -7,7 +7,7 @@ que passa a fazer sentido.
 
 **Blocked by:** 36 (a condição e o caminho)
 
-**Status:** blocked
+**Status:** done
 
 ## Por que flutuante
 
@@ -53,12 +53,44 @@ enigma, porque não existe convenção para "sortear".
   próximo já está sorteado". Dois estados, um lugar.
 - Quem não joga (visitante) não sorteia. O botão não existe para ele.
 
-- [ ] O botão aparece na tela ao vivo exatamente quando a condição do ticket 36
+- [x] O botão aparece na tela ao vivo exatamente quando a condição do ticket 36
       cai, e desaparece se ela deixar de valer
-- [ ] Não cobre a última linha da lista: o conteúdo reserva o respiro
-- [ ] Não move o foco ao aparecer; é anunciado com `aria-live="polite"`
-- [ ] 44×44 de alvo e contraste AA sobre conteúdo rolável
-- [ ] Dá para descartar, e descartado não volta naquele campeonato
-- [ ] Com sorteio pendente, o mesmo lugar diz que o próximo já está sorteado
-- [ ] Não aparece para quem não joga
-- [ ] AXE sem violação na tela ao vivo com o botão visível
+- [x] Não cobre a última linha da lista: o conteúdo reserva o respiro
+- [x] Não move o foco ao aparecer; é anunciado com `aria-live="polite"`
+- [x] 44×44 de alvo e contraste AA sobre conteúdo rolável
+- [x] Dá para descartar, e descartado não volta naquele campeonato
+- [x] Com sorteio pendente, o mesmo lugar diz que o próximo já está sorteado
+- [x] Não aparece para quem não joga
+- [ ] AXE sem violação na tela ao vivo com o botão visível — **não automatizado**
+
+## Comments
+
+**Implementado** como `shared/ui/floating-invite`, usado só pela tela ao vivo
+por enquanto. A região `aria-live="polite"` vive sempre no DOM e fica vazia
+enquanto não há convite: uma região criada junto com o conteúdo não anuncia
+nada. O respiro embaixo é um espaçador no fim do conteúdo, que só existe quando
+o convite existe — um teste de ponta a ponta rola até o fim e compara as
+coordenadas, porque isto é o tipo de coisa que volta a quebrar em silêncio.
+
+Duas observações sobre o desenho:
+
+- **A premissa da barra ocupada não se confirmou.** A tela ao vivo não tem
+  `app-action-bar`: "LANÇAR PLACAR" mora dentro do `app-hero-field`, no topo. O
+  flutuante foi feito como o ticket pede, mas um convite em fluxo normal (logo
+  abaixo do hero) dispensaria sobreposição, respiro reservado e contraste sobre
+  lista. Fica registrado caso o flutuante incomode no uso.
+- **O descarte é por campeonato e por aba** (`sessionStorage`): a memória não
+  precisa durar mais que a noite, e não é dado do grupo — é a escolha de quem
+  está com o telefone na mão. Sem armazenamento (aba privada), o convite volta;
+  nada quebra.
+
+**AXE não foi verificado automaticamente**: o projeto não tem `@axe-core` nas
+dependências, e não adicionei uma por conta disto. O que dava para garantir sem
+ele está testado: alvo de 44 px medido na tela, `aria-live="polite"`, foco que
+não se move, rótulo no botão de descartar, e o preenchimento `accent-700` com
+texto claro (5.8:1, a mesma regra de contraste do botão primário) sobre fundo
+sólido, para não depender do que passa atrás.
+
+Não aparece para quem não joga via `group.canPlay()` — não coberto por teste
+porque no modo demonstração a pessoa é sempre a mesma, e visitante só existe
+contra o banco.

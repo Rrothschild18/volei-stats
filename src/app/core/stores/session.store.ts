@@ -1,7 +1,13 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { AppFacade } from '../facade/app.facade';
 import { DrawService } from '../services/draw.service';
-import { Match, Player, Session, Tournament } from '../../shared/models';
+import {
+  DrawPresenceDiff,
+  drawPresenceDiff,
+  pendingDraw,
+  presenceUnchanged,
+} from '../rules/pending-draw';
+import { DrawProposal, Match, Player, Session, Tournament } from '../../shared/models';
 
 export interface WaitEntry {
   readonly player: Player;
@@ -17,11 +23,12 @@ export interface WaitEntry {
 @Injectable({ providedIn: 'root' })
 export class SessionStore {
   private readonly facade = inject(AppFacade);
-  private readonly draws = inject(DrawService);
+  private readonly drawService = inject(DrawService);
 
   readonly session = signal<Session | null>(null);
   readonly players = signal<readonly Player[]>([]);
   readonly tournaments = signal<readonly Tournament[]>([]);
+  readonly draws = signal<readonly DrawProposal[]>([]);
   readonly matches = signal<readonly Match[]>([]);
   readonly waitCounts = signal<ReadonlyMap<string, number>>(new Map());
   readonly loading = signal(false);
@@ -48,6 +55,23 @@ export class SessionStore {
       .filter((tournament) => tournament.status === 'completed')
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
   );
+
+  /**
+   * O próximo campeonato já sorteado, esperando a tela de formato (ticket 36).
+   */
+  readonly pendingDraw = computed(() => pendingDraw(this.draws(), this.tournaments()));
+
+  /** Quem entrou e quem saiu desde que o sorteio pendente foi tirado. */
+  readonly pendingDrawPresence = computed<DrawPresenceDiff | null>(() => {
+    const draw = this.pendingDraw();
+    return draw ? drawPresenceDiff(draw, this.session()?.playerIds ?? []) : null;
+  });
+
+  /** O sorteio pendente ainda descreve quem está na quadra. */
+  readonly pendingDrawMatchesPresence = computed(() => {
+    const diff = this.pendingDrawPresence();
+    return diff !== null && presenceUnchanged(diff);
+  });
 
   /** Quem já esperou hoje, com o motivo em texto. */
   readonly waitEntries = computed<WaitEntry[]>(() => {
@@ -113,18 +137,21 @@ export class SessionStore {
 
       if (!session) {
         this.tournaments.set([]);
+        this.draws.set([]);
         this.matches.set([]);
         this.waitCounts.set(new Map());
         return;
       }
 
-      const [tournaments, matches, waitCounts] = await Promise.all([
+      const [tournaments, draws, matches, waitCounts] = await Promise.all([
         this.facade.getTournamentsBySessionId(session.id),
+        this.facade.getDrawsBySessionId(session.id),
         this.facade.getMatchesBySessionId(session.id),
-        this.draws.getWaitCountsInSession(session.id),
+        this.drawService.getWaitCountsInSession(session.id),
       ]);
 
       this.tournaments.set(tournaments);
+      this.draws.set(draws);
       this.matches.set(matches);
       this.waitCounts.set(waitCounts);
     } finally {

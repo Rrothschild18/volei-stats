@@ -200,6 +200,14 @@ export class DrawComponent implements OnInit {
   private readonly sessionStore = inject(SessionStore);
 
   readonly sessionId = input.required<string>();
+  /**
+   * `?voltarPara=` o campeonato que me trouxe aqui.
+   *
+   * Sortear durante a final não pode levar à tela de formato: a final ainda
+   * precisa de placar. Então USAR PROPOSTA grava como sempre e devolve para o
+   * campeonato ao vivo (ticket 36).
+   */
+  readonly voltarPara = input<string | undefined>(undefined);
 
   protected readonly proposals = signal<readonly DrawProposal[]>([]);
   protected readonly selectedIndex = signal(0);
@@ -229,9 +237,15 @@ export class DrawComponent implements OnInit {
     }));
   });
 
+  /**
+   * De qual campeonato vêm estas prioridades.
+   *
+   * Conta todos os campeonatos do dia, não só os encerrados: desde o ticket 36
+   * a prioridade pode vir do campeonato que ainda está rolando.
+   */
   protected readonly priorityMeta = computed(() => {
-    const completed = this.sessionStore.completedTournaments();
-    return completed.length > 0 ? `do camp. ${completed.length}` : null;
+    const count = this.sessionStore.tournaments().length;
+    return count > 0 ? `do camp. ${count}` : null;
   });
 
   protected readonly teamRows = computed<TeamRow[]>(() => {
@@ -391,6 +405,11 @@ export class DrawComponent implements OnInit {
       return;
     }
 
+    // Sortear de novo por cima de um sorteio que ainda não virou campeonato
+    // substitui: o mais recente vale, o anterior não acumula (ticket 36). Vem
+    // antes de gravar, senão o descarte pegaria justamente o novo.
+    await this.draws.discardPendingDraw(this.sessionId());
+
     // Só a proposta escolhida é gravada como sorteio: as outras não
     // aconteceram, e contá-las inflaria esperas e sorteios (REGRAS.md §7.6).
     const chosen: DrawProposal = { ...proposal, selected: true };
@@ -402,6 +421,12 @@ export class DrawComponent implements OnInit {
         ...session,
         drawIds: [...session.drawIds, chosen.id],
       });
+    }
+
+    const voltarPara = this.voltarPara();
+    if (voltarPara) {
+      void this.router.navigate(['/g', this.group.groupId(), 'campeonatos', voltarPara]);
+      return;
     }
 
     void this.router.navigate(['/g', this.group.groupId(), 'campeonatos', 'novo'], {
@@ -455,12 +480,11 @@ export class DrawComponent implements OnInit {
   }
 
   protected back(): void {
-    void this.router.navigate([
-      '/g',
-      this.group.groupId(),
-      'campeonatos',
-      'sessoes',
-      this.sessionId(),
-    ]);
+    const voltarPara = this.voltarPara();
+    void this.router.navigate(
+      voltarPara
+        ? ['/g', this.group.groupId(), 'campeonatos', voltarPara]
+        : ['/g', this.group.groupId(), 'campeonatos', 'sessoes', this.sessionId()],
+    );
   }
 }

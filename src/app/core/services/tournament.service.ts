@@ -11,6 +11,7 @@ import {
   TournamentPriorityEntry,
 } from '../../shared/models';
 import { readRound1 } from '../rules/round-1-outcome';
+import { priorityFrozen } from '../rules/priority-freeze';
 
 export interface BracketMatch {
   phase: MatchPhase;
@@ -388,6 +389,30 @@ export class TournamentService {
     this.normalizeTournament(tournament);
     const round1 = matches.filter((match) => match.phase === 'round-1' && match.winnerId !== null);
     return readRound1(round1, this.round1Options(tournament)).needsTiebreak;
+  }
+
+  /**
+   * As prioridades deste campeonato já valem para o próximo sorteio: a rodada
+   * 1 fechou, não há desempate pendente e o encaixe, se houver, foi aplicado
+   * (ticket 36).
+   *
+   * É o portão do sorteio e, ao mesmo tempo, o que faz o convite aparecer na
+   * tela ao vivo — uma condição só, lida pelos dois, para que nunca discordem.
+   */
+  priorityFrozen(tournament: Tournament, matches: Match[]): boolean {
+    this.normalizeTournament(tournament);
+    const played = matches.filter((match) => match.winnerId !== null);
+
+    return priorityFrozen({
+      status: tournament.status,
+      expectedRound1Matches: this.generateInitialMatches(tournament).filter(
+        (bracket) => bracket.phase === 'round-1',
+      ).length,
+      playedRound1Matches: played.filter((match) => match.phase === 'round-1').length,
+      pendingTiebreak: !!this.pendingTiebreak(tournament, played),
+      usesOddPlayerPlacement: this.usesOddPlayerPlacement(tournament),
+      oddPlayerPlacementDecided: !!tournament.oddPlayerPlacement,
+    });
   }
 
   /** Registra quem venceu o par-ou-ímpar do desempate, e destrava a chave. */

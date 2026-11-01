@@ -3,7 +3,9 @@ import { Router } from '@angular/router';
 import { AppFacade } from '../../../core/facade/app.facade';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
+import { SessionStore } from '../../../core/stores/session.store';
 import { TournamentService } from '../../../core/services/tournament.service';
+import { DrawService } from '../../../core/services/draw.service';
 import { TournamentPriorityEntry } from '../../../shared/models';
 import { formatTime } from '../../../shared/utils/date.util';
 import { formatDuration, tournamentTiming } from '../../../core/rules/tournament-timing';
@@ -12,6 +14,7 @@ import {
   BlueprintComponent,
   HeroFieldComponent,
   IconComponent,
+  InlineNoteComponent,
   InnerHeaderComponent,
   SectionBandComponent,
 } from '../../../shared/ui';
@@ -39,6 +42,7 @@ interface StandingRow {
     BlueprintComponent,
     HeroFieldComponent,
     IconComponent,
+    InlineNoteComponent,
     InnerHeaderComponent,
     SectionBandComponent,
   ],
@@ -124,6 +128,40 @@ interface StandingRow {
         }
       </section>
 
+      @if (nextDraw()) {
+        <section>
+          <app-section-band label="O PRÓXIMO JÁ ESTÁ SORTEADO" [meta]="nextDrawMeta()" />
+          @for (row of nextDrawRows(); track row.teamId) {
+            <div class="row-rule flex h-10 items-center gap-3">
+              <span class="w-6 font-heading text-[17px] font-semibold text-accent-700 tnum">{{
+                row.order
+              }}</span>
+              <span class="flex-1 font-heading text-[17px] font-semibold uppercase">{{
+                row.label
+              }}</span>
+            </div>
+          }
+          @if (nextDrawWaiting(); as name) {
+            <p class="mt-2 text-[12px] muted">{{ name }} fica de espera.</p>
+          }
+
+          @if (presenceNote(); as note) {
+            <div class="mt-3">
+              <app-inline-note tone="error">{{ note }}</app-inline-note>
+            </div>
+          }
+
+          <button
+            type="button"
+            class="mt-3 flex items-center gap-2 text-[13px] text-accent-700"
+            (click)="discardNext()"
+          >
+            <app-icon name="x" [size]="16" />
+            Descartar este sorteio
+          </button>
+        </section>
+      }
+
       @if (priorities().length > 0) {
         <section>
           <app-section-band label="PRIORIDADE NO PRÓXIMO SORTEIO" />
@@ -169,15 +207,22 @@ interface StandingRow {
 
     @if (group.canPlay()) {
       <app-action-bar [withTabBar]="true">
+        <!--
+          Com o próximo já sorteado, o botão não convida a sortear de novo: a
+          parte lenta da noite (três propostas, trocas, conversa) já aconteceu
+          enquanto a bola rolava (ticket 36). Com a presença diferente da do
+          sorteio, ele volta a ser o sorteio — um sorteio pendente não vira
+          campeonato com gente ausente.
+        -->
         <button
           type="button"
           class="btn btn-primary blueprint h-13 text-[17px]"
-          (click)="newDraw()"
+          (click)="canStartNext() ? startNext() : newDraw()"
         >
           <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>
           <i class="corner br"></i>
-          <app-icon name="dices" [size]="20" />
-          NOVO SORTEIO
+          <app-icon [name]="canStartNext() ? 'trophy' : 'dices'" [size]="20" />
+          {{ canStartNext() ? 'COMEÇAR O PRÓXIMO' : 'NOVO SORTEIO' }}
         </button>
       </app-action-bar>
     }
@@ -210,9 +255,11 @@ interface StandingRow {
 export class StandingsComponent implements OnInit {
   private readonly facade = inject(AppFacade);
   private readonly tournaments = inject(TournamentService);
+  private readonly draws = inject(DrawService);
   private readonly router = inject(Router);
   protected readonly group = inject(CurrentGroupStore);
   protected readonly store = inject(LiveTournamentStore);
+  private readonly sessions = inject(SessionStore);
 
   readonly tournamentId = input.required<string>();
 
@@ -344,8 +391,121 @@ export class StandingsComponent implements OnInit {
 
   protected readonly priorities = computed(() => this.store.tournament()?.priorityEntries ?? []);
 
+  /** O próximo campeonato, se ele já foi sorteado (ticket 36). */
+  protected readonly nextDraw = this.sessions.pendingDraw;
+
+  protected readonly nextDrawMeta = computed(() => {
+    const draw = this.nextDraw();
+    if (!draw) {
+      return null;
+    }
+    const pairs = `${draw.teams.length} duplas`;
+    return draw.waitingPlayerId ? `${pairs} + avulso` : pairs;
+  });
+
+  protected readonly nextDrawRows = computed(() => {
+    const draw = this.nextDraw();
+    if (!draw) {
+      return [];
+    }
+
+    const byId = this.sessions.playersById();
+    return draw.teams.map((team, index) => ({
+      teamId: team.id,
+      order: index + 1,
+      label: team.playerIds
+        .map((playerId) => byId.get(playerId)?.name ?? '?')
+        .join(' + ')
+        .toUpperCase(),
+    }));
+  });
+
+  protected readonly nextDrawWaiting = computed(() => {
+    const waitingPlayerId = this.nextDraw()?.waitingPlayerId;
+    return waitingPlayerId
+      ? (this.sessions.playersById().get(waitingPlayerId)?.name ?? null)
+      : null;
+  });
+
+  /**
+   * A presença mudou desde o sorteio adiantado: alguém foi embora, alguém
+   * chegou. O sorteio pendente aponta para gente que não está mais aqui, ou
+   * deixa de fora quem chegou — e isso é apontado, não usado em silêncio.
+   */
+  protected readonly presenceNote = computed(() => {
+    const diff = this.sessions.pendingDrawPresence();
+    if (!diff || this.sessions.pendingDrawMatchesPresence()) {
+      return null;
+    }
+
+    const byId = this.sessions.playersById();
+    const names = (ids: readonly string[]) =>
+      ids.map((playerId) => byId.get(playerId)?.name ?? '?').join(', ');
+
+    const partes: string[] = [];
+    if (diff.gone.length > 0) {
+      partes.push(
+        diff.gone.length === 1
+          ? `${names(diff.gone)} está no sorteio e não está mais aqui`
+          : `${names(diff.gone)} estão no sorteio e não estão mais aqui`,
+      );
+    }
+    if (diff.arrived.length > 0) {
+      partes.push(
+        diff.arrived.length === 1
+          ? `${names(diff.arrived)} chegou depois e ficou de fora`
+          : `${names(diff.arrived)} chegaram depois e ficaram de fora`,
+      );
+    }
+
+    return `${partes.join('; ')}. Sorteie de novo antes de começar.`;
+  });
+
+  /**
+   * Só começa o próximo quando o sorteio ainda descreve quem está aqui — e
+   * quando não há campeonato rolando.
+   *
+   * O segundo é o que mantém a sessão com um campeonato `'in-progress'` só:
+   * esta tela se alcança por URL mesmo com a bola em jogo, e dali criar o
+   * próximo daria dois ao vivo ao mesmo tempo (ticket 36).
+   */
+  protected readonly canStartNext = computed(
+    () =>
+      !!this.nextDraw() &&
+      this.sessions.pendingDrawMatchesPresence() &&
+      !this.sessions.liveTournament(),
+  );
+
   async ngOnInit(): Promise<void> {
     await this.store.load(this.tournamentId());
+
+    // A sessão é que sabe do sorteio pendente e de quem está presente agora.
+    const sessionId = this.store.tournament()?.sessionId;
+    if (sessionId) {
+      await this.sessions.loadById(sessionId);
+    }
+  }
+
+  /** Leva o sorteio pendente para a tela de formato, e dali para o ao vivo. */
+  protected startNext(): void {
+    const draw = this.nextDraw();
+    if (!draw) {
+      return;
+    }
+
+    void this.router.navigate(['/g', this.group.groupId(), 'campeonatos', 'novo'], {
+      queryParams: { drawId: draw.id },
+    });
+  }
+
+  protected async discardNext(): Promise<void> {
+    const sessionId = this.store.tournament()?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+
+    await this.draws.discardPendingDraw(sessionId);
+    await this.sessions.reload();
   }
 
   protected nameOf(playerId: string): string {

@@ -102,9 +102,17 @@ entra com vantagem no sorteio seguinte **da mesma sessão**.
 
 ### 3.1. Como a prioridade é lida
 
-- Vale **apenas** para campeonatos com status `completed`.
-- Campeonatos **em andamento** ou **cancelados** (excluídos) não geram prioridade.
-- Considera-se **somente o último campeonato concluído** da sessão.
+- Vale para o campeonato cujas prioridades **já estão decididas** — não mais só
+  para os `completed`. Um campeonato em andamento conta quando:
+  1. a rodada 1 fechou (toda partida de abertura tem placar);
+  2. não há desempate pendente;
+  3. se usa encaixe, o par-ou-ímpar já foi aplicado.
+- Depois disso, nada do que acontece nele muda o sorteio seguinte: semifinal e
+  final não geram prioridade, e quem perde a final não ganha preferência. É o
+  que permite sortear o próximo campeonato durante a final.
+- Considera-se **somente o último campeonato** da sessão nessas condições (o
+  mais recente por data de criação).
+- Campeonatos **cancelados** (excluídos) não geram prioridade.
 - Entradas duplicadas (mesmo jogador + mesmo motivo) são removidas.
 
 ### 3.2. Motivos de prioridade
@@ -168,7 +176,7 @@ A rodada 1 é disputada e, a partir dela, dois critérios comandam o resto:
 | ------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **2**  | —                   | Final direta                                                                                                                                                                       |
 | **3**  | 1 jogo (duplas 1×2) | Perdedor da R1 × dupla de bye (repescagem) → vencedor vai à final contra o vencedor da R1                                                                                          |
-| **4**  | 2 semifinais        | Disputa de 3º lugar (se habilitada) e depois a final                                                                                                                                                   |
+| **4**  | 2 semifinais        | Disputa de 3º lugar (se habilitada) e depois a final                                                                                                                               |
 | **5**  | 2 jogos (4 duplas)  | Pior perdedor eliminado direto. Vencedor de menor diferença × dupla de bye → final contra o vencedor de maior diferença. 3º lugar: outro perdedor da R1 × perdedor do bye          |
 | **6**  | 3 jogos             | Pior perdedor eliminado direto. Semifinal entre os 2 vencedores de menor diferença → final contra o vencedor de maior diferença. 3º lugar: outro perdedor da R1 × perdedor da semi |
 | **7**  | 3 jogos (6 duplas)  | Pior perdedor eliminado direto. Vencedor nº2 × dupla de bye → semifinal contra o vencedor nº3 → final contra o vencedor nº1. 3º lugar: perdedor do bye × perdedor da semi          |

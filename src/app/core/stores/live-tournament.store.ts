@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { AppFacade } from '../facade/app.facade';
 import { BracketMatch, BracketSlot, TournamentService } from '../services/tournament.service';
+import { DrawService } from '../services/draw.service';
 import { CurrentGroupStore } from './current-group.store';
 import { findFormat } from '../rules/tournament-formats';
 import { phaseLabel, plannedPhases } from '../rules/bracket-phases';
@@ -51,6 +52,14 @@ export interface MatchResult {
 
 const UNDEFINED_SLOT = 'VENCEDOR';
 
+/** As prioridades do campeonato como texto comparável. */
+function priorityKeys(tournament: Tournament): string {
+  return (tournament.priorityEntries ?? [])
+    .map((entry) => `${entry.playerId}:${entry.reason}`)
+    .sort()
+    .join(',');
+}
+
 /**
  * O campeonato que está rolando: a fila, a escada, o encaixe e o desempate.
  *
@@ -62,6 +71,7 @@ const UNDEFINED_SLOT = 'VENCEDOR';
 export class LiveTournamentStore {
   private readonly facade = inject(AppFacade);
   private readonly tournaments = inject(TournamentService);
+  private readonly draws = inject(DrawService);
   private readonly group = inject(CurrentGroupStore);
 
   readonly tournament = signal<Tournament | null>(null);
@@ -113,6 +123,15 @@ export class LiveTournamentStore {
   });
 
   readonly paused = computed(() => !!this.tiebreak() || !!this.placementCandidate());
+
+  /**
+   * As prioridades deste campeonato já estão decididas: o próximo sorteio pode
+   * sair agora, enquanto a final rola (ticket 36).
+   */
+  readonly priorityFrozen = computed(() => {
+    const tournament = this.tournament();
+    return tournament ? this.tournaments.priorityFrozen(tournament, [...this.matches()]) : false;
+  });
 
   /** A partida do usuário que ainda não tem placar. */
   readonly myMatch = computed(() => {
@@ -282,8 +301,17 @@ export class LiveTournamentStore {
     // A correção pode mudar quem saiu por mais pontos e quem vai ao encaixe.
     const tournament = this.tournament();
     if (tournament) {
+      const before = priorityKeys(tournament);
       const allMatches = await this.facade.getMatchesByTournamentId(tournament.id);
       await this.tournaments.closeRound1(tournament, allMatches);
+
+      // O sorteio pendente nasceu destas prioridades. Mudou a prioridade, ou
+      // a correção reabriu um desempate, e ele deixa de valer: o que depende
+      // de um resultado é derivado de novo (tickets 35 e 36).
+      const changed = priorityKeys(tournament) !== before;
+      if (changed || !this.tournaments.priorityFrozen(tournament, allMatches)) {
+        await this.draws.discardPendingDraw(tournament.sessionId);
+      }
     }
 
     await this.reload();

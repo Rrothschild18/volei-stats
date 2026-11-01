@@ -4,11 +4,14 @@ import {
   DrawProposal,
   Player,
   Team,
+  Tournament,
   TournamentPriorityEntry,
 } from '../../shared/models';
 import { AppFacade } from '../facade/app.facade';
+import { TournamentService } from './tournament.service';
 import { countWaitsInSession, waitingCandidates } from '../rules/waiting-rotation';
 import { dedupeProposals, proposalKey } from '../rules/draw-proposals';
+import { pendingDraw } from '../rules/pending-draw';
 
 interface ScoredProposal {
   teams: Team[];
@@ -26,6 +29,7 @@ const MAX_PROPOSALS = 3;
 @Injectable({ providedIn: 'root' })
 export class DrawService {
   private facade = inject(AppFacade);
+  private tournaments = inject(TournamentService);
 
   /**
    * Gera até três propostas **distintas** (REGRAS.md §9.7).
@@ -125,23 +129,23 @@ export class DrawService {
     return pairs;
   }
 
+  /**
+   * As prioridades que o próximo sorteio herda.
+   *
+   * O portão não é mais "campeonato finalizado": é o campeonato cujas
+   * prioridades já estão decididas (ticket 36). Um campeonato em andamento
+   * entra na conta assim que a rodada 1 fecha, o desempate sai e o encaixe é
+   * aplicado — e é isso que permite sortear o próximo durante a final.
+   *
+   * O jogador avulso só ganha prioridade quando ficou de fora o campeonato
+   * inteiro (encaixe desativado), o que é representado pela entrada
+   * 'waiting-player-not-used' gerada na criação do campeonato.
+   */
   async getPriorityEntries(sessionId: string): Promise<TournamentPriorityEntry[]> {
     const entries: TournamentPriorityEntry[] = [];
+    const lastTournament = await this.lastTournamentWithFrozenPriority(sessionId);
 
-    // As prioridades valem somente para campeonatos FINALIZADOS. Campeonatos
-    // em andamento ou cancelados (que são excluídos) não interferem no sorteio.
-    // O jogador avulso só ganha prioridade quando ficou de fora o campeonato
-    // inteiro (encaixe desativado), o que é representado pela entrada
-    // 'waiting-player-not-used' gerada na criação do campeonato.
-    const tournaments = await this.facade.getTournamentsBySessionId(sessionId);
-    const completed = tournaments
-      .filter((t) => t.status === 'completed')
-      // A ordem de leitura do banco não é garantida: "o último campeonato" é o
-      // mais recente por data de criação (§7.9).
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-
-    if (completed.length > 0) {
-      const lastTournament = completed[completed.length - 1];
+    if (lastTournament) {
       if ((lastTournament.priorityEntries ?? []).length > 0) {
         entries.push(...lastTournament.priorityEntries);
       } else {
@@ -159,6 +163,59 @@ export class DrawService {
     }
 
     return this.deduplicatePriorityEntries(entries);
+  }
+
+  /**
+   * O sorteio pendente da sessão: o próximo já sorteado, sem campeonato ainda.
+   */
+  async getPendingDraw(sessionId: string): Promise<DrawProposal | null> {
+    const [draws, tournaments] = await Promise.all([
+      this.facade.getDrawsBySessionId(sessionId),
+      this.facade.getTournamentsBySessionId(sessionId),
+    ]);
+    return pendingDraw(draws, tournaments);
+  }
+
+  /**
+   * Descarta o sorteio pendente.
+   *
+   * Deixar de ser o escolhido é o bastante: ele sai do sorteio pendente, das
+   * duplas repetidas do dia e da contagem de esperas, que são todas lidas de
+   * sorteios `selected`. O registro fica, porque ele aconteceu.
+   */
+  async discardPendingDraw(sessionId: string): Promise<DrawProposal | null> {
+    const draw = await this.getPendingDraw(sessionId);
+    if (!draw) {
+      return null;
+    }
+    return this.facade.saveDraw({ ...draw, selected: false });
+  }
+
+  /**
+   * O campeonato mais recente da sessão cujas prioridades já congelaram — o
+   * que o sorteio tem de ler. Caminha de trás para frente porque "o último
+   * campeonato" é o mais recente por data de criação: a ordem de leitura do
+   * banco não é garantida (§7.9).
+   */
+  private async lastTournamentWithFrozenPriority(sessionId: string): Promise<Tournament | null> {
+    const tournaments = (await this.facade.getTournamentsBySessionId(sessionId)).sort((a, b) =>
+      a.createdAt.localeCompare(b.createdAt),
+    );
+
+    for (let index = tournaments.length - 1; index >= 0; index--) {
+      const tournament = tournaments[index];
+      // Finalizado dispensa ler as partidas: ele não muda mais.
+      const matches =
+        tournament.status === 'completed'
+          ? []
+          : await this.facade.getMatchesByTournamentId(tournament.id);
+
+      if (this.tournaments.priorityFrozen(tournament, matches)) {
+        return tournament;
+      }
+    }
+
+    return null;
   }
 
   /** Troca dois jogadores de lugar entre as duplas de uma proposta. */

@@ -8,7 +8,7 @@ tempo é todo esperado em pé.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Por que isso é possível (e não é palpite)
 
@@ -100,17 +100,56 @@ propostas, trocas, "de novo", conversa), já aconteceu enquanto a bola rolava.
 - **Sortear duas vezes.** Nada impede tirar outro sorteio por cima do pendente.
   O mais recente vale; o anterior é descartado, não acumulado.
 
-- [ ] A prioridade do campeonato em andamento é lida quando a rodada 1 fechou,
+- [x] A prioridade do campeonato em andamento é lida quando a rodada 1 fechou,
       não há desempate pendente e o encaixe (se houver) foi aplicado
-- [ ] Um sorteio tirado antes dessa condição não acontece — não existe sorteio
+- [x] Um sorteio tirado antes dessa condição não acontece — não existe sorteio
       sem prioridade por omissão
-- [ ] Sorteio pendente é derivado do sorteio `selected` sem campeonato, sem
+- [x] Sorteio pendente é derivado do sorteio `selected` sem campeonato, sem
       coluna nova
-- [ ] USAR PROPOSTA volta para o campeonato ao vivo quando a final falta
-- [ ] A classificação oferece começar o próximo quando há sorteio pendente
-- [ ] Sorteio pendente com presença diferente da atual é apontado, não usado em
+- [x] USAR PROPOSTA volta para o campeonato ao vivo quando a final falta
+- [x] A classificação oferece começar o próximo quando há sorteio pendente
+- [x] Sorteio pendente com presença diferente da atual é apontado, não usado em
       silêncio
-- [ ] Correção que muda a prioridade invalida o sorteio pendente
-- [ ] Teste: prioridade lida do campeonato em andamento depois do fecho da
+- [x] Correção que muda a prioridade invalida o sorteio pendente
+- [x] Teste: prioridade lida do campeonato em andamento depois do fecho da
       rodada 1 bate com a lida dele depois de `completed`
-- [ ] Teste: sorteio pendente deixa de existir quando um campeonato passa a usá-lo
+- [x] Teste: sorteio pendente deixa de existir quando um campeonato passa a usá-lo
+
+## Comments
+
+**Implementado.** A condição virou `core/rules/priority-freeze.ts` (pura) +
+`TournamentService.priorityFrozen()`, lida pelo portão do sorteio
+(`DrawService.getPriorityEntries`) e pelo convite da tela ao vivo — uma
+condição só, para que os dois nunca discordem.
+
+O sorteio pendente virou `core/rules/pending-draw.ts`, derivado como o ticket
+previu: sorteio `selected` da sessão que nenhum campeonato usa, o mais recente
+vale. Sem coluna, sem migration, sem `status` novo. Descartar é deixar de ser
+`selected` — o registro fica, porque ele aconteceu, e sai de uma vez do sorteio
+pendente, das duplas repetidas do dia e da contagem de esperas, que leem as
+mesmas linhas.
+
+Três coisas que apareceram no caminho:
+
+1. **O órfão antigo agora é limpo.** USAR PROPOSTA descarta o sorteio pendente
+   anterior antes de gravar o novo, o que resolve de lado o órfão que já
+   existia (quem voltava da tela de formato) sem coluna nenhuma.
+2. **A prioridade persistida já estava gravada quando o portão abre.**
+   `closeRound1()` e `applyOddPlayerPlacement()` escrevem no caminho de salvar
+   placar (§7.5), e a condição só cai depois dos dois — então ler
+   `priorityEntries` de um campeonato em andamento devolve o mesmo que ler dele
+   depois de encerrado. É o que o teste compara.
+3. **Nos formatos que abrem em semifinal ou final direta** (4 ou 2 duplas, sem
+   encaixe) a eliminação direta não existe, e a prioridade está decidida desde a
+   criação. A condição é verdadeira desde o início ali — e isso é correto, não
+   permissivo: nada naquele campeonato muda o sorteio seguinte. O efeito prático
+   é que o convite aparece logo, não perto do fim.
+
+Começar o próximo, na classificação, exige também que a sessão não tenha
+campeonato em andamento: a tela se alcança por URL com a bola em jogo, e dali
+criar o próximo daria dois `'in-progress'` ao mesmo tempo.
+
+REGRAS.md §3.1 foi reescrito: "vale apenas para `completed`" não é mais verdade.
+O cenário do demo mudou de comportamento junto (o campeonato 2 está na
+semifinal com o encaixe aplicado, então a prioridade do próximo sorteio já sai
+dele, não do campeonato 1) — `demo-seed.spec.ts` registra isso.
