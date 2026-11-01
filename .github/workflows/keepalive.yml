@@ -29,9 +29,14 @@ jobs:
                  "Settings → Secrets and variables → Actions → Variables."
             exit 1
           fi
+          # Espaço em volta do valor derruba o curl com "URL rejected", e é
+          # fácil de deixar passar ao colar na tela do GitHub. URL e chave não
+          # têm espaço dentro, então tirar todos é seguro.
+          url=$(echo "$SUPABASE_URL" | tr -d '[:space:]')
+          chave=$(echo "$SUPABASE_PUBLISHABLE_KEY" | tr -d '[:space:]')
           codigo=$(curl -sS -o /dev/null -w '%{http_code}' \
-            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
-            "$SUPABASE_URL/rest/v1/groups?select=id&limit=1")
+            -H "apikey: $chave" \
+            "$url/rest/v1/groups?select=id&limit=1")
           echo "HTTP $codigo"
           # Qualquer resposta do Postgres serve como prova de vida; o que não
           # serve é o projeto não responder.
