@@ -15,45 +15,54 @@ import { BottomSheetComponent, BusyDirective, InlineNoteComponent } from '../../
   imports: [BottomSheetComponent, BusyDirective, InlineNoteComponent],
   template: `
     <app-bottom-sheet kicker="DESEMPATE" title="EMPATE NA DIFERENÇA" [dismissible]="false">
-      @if (note(); as message) {
-        <app-inline-note tone="event">{{ message }}</app-inline-note>
-      }
-
-      <!-- Primeiro POR QUE a chave parou, depois os números, e só então a
-           escolha: perguntar antes de explicar é o que fazia a folha parecer um
-           formulário sem contexto. -->
-      <p class="text-[14px]">{{ explanation() }}</p>
-
-      <section class="border border-divider">
-        <p class="kicker row-rule px-[14px] py-[9px]">COMO FICOU A RODADA 1</p>
-        @for (row of rows(); track row.teamId; let last = $last) {
-          <div class="flex items-center gap-3 px-[14px] py-[13px]" [class.row-rule]="!last">
-            <span class="team-name min-w-0 flex-1">{{ row.label }}</span>
-            <span class="text-[13px] tnum muted">{{ row.score }}</span>
-            <span class="figure w-12 text-right text-[20px]">{{ row.diff }}</span>
-          </div>
-        }
-      </section>
-
-      <section class="flex flex-col gap-3 border-t border-divider pt-[18px]">
-        <p class="kicker">QUEM VENCEU O PAR-OU-ÍMPAR?</p>
-
-        <div class="grid grid-cols-2 gap-2">
-          @for (row of rows(); track row.teamId) {
-            <button
-              type="button"
-              class="btn btn-secondary h-16 px-3"
-              [appBusy]="registering() === row.teamId"
-              [disabled]="registering() !== null"
-              (click)="choose.emit(row.teamId)"
-            >
-              <span class="team-name text-[19px] leading-tight">{{ row.label }}</span>
-            </button>
+      <!--
+        A folha é três coisas, e a distância entre elas é que diz isso: POR QUE
+        a chave parou, COMO ficou a rodada, e A ESCOLHA. Com tudo no mesmo
+        espaçamento (o gap do diálogo), as três viravam um bloco só de texto e
+        caixas — era preciso ler a folha inteira para achar onde responder.
+      -->
+      <div class="flex flex-col gap-7 pt-1">
+        <!-- Por quê: o aviso e a explicação são uma coisa só, e andam juntos. -->
+        <div class="flex flex-col gap-3">
+          @if (note(); as message) {
+            <app-inline-note tone="event">{{ message }}</app-inline-note>
           }
+          <p class="text-[15px] leading-relaxed">{{ explanation() }}</p>
         </div>
-      </section>
 
-      <p class="text-[12px] muted">{{ footer() }}</p>
+        <!-- Os números que empataram. -->
+        <section class="border border-divider">
+          <p class="kicker row-rule px-4 py-3">COMO FICOU A RODADA 1</p>
+          @for (row of rows(); track row.teamId; let last = $last) {
+            <div class="flex items-center gap-4 px-4 py-[18px]" [class.row-rule]="!last">
+              <span class="team-name min-w-0 flex-1">{{ row.label }}</span>
+              <span class="text-[13px] tnum muted">{{ row.score }}</span>
+              <span class="figure w-14 text-right text-[22px]">{{ row.diff }}</span>
+            </div>
+          }
+        </section>
+
+        <!-- A escolha, separada por uma linha: daqui para baixo é o que fazer. -->
+        <section class="flex flex-col gap-4 border-t border-divider pt-7">
+          <p class="kicker">QUEM VENCEU O PAR-OU-ÍMPAR?</p>
+
+          <div class="grid grid-cols-2 gap-3">
+            @for (row of rows(); track row.teamId) {
+              <button
+                type="button"
+                class="btn btn-secondary h-18 px-3"
+                [appBusy]="registering() === row.teamId"
+                [disabled]="registering() !== null"
+                (click)="choose.emit(row.teamId)"
+              >
+                <span class="team-name text-[19px] leading-tight">{{ row.label }}</span>
+              </button>
+            }
+          </div>
+
+          <p class="text-[12px] leading-relaxed muted">{{ footer() }}</p>
+        </section>
+      </div>
     </app-bottom-sheet>
   `,
 })

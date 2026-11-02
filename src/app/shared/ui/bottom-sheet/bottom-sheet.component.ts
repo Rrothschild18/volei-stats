@@ -36,7 +36,7 @@ import { FocusTrapDirective } from '../focus-trap.directive';
             @if (kicker()) {
               <p class="kicker">{{ kicker() }}</p>
             }
-            <h2 class="title-lg">{{ title() }}</h2>
+            <h2 class="title-lg mt-1">{{ title() }}</h2>
           </div>
           @if (dismissible()) {
             <button

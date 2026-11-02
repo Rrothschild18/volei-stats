@@ -19,35 +19,46 @@ import { BottomSheetComponent, BusyDirective, IconComponent } from '../../../sha
       [title]="title()"
       [dismissible]="false"
     >
-      <p class="text-[14px]">{{ explanation() }}</p>
+      <!--
+        Mesma hierarquia da folha de desempate: por quê, o que já aconteceu, e
+        a escolha. O que fazia a folha parecer um bloco único era todo mundo
+        respirar igual — o gap do diálogo, e nada mais.
+      -->
+      <div class="flex flex-col gap-7 pt-1">
+        <div class="flex flex-col gap-3">
+          <p class="text-[15px] leading-relaxed">{{ explanation() }}</p>
 
-      @if (directEliminationLabel(); as label) {
-        <p class="flex items-start gap-2 border border-divider px-[14px] py-[11px] text-[13px]">
-          <app-icon name="trending-down" [size]="18" class="shrink-0 text-accent-700" />
-          <span class="muted">{{ label }}</span>
-        </p>
-      }
-
-      <section class="flex flex-col gap-3 border-t border-divider pt-[18px]">
-        <p class="kicker">QUEM VENCEU?</p>
-
-        <div class="grid grid-cols-2 gap-2">
-          @for (player of candidates(); track player.id) {
-            <button
-              type="button"
-              class="btn btn-secondary h-20 flex-col gap-[6px] px-3"
-              [appBusy]="registering() === player.id"
-              [disabled]="registering() !== null"
-              (click)="choose.emit(player.id)"
-            >
-              <span class="text-[12px] font-normal tracking-normal normal-case muted">venceu</span>
-              <span class="team-name text-[22px] leading-none">{{ player.name }}</span>
-            </button>
+          @if (directEliminationLabel(); as label) {
+            <p class="flex items-start gap-3 border border-divider px-4 py-[14px] text-[13px]">
+              <app-icon name="trending-down" [size]="18" class="shrink-0 text-accent-700" />
+              <span class="leading-relaxed muted">{{ label }}</span>
+            </p>
           }
         </div>
-      </section>
 
-      <p class="text-[12px] muted">A chave fica pausada até a escolha.</p>
+        <section class="flex flex-col gap-4 border-t border-divider pt-7">
+          <p class="kicker">QUEM VENCEU?</p>
+
+          <div class="grid grid-cols-2 gap-3">
+            @for (player of candidates(); track player.id) {
+              <button
+                type="button"
+                class="btn btn-secondary h-22 flex-col gap-2 px-3"
+                [appBusy]="registering() === player.id"
+                [disabled]="registering() !== null"
+                (click)="choose.emit(player.id)"
+              >
+                <span class="text-[12px] font-normal tracking-normal normal-case muted"
+                  >venceu</span
+                >
+                <span class="team-name text-[22px] leading-none">{{ player.name }}</span>
+              </button>
+            }
+          </div>
+
+          <p class="text-[12px] muted">A chave fica pausada até a escolha.</p>
+        </section>
+      </div>
     </app-bottom-sheet>
   `,
 })
