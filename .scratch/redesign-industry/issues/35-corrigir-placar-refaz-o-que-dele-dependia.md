@@ -177,12 +177,12 @@ Sondado contra o Postgres de verdade (migrations aplicadas num banco
 descartável, papel `authenticated`, `request.jwt.claim.sub` de uma jogadora que
 não é dona):
 
-| Operação | Jogadora | Dono |
-| --- | --- | --- |
-| `update matches` (corrigir placar) | **pode** | pode |
-| `delete from matches` | não | pode |
-| `delete from tournament_teams` | não | pode |
-| `delete from tiebreak_decisions` | **pode** | pode |
+| Operação                            | Jogadora | Dono |
+| ----------------------------------- | -------- | ---- |
+| `update matches` (corrigir placar)  | **pode** | pode |
+| `delete from matches`               | não      | pode |
+| `delete from tournament_teams`      | não      | pode |
+| `delete from tiebreak_decisions`    | **pode** | pode |
 | `delete from odd_player_placements` | **pode** | pode |
 
 E o schema diz por que, em comentário, no bloco das políticas:
@@ -204,7 +204,7 @@ encaixe é uma linha de `tournament_teams`, e tirá-la é delete de dono.
 ### As saídas, e o que elas custam
 
 1. **Uma função `security definer` no banco** — `corrigir_placar(partida, placar,
-   partidas_a_apagar[])`. Autoriza por `is_group_player`, confere que as partidas
+partidas_a_apagar[])`. Autoriza por `is_group_player`, confere que as partidas
    nomeadas são do mesmo campeonato e que nenhuma é da rodada 1, e faz a
    correção e os apagamentos numa transação. A escolha de **quais** partidas caem
    continua no TypeScript, que é quem sabe a chave; a função só autoriza e
@@ -222,7 +222,7 @@ encaixe é uma linha de `tournament_teams`, e tirá-la é delete de dono.
 3. **Não apagar: marcar.** A partida fantasma fica, com uma coluna dizendo que
    não vale, e toda soma passa a filtrar. O ticket rejeita isso em uma frase —
    "nada de resultado antigo 'desconsiderado' na prática mas presente no banco" —
-   e o custo real é que *cada* leitura futura precisa lembrar do filtro:
+   e o custo real é que _cada_ leitura futura precisa lembrar do filtro:
    estatísticas, rankings, saldo da classificação, histórico do jogador.
 
 A recomendação é a **1**. A **2** é o atalho honesto se a migration na nuvem for

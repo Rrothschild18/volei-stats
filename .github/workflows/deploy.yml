@@ -35,6 +35,67 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # ---------------------------------------------------------------------
+      # O portão: o app não passa na frente do schema.
+      #
+      # Este workflow dispara no push da `main`, ou seja, o push É o deploy. O
+      # schema vai por outro caminho (`supabase db push`), e até aqui nada ligava
+      # as duas coisas: em 01/11/2026 duas migrations ficaram paradas numa
+      # máquina enquanto o app que depende delas estava a um `git push` de ir ao
+      # ar. O que avisou foi alguém lembrar.
+      #
+      # Ao contrário do resto da esteira, este passo usa SEGREDOS de verdade: ele
+      # fala com o schema de produção. A chave publicável das variáveis não
+      # enxerga schema nenhum, então não serve aqui.
+      # ---------------------------------------------------------------------
+      # Versão presa: o portão lê a saída de `migration list --output-format
+      # json`, e com `latest` qualquer mudança dessa saída lá em cima deixa todo
+      # push na `main` vermelho sem ninguém ter tocado no repositório — um deploy
+      # que não sai até alguém depurar o CLI. No `e2e-banco` o `latest` custa um
+      # teste; aqui custaria a publicação.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+
+      - name: O schema da nuvem tem de estar em dia
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+        run: |
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "Falta a variável SUPABASE_URL — é dela que sai o ref do projeto."
+            echo "Ela fica em Settings → Secrets and variables → Actions → Variables."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "Faltam os segredos SUPABASE_ACCESS_TOKEN e/ou SUPABASE_DB_PASSWORD."
+            echo "Eles ficam em Settings → Secrets and variables → Actions → Secrets."
+            echo "O token sai de supabase.com/dashboard/account/tokens; a senha é a"
+            echo "do banco do projeto (Settings → Database)."
+            echo
+            echo "São SEGREDOS, não variáveis: com eles se lê e se altera o schema"
+            echo "de produção. Sem eles este passo não tem como perguntar nada à"
+            echo "nuvem, e deixar passar calado seria pior do que não existir."
+            exit 1
+          fi
+          # O ref do projeto é a primeira parte da URL — uma variável a menos
+          # para alguém manter em sincronia com a outra.
+          ref=$(echo "$SUPABASE_URL" | tr -d '[:space:]' | sed -E 's#^https://([^.]+)\..*#\1#')
+          # Se a URL vier sem esquema, ou com outra forma, o `sed` não casa e o
+          # `ref` sai sendo a URL inteira. Melhor dizer isso aqui do que deixar o
+          # CLI responder "invalid project ref" sem contexto nenhum.
+          case "$ref" in
+            '' | *.* | */*)
+              echo "SUPABASE_URL não tem a forma esperada: $SUPABASE_URL"
+              echo "Esperado https://<ref>.supabase.co — o ref é a primeira parte."
+              exit 1
+              ;;
+          esac
+          echo "Projeto: $ref"
+          supabase link --project-ref "$ref"
+          pnpm deploy:check
+
       # As credenciais da nuvem entram aqui, não no repositório. Variáveis, e
       # não segredos: a chave publicável termina no bundle que o Pages serve, de
       # modo que esconder não é opção — e chamar de segredo o que é público só

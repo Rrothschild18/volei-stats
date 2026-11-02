@@ -30,6 +30,18 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm test
 
+  # Job próprio, e não mais um passo do de cima: aqui o job É o check, e grudado
+  # no `pnpm test` um `ng test` vermelho impediria este de rodar — o portão do
+  # deploy poderia estar quebrado e ninguém veria até os testes do Angular serem
+  # consertados.
+  unidade-scripts:
+    name: Testes dos scripts de deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm test:scripts
+
   tipos-e2e:
     name: Tipos dos testes de ponta a ponta
     runs-on: ubuntu-latest

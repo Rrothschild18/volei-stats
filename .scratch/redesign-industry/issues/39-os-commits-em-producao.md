@@ -8,9 +8,10 @@ prioritário fora do primeiro jogo. Produção ainda serve o build de 01/11 15:3
 
 Este ticket é o push na `main` e o deploy que ele dispara.
 
-**Blocked by:** None (can start immediately) — o schema da nuvem já foi
-aplicado: `supabase migration list --linked` mostra as três migrations com
-`local` e `remote` iguais.
+**Blocked by:** os dois segredos do ticket 41 (`SUPABASE_ACCESS_TOKEN` e
+`SUPABASE_DB_PASSWORD`) criados no repositório. O schema da nuvem já foi
+aplicado, mas o portão do deploy agora pergunta à nuvem antes de publicar —
+e sem os segredos ele para o deploy de propósito.
 
 **Status:** ready-for-agent
 
@@ -26,7 +27,7 @@ A ordem está certa agora, e é por isso que este ticket pode começar. O que fa
 
 - [ ] `git push origin main` com a árvore limpa e os 14 commits
 - [ ] O workflow `Deploy to GitHub Pages` termina verde
-- [ ] O workflow `CI` termina verde (os 7 checks)
+- [ ] O workflow `CI` termina verde (os 8 checks)
 - [ ] https://rrothschild18.github.io/volei-stats/ carrega e fala com a nuvem —
       não a tela de erro de credencial
 - [ ] A branch `revert-ci-base-href-fix` deixa de existir no remoto

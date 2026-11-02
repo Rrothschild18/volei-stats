@@ -171,12 +171,12 @@ nem assumir que só é chamado uma vez por carregamento.
 As chaves de teste da Cloudflare existem para isto, e tornam a parte do app
 testável sem conta nenhuma:
 
-| Chave                                 | O que faz                      |
-| ------------------------------------- | ------------------------------ |
-| `1x00000000000000000000AA`            | site key, sempre passa, visível |
-| `2x00000000000000000000AB`            | site key, sempre falha          |
+| Chave                                 | O que faz                          |
+| ------------------------------------- | ---------------------------------- |
+| `1x00000000000000000000AA`            | site key, sempre passa, visível    |
+| `2x00000000000000000000AB`            | site key, sempre falha             |
 | `3x00000000000000000000FF`            | site key, força desafio interativo |
-| `1x0000000000000000000000000000000AA` | secret, sempre valida           |
+| `1x0000000000000000000000000000000AA` | secret, sempre valida              |
 
 Com a `3x…FF` dá para olhar a moldura interativa de verdade — que é o caminho
 que ninguém vê em desenvolvimento e todo mundo vê um dia. Com a `2x…AB`, a tela

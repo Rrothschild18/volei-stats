@@ -10,10 +10,10 @@
 
 Nada de schema novo. O banco já guarda os dois instantes:
 
-| Marca | De onde sai |
-| --- | --- |
-| Começou | `tournaments.created_at` — o campeonato nasce quando a proposta de sorteio é escolhida |
-| Terminou | `played_at` da partida de fase `final` |
+| Marca    | De onde sai                                                                            |
+| -------- | -------------------------------------------------------------------------------------- |
+| Começou  | `tournaments.created_at` — o campeonato nasce quando a proposta de sorteio é escolhida |
+| Terminou | `played_at` da partida de fase `final`                                                 |
 
 E `formatTime()` já existe para escrever `20:08`.
 

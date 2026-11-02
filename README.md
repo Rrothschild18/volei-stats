@@ -109,6 +109,28 @@ mostra a coluna `remote` vazia para o que ainda não subiu. Sem o CLI, o caminho
 manual continua existindo — SQL Editor → colar o arquivo → Run, em ordem de
 nome.
 
+**A esteira faz essa mesma pergunta antes de publicar.** `pnpm deploy:check`
+roda `scripts/checar-migrations.mjs`, e o deploy o chama antes do build: se
+houver migration local que a nuvem não tem, ele para ali e nomeia quais são. O
+push na `main` **é** o deploy, e sem esse passo nada ligava as duas coisas —
+foi assim que duas migrations ficaram paradas numa máquina enquanto o app que
+depende delas estava a um `git push` de ir ao ar.
+
+Esse passo é o único da esteira que usa **segredos**, porque é o único que fala
+com o schema de produção:
+
+| Segredo                 | De onde sai                                                          |
+| ----------------------- | -------------------------------------------------------------------- |
+| `SUPABASE_ACCESS_TOKEN` | supabase.com/dashboard/account/tokens → Generate new token           |
+| `SUPABASE_DB_PASSWORD`  | Project Settings → Database (não é exibida de novo; dá para resetar) |
+
+Eles ficam em **Settings → Secrets and variables → Actions → Secrets**, aba
+diferente das Variables onde moram `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY`.
+A diferença é o ponto: a chave publicável vai para o bundle e não enxerga schema
+nenhum; estes dois leem e alteram o schema de produção. Faltando, o deploy para
+no passo e diz o que criar — deixar passar calado seria pior do que o portão não
+existir.
+
 | Migration                               | O que ela adiciona                                                                                                 |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `20261031000000_schema_inicial.sql`     | Tudo: tabelas, políticas e as funções de acesso                                                                    |

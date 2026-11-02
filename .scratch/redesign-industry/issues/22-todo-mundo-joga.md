@@ -36,7 +36,7 @@ foi removido — promover admin não existe mais, e passar o vôlei é um ato s�
 tela do vôlei (ticket 20).
 
 **O estado `viewer` não tem representação no mock**, de propósito: no schema um
-espectador tem `player_id` nulo, e a identidade mockada *é* um `playerId`, então
+espectador tem `player_id` nulo, e a identidade mockada _é_ um `playerId`, então
 não há como assumir um espectador sem a sessão anônima. `canPlay()` já é o
 portão correto e passa a valer de verdade quando o ticket 20 trouxer o fluxo de
 reivindicar o nome. Meia-modelagem aqui só geraria um caso que ninguém testa.

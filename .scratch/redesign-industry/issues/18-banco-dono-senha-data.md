@@ -73,15 +73,15 @@ plano foi atualizado: **existe um link, e é o do convite**.
 
 As outras sete:
 
-| | Era |
-| --- | --- |
-| `my_groups` com subquery escalar em `sessions` | dois jogadores abrindo a presença ao mesmo tempo criavam duas sessões do dia, e a **primeira tela do app** passava a dar erro 21000 para todos os membros — só o dono podendo apagar a linha sobrando. Agora `unique (group_id, date)` |
-| `transfer_ownership` para nome não reivindicado | o vôlei ficava sem dono efetivo, e quem reivindicasse aquele nome com a data inicial assumia tudo |
-| `claim_player` sem `and active` | inativar não revogava nada: quem saiu seguia escrevendo. Agora um gatilho derruba os aparelhos na inativação, e nome inativo não entra |
-| `create_group` sem comparar as datas | dono reusando o próprio aniversário como data do grupo tornava o nome dele reivindicável com a senha que ele mesmo manda |
-| `UPDATE` da senha não revogado | o dono trocava a data de alguém na mão, por fora do reset — a vítima ficava logada sem saber |
-| trava de força bruta por `auth.uid()` | sessão anônima nova é grátis (é a porta do modelo) e zerava o contador: ~150 palpites/hora em vez de 5/15min. Agora conta por **nome tentado** |
-| `reported_by`/`corrected_by` como colunas comuns | qualquer jogador mudava o placar deixando a assinatura nula — e a justificativa de liberar a correção para todos caía junto. Agora um gatilho assina |
+|                                                  | Era                                                                                                                                                                                                                                    |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `my_groups` com subquery escalar em `sessions`   | dois jogadores abrindo a presença ao mesmo tempo criavam duas sessões do dia, e a **primeira tela do app** passava a dar erro 21000 para todos os membros — só o dono podendo apagar a linha sobrando. Agora `unique (group_id, date)` |
+| `transfer_ownership` para nome não reivindicado  | o vôlei ficava sem dono efetivo, e quem reivindicasse aquele nome com a data inicial assumia tudo                                                                                                                                      |
+| `claim_player` sem `and active`                  | inativar não revogava nada: quem saiu seguia escrevendo. Agora um gatilho derruba os aparelhos na inativação, e nome inativo não entra                                                                                                 |
+| `create_group` sem comparar as datas             | dono reusando o próprio aniversário como data do grupo tornava o nome dele reivindicável com a senha que ele mesmo manda                                                                                                               |
+| `UPDATE` da senha não revogado                   | o dono trocava a data de alguém na mão, por fora do reset — a vítima ficava logada sem saber                                                                                                                                           |
+| trava de força bruta por `auth.uid()`            | sessão anônima nova é grátis (é a porta do modelo) e zerava o contador: ~150 palpites/hora em vez de 5/15min. Agora conta por **nome tentado**                                                                                         |
+| `reported_by`/`corrected_by` como colunas comuns | qualquer jogador mudava o placar deixando a assinatura nula — e a justificativa de liberar a correção para todos caía junto. Agora um gatilho assina                                                                                   |
 
 Mais duas de configuração: `enable_anonymous_sign_ins` estava `false` no
 `config.toml` (a sessão anônima **é** o modelo de acesso; o app não passaria da

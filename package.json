@@ -11,6 +11,8 @@
     "build:gh": "ng build --base-href /volei-stats/",
     "test:e2e": "playwright test",
     "test:sql": "./supabase/tests/run.sh",
+    "test:scripts": "vitest run --config vitest.scripts.config.mjs",
+    "deploy:check": "node scripts/checar-migrations.mjs",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
     "start:demo": "ng serve --configuration demo --port 4300",
     "test:e2e:demo": "E2E_ALVO=demo playwright test --project=demo --project=demo-desktop --workers=4",

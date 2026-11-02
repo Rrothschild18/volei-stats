@@ -12,7 +12,7 @@ Reproduzido num campeonato de **5 duplas (10 pessoas)**, formato "mata-mata com 
 
 ### 1. Quem se classificou direto some da chave
 
-A regra (REGRAS.md §10) é clara: *"vencedor de menor diferença × dupla de bye → final contra o vencedor de maior diferença"*. O chaveamento **faz isso certo**. A tela é que não conta.
+A regra (REGRAS.md §10) é clara: _"vencedor de menor diferença × dupla de bye → final contra o vencedor de maior diferença"_. O chaveamento **faz isso certo**. A tela é que não conta.
 
 Logo depois da rodada 1, a chave mostra:
 
@@ -31,13 +31,13 @@ Isso tem uma segunda cara: "você joga a seguir" sai da mesma lista. Quem se cla
 
 Com o campeonato **já encerrado**, a aba Duplas diz:
 
-| Dupla | O que a tela diz | O que é verdade |
-| --- | --- | --- |
-| RAUL + NINA | em jogo | **campeã** |
-| THIAGO + GUI | eliminada direto | eliminada direto ✓ |
-| DUDA + CAROL | em jogo | vice |
-| LEO + PATY | em jogo | eliminada na rodada 1 |
-| MALU + BIA | em jogo | eliminada na semifinal do bye |
+| Dupla        | O que a tela diz | O que é verdade               |
+| ------------ | ---------------- | ----------------------------- |
+| RAUL + NINA  | em jogo          | **campeã**                    |
+| THIAGO + GUI | eliminada direto | eliminada direto ✓            |
+| DUDA + CAROL | em jogo          | vice                          |
+| LEO + PATY   | em jogo          | eliminada na rodada 1         |
+| MALU + BIA   | em jogo          | eliminada na semifinal do bye |
 
 Quatro das cinco linhas estão erradas, e continuam erradas para sempre. A causa é estreita: `eliminated` só é marcado em dois lugares — na eliminação direta e na dupla desfeita pelo encaixe. **Perder uma partida não marca ninguém.**
 

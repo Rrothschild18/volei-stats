@@ -17,11 +17,11 @@ As entradas do sorteio são duas, e as duas congelam antes da final:
 **Prioridades.** `TournamentPriorityEntry.reason` tem exatamente três valores, e
 cada um nasce num lugar que já passou quando a final começa:
 
-| motivo | onde nasce |
-| --- | --- |
-| `direct-elimination` | `closeRound1()` |
-| `coin-flip-loss` | `applyOddPlayerPlacement()` |
-| `waiting-player-not-used` | criação do campeonato |
+| motivo                    | onde nasce                  |
+| ------------------------- | --------------------------- |
+| `direct-elimination`      | `closeRound1()`             |
+| `coin-flip-loss`          | `applyOddPlayerPlacement()` |
+| `waiting-player-not-used` | criação do campeonato       |
 
 Semifinal e final não geram prioridade nenhuma. Quem perde a final não ganha
 preferência — e não deveria: ele jogou a noite inteira.
