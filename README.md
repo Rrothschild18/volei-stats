@@ -93,9 +93,21 @@ vez de publicar uma tela que não carrega nada e não diz por quê.
 ### Migrations na nuvem
 
 O deploy publica o **app**, não o schema: não há `db push` na esteira. Uma
-migration nova em `supabase/migrations/` precisa ser aplicada à mão — SQL Editor
-→ colar o arquivo → Run — e **antes** do deploy que depende dela, senão o app
-publicado chama uma função que ainda não existe lá.
+migration nova em `supabase/migrations/` precisa ir à nuvem **antes** do deploy
+que depende dela, senão o app publicado chama uma função que ainda não existe
+lá.
+
+Com o CLI logado e o projeto ligado (`supabase link`), são dois comandos:
+
+```bash
+supabase migration list --linked   # o que a nuvem já tem, lado a lado com o local
+supabase db push --linked          # aplica o que falta (--dry-run mostra antes)
+```
+
+`migration list` é a conferência que vale: ele compara arquivo a arquivo e
+mostra a coluna `remote` vazia para o que ainda não subiu. Sem o CLI, o caminho
+manual continua existindo — SQL Editor → colar o arquivo → Run, em ordem de
+nome.
 
 | Migration                               | O que ela adiciona                                                                                                 |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
