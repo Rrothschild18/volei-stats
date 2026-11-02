@@ -287,10 +287,11 @@ export class DrawService {
     const seen = new Map<string, ScoredProposal>();
 
     for (let attempt = 0; attempt < attempts; attempt++) {
+      const priorityPlayerIds = priorityEntries.map((entry) => entry.playerId);
       const shuffled = this.shuffle([...playersForDraw]);
       const teams = this.prioritizeTeams(
-        this.formTeams(shuffled),
-        priorityEntries.map((entry) => entry.playerId),
+        this.formTeams(this.seatPriorityFirst(shuffled, priorityPlayerIds)),
+        priorityPlayerIds,
       );
       const { score, badges } = this.evaluateProposal(
         teams,
@@ -318,6 +319,57 @@ export class DrawService {
       });
     }
     return teams;
+  }
+
+  /**
+   * Senta os prioritários nas primeiras cadeiras ANTES de formar as duplas.
+   *
+   * Reordenar as duplas depois de formadas não basta, e era esse o furo: três
+   * prioritários caem em três duplas diferentes, a ordenação põe as três na
+   * frente, e a terceira fica na terceira dupla — fora do primeiro jogo, que é
+   * exatamente o que a prioridade promete (REGRAS.md §3.3).
+   *
+   * A distribuição é um por dupla, em rodízio, e só depois a segunda cadeira:
+   * com dois prioritários eles ficam nas duplas 1 e 2 (e não grudados num par
+   * só, que repetiria a mesma dupla em todas as 100 tentativas); com três ou
+   * quatro, cabem nas duas duplas do primeiro jogo; com mais do que isso, a
+   * promessa já não cabe em um jogo, e eles ocupam o menor número de duplas.
+   */
+  private seatPriorityFirst(players: Player[], priorityPlayerIds: readonly string[]): Player[] {
+    const totalTeams = Math.floor(players.length / 2);
+    const priority = players.filter((player) => priorityPlayerIds.includes(player.id));
+    if (priority.length === 0 || totalTeams === 0) {
+      return players;
+    }
+
+    // Duas duplas é o primeiro jogo; mais do que isso só quando não cabe.
+    const teamsUsed = Math.min(totalTeams, Math.max(2, Math.ceil(priority.length / 2)));
+
+    const seats: number[] = [];
+    for (const slot of [0, 1]) {
+      for (let team = 0; team < teamsUsed; team += 1) {
+        seats.push(team * 2 + slot);
+      }
+    }
+
+    const seated: Player[] = new Array(players.length);
+    const taken = new Set<number>();
+    priority.forEach((player, index) => {
+      seated[seats[index]] = player;
+      taken.add(seats[index]);
+    });
+
+    // O resto entra na ordem sorteada, nas cadeiras que sobraram.
+    const rest = players.filter((player) => !priorityPlayerIds.includes(player.id));
+    let next = 0;
+    for (let seat = 0; seat < seated.length; seat += 1) {
+      if (!taken.has(seat)) {
+        seated[seat] = rest[next];
+        next += 1;
+      }
+    }
+
+    return seated;
   }
 
   private prioritizeTeams(teams: Team[], priorityPlayerIds: string[]): Team[] {

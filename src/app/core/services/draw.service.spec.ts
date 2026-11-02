@@ -341,3 +341,114 @@ describe('DrawService.discardPendingDraw', () => {
     expect(saved).toEqual([]);
   });
 });
+
+/**
+ * O que a prioridade promete é JOGAR (REGRAS.md §3.3): quem foi prejudicado no
+ * campeonato anterior entra na primeira rodada do seguinte. A ordenação das
+ * duplas sozinha não entregava isso — três prioritários em três duplas
+ * diferentes põem a terceira fora do primeiro jogo, e a promessa vira texto.
+ *
+ * Os testes de prioridade que existiam olhavam de onde ela VEM (o portão da
+ * rodada 1, o avulso que não pode ser prioritário). Nenhum perguntava onde ela
+ * CHEGA.
+ */
+describe('prioritários entram no primeiro jogo', () => {
+  /** Em que dupla cada jogador caiu, por proposta. */
+  function teamIndexOf(proposal: DrawProposal, playerId: string): number {
+    return proposal.teams.findIndex((team) => team.playerIds.includes(playerId));
+  }
+
+  it('três prioritários cabem nas duas duplas do primeiro jogo', async () => {
+    const service = setup();
+    const prioritarios = ['p-rafa', 'p-bia', 'p-duda'];
+
+    const proposals = await service.generateProposals(
+      's1',
+      players(8),
+      new Set(),
+      prioritarios.map((playerId) => ({ playerId, reason: 'direct-elimination' as const })),
+    );
+
+    expect(proposals.length).toBeGreaterThan(0);
+    for (const proposal of proposals) {
+      for (const playerId of prioritarios) {
+        const dupla = teamIndexOf(proposal, playerId);
+        expect(dupla, `${playerId} caiu na dupla ${dupla + 1}`).toBeLessThan(2);
+      }
+    }
+  });
+
+  it('quatro também', async () => {
+    const service = setup();
+    const prioritarios = ['p-rafa', 'p-bia', 'p-duda', 'p-léo'];
+
+    const proposals = await service.generateProposals(
+      's1',
+      players(10),
+      new Set(),
+      prioritarios.map((playerId) => ({ playerId, reason: 'direct-elimination' as const })),
+    );
+
+    for (const proposal of proposals) {
+      for (const playerId of prioritarios) {
+        expect(teamIndexOf(proposal, playerId)).toBeLessThan(2);
+      }
+    }
+  });
+
+  it('dois prioritários não viram uma dupla só: eles abrem o jogo um contra o outro', async () => {
+    // Grudar os dois num par resolveria o primeiro jogo e criaria outro
+    // problema: a mesma dupla nas 100 tentativas, inclusive quando ela já jogou
+    // junta hoje. Com dois, as duas duplas do primeiro jogo já os comportam.
+    const service = setup();
+
+    const proposals = await service.generateProposals('s1', players(8), new Set(), [
+      { playerId: 'p-rafa', reason: 'direct-elimination' },
+      { playerId: 'p-bia', reason: 'direct-elimination' },
+    ]);
+
+    for (const proposal of proposals) {
+      const duplas = [teamIndexOf(proposal, 'p-rafa'), teamIndexOf(proposal, 'p-bia')].sort();
+      expect(duplas).toEqual([0, 1]);
+    }
+  });
+
+  it('mais prioritários do que o primeiro jogo comporta: ocupam o mínimo de duplas', async () => {
+    const service = setup();
+    const prioritarios = ['p-rafa', 'p-bia', 'p-duda', 'p-léo', 'p-carol'];
+
+    const proposals = await service.generateProposals(
+      's1',
+      players(10),
+      new Set(),
+      prioritarios.map((playerId) => ({ playerId, reason: 'direct-elimination' as const })),
+    );
+
+    for (const proposal of proposals) {
+      const duplas = new Set(prioritarios.map((playerId) => teamIndexOf(proposal, playerId)));
+      // Cinco pessoas não cabem em duas duplas; em três, cabem — e são as três
+      // primeiras do chaveamento.
+      expect(duplas.size).toBe(3);
+      expect(Math.max(...duplas)).toBe(2);
+    }
+  });
+
+  it('o sorteio continua sorteio: com um prioritário, o resto varia', async () => {
+    const service = setup();
+
+    const proposals = await service.generateProposals('s1', players(10), new Set(), [
+      { playerId: 'p-rafa', reason: 'direct-elimination' },
+    ]);
+
+    for (const proposal of proposals) {
+      expect(teamIndexOf(proposal, 'p-rafa')).toBe(0);
+    }
+
+    const parceiros = new Set(
+      proposals.map((proposal) => proposal.teams[0].playerIds.find((id) => id !== 'p-rafa')),
+    );
+    expect(parceiros.size, 'as propostas não podem ser a mesma dupla três vezes').toBeGreaterThan(
+      1,
+    );
+  });
+});
