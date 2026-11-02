@@ -97,10 +97,11 @@ migration nova em `supabase/migrations/` precisa ser aplicada à mão — SQL Ed
 → colar o arquivo → Run — e **antes** do deploy que depende dela, senão o app
 publicado chama uma função que ainda não existe lá.
 
-| Migration                               | O que ela adiciona                                                                         |
-| --------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `20261031000000_schema_inicial.sql`     | Tudo: tabelas, políticas e as funções de acesso                                            |
-| `20261101120000_correcao_de_placar.sql` | `correct_match_score`, que corrige um placar e apaga junto o que o resultado novo derrubou |
+| Migration                               | O que ela adiciona                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `20261031000000_schema_inicial.sql`     | Tudo: tabelas, políticas e as funções de acesso                                                                    |
+| `20261101120000_correcao_de_placar.sql` | `correct_match_score`, que corrige um placar e apaga junto o que o resultado novo derrubou                         |
+| `20261101130000_regra_do_placar.sql`    | O trigger `matches_check_final_score`: limite de pontos com dois de diferença, lendo o `point_limit` do campeonato |
 
 Projeto grátis é pausado após ~7 dias sem acesso, e o vôlei é semanal: o
 workflow `keepalive.yml` faz uma consulta trivial a cada três dias.

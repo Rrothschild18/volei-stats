@@ -66,9 +66,12 @@ select assert((select winner_id from matches)='70e00000-0000-0000-0000-000000000
 select assert((select loser_id  from matches)='70e00000-0000-0000-0000-00000000000b','perdedor gerado certo');
 select assert((select point_difference from matches)=5,'diferenca gerada certa');
 
+-- 12 x 4 porque o limite deste campeonato e 12: 15 x 3 bateria antes no
+-- trigger da regra do placar (06-regra-do-placar.sql) e o teste provaria a
+-- coisa errada.
 do $$ begin
   insert into matches (group_id,tournament_id,session_id,phase,team_a_id,team_b_id,score_a,score_b)
-  values ('aaaaaaaa-0000-0000-0000-000000000001','7040000a-0000-0000-0000-000000000001','5e550000-0000-0000-0000-000000000001','final','70e00000-0000-0000-0000-00000000000a','70e00000-0000-0000-0000-00000000000b',15,3);
+  values ('aaaaaaaa-0000-0000-0000-000000000001','7040000a-0000-0000-0000-000000000001','5e550000-0000-0000-0000-000000000001','final','70e00000-0000-0000-0000-00000000000a','70e00000-0000-0000-0000-00000000000b',12,4);
   raise exception 'FALHOU: aceitou a mesma partida duas vezes';
 exception when unique_violation then null; end $$;
 

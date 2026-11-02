@@ -59,10 +59,24 @@ Se o número de presentes é ímpar, um jogador fica **em espera** (avulso):
 O serviço gera **100 embaralhamentos** aleatórios, pontua cada um e apresenta as
 **3 melhores** ao organizador. A primeira já vem selecionada.
 
-As duplas são formadas sequencialmente a partir da lista embaralhada
-(1º com 2º, 3º com 4º, …) e depois **reordenadas** para que as duplas com mais
-jogadores prioritários apareçam primeiro — isso define a ordem do chaveamento,
-ou seja, **quem joga a primeira rodada**.
+Antes de formar as duplas, os jogadores prioritários são **sentados nas
+primeiras cadeiras**: um por dupla, em rodízio, e só depois a segunda cadeira de
+cada uma. Com até quatro prioritários eles ficam nas duas duplas do **primeiro
+jogo**; com mais, ocupam o menor número de duplas possível, na frente.
+
+As duplas são então formadas sequencialmente a partir dessa lista (1º com 2º,
+3º com 4º, …) e **reordenadas** para que as duplas com mais jogadores
+prioritários apareçam primeiro — isso define a ordem do chaveamento, ou seja,
+**quem joga a primeira rodada**.
+
+> Só reordenar não bastava, e era um furo: três prioritários caem em três duplas
+> diferentes, a reordenação põe as três na frente, e a terceira fica na terceira
+> dupla — fora do primeiro jogo. Sentar antes de emparelhar é o que entrega a
+> promessa da prioridade.
+>
+> Sentar **um por dupla** (e não dois) é de propósito: grudar dois prioritários
+> num par só repetiria a mesma dupla nas 100 tentativas, inclusive quando ela já
+> tivesse jogado junta hoje.
 
 ### 2.4. Pontuação de uma proposta
 
@@ -127,8 +141,9 @@ entra com vantagem no sorteio seguinte **da mesma sessão**.
 ### 3.3. Efeito da prioridade
 
 1. O jogador prioritário **não é escolhido** como avulso no próximo sorteio.
-2. As duplas que contêm jogadores prioritários são **ordenadas primeiro**, o que
-   as coloca na primeira rodada do chaveamento.
+2. Os prioritários são sentados nas primeiras cadeiras do sorteio (§2.3) e as
+   duplas que os contêm são **ordenadas primeiro** — até quatro prioritários
+   cabem nas duas duplas do primeiro jogo.
 3. A proposta ganha **+20 pontos** se todos os prioritários foram escalados.
 
 ---
@@ -225,7 +240,16 @@ Validações na hora de salvar uma partida:
   **permite salvar**: é o jogo interrompido — acabou o horário da quadra,
   começou a chover —, e isso precisa ser registrável.
 
-A regra inteira mora em `src/app/core/rules/final-score.ts`.
+A regra inteira mora em `src/app/core/rules/final-score.ts` — e também **no
+banco**, no trigger `matches_check_final_score`
+(`supabase/migrations/20261101130000_regra_do_placar.sql`), que lê o
+`point_limit` do campeonato e recusa o mesmo que a tela recusa. A tela é uma
+porta só: aba velha, link antigo, outro cliente ou um `curl` entram pelas
+outras, e placar errado decide quem vai à final.
+
+Na folha de placar a regra também aparece **antes** do erro: o `+` de cada lado
+para no ponto em que o jogo teria acabado (`scoreCeiling`), para não deixar a
+pessoa subir até um placar que o salvar vai recusar.
 
 A diferença de pontos (`pointDifference`) é gravada e é o critério que comanda
 todo o chaveamento.

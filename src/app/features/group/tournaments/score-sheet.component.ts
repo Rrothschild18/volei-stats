@@ -3,7 +3,7 @@ import { BracketMatch } from '../../../core/services/tournament.service';
 import { CorrectionRefusal, LiveTournamentStore } from '../../../core/stores/live-tournament.store';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { phaseLabel } from '../../../core/rules/bracket-phases';
-import { expectedStop, readFinalScore } from '../../../core/rules/final-score';
+import { expectedStop, readFinalScore, scoreCeiling } from '../../../core/rules/final-score';
 import { CORRECTION_WINDOW_MINUTES } from '../../../core/rules/tournament-timing';
 import { Match } from '../../../shared/models';
 import { formatTime } from '../../../shared/utils/date.util';
@@ -109,9 +109,19 @@ import {
                   side.label
                 }}</span>
                 @if (side.teamId === bracket().teamAId) {
-                  <app-stepper label="pontos da primeira dupla" [(value)]="scoreA" [large]="true" />
+                  <app-stepper
+                    label="pontos da primeira dupla"
+                    [(value)]="scoreA"
+                    [max]="maxA()"
+                    [large]="true"
+                  />
                 } @else {
-                  <app-stepper label="pontos da segunda dupla" [(value)]="scoreB" [large]="true" />
+                  <app-stepper
+                    label="pontos da segunda dupla"
+                    [(value)]="scoreB"
+                    [max]="maxB()"
+                    [large]="true"
+                  />
                 }
               </div>
             </app-blueprint>
@@ -251,6 +261,10 @@ export class ScoreSheetComponent {
   );
 
   protected readonly maxScore = computed(() => Math.max(this.scoreA(), this.scoreB()));
+
+  /** Até onde o `+` de cada lado sobe: a regra do jogo, não um número solto. */
+  protected readonly maxA = computed(() => scoreCeiling(this.scoreB(), this.pointLimit()));
+  protected readonly maxB = computed(() => scoreCeiling(this.scoreA(), this.pointLimit()));
 
   /** A leitura da regra: o mesmo veredito que a mensagem e o salvar usam. */
   protected readonly veredito = computed(() =>

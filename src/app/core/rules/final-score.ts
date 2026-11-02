@@ -61,3 +61,19 @@ export function expectedStop(scoreA: number, scoreB: number, limit: number): [nu
   const winner = loser <= limit - 2 ? limit : loser + 2;
   return scoreA >= scoreB ? [winner, loser] : [loser, winner];
 }
+
+/**
+ * Até onde o placar de um lado pode subir, dado o que o outro lado fez.
+ *
+ * É a mesma regra vista do outro lado: em vez de julgar um placar pronto, diz
+ * onde o `+` da folha para. Com o adversário longe do limite, o teto é o
+ * próprio limite — 13 × 0 num campeonato de 12 é um jogo que teria acabado em
+ * 12 × 0. Com o adversário a um ponto do limite ou além, o jogo está no
+ * empurrado do empate, e o teto anda junto: dois acima de quem está atrás.
+ *
+ * O passo intermediário continua permitido: em 12 × 11 o `+` não some, ele leva
+ * a 13 × 11. O que não dá é PARAR num placar que não existiu.
+ */
+export function scoreCeiling(other: number, limit: number): number {
+  return other >= limit - 1 ? other + 2 : limit;
+}

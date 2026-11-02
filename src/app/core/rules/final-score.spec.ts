@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expectedStop, readFinalScore } from './final-score';
+import { expectedStop, readFinalScore, scoreCeiling } from './final-score';
 
 /** O limite padrão do app, e o que quase todo campeonato usa. */
 const LIMITE = 12;
@@ -61,5 +61,34 @@ describe('expectedStop', () => {
   it('e, no empurrado, nos dois pontos acima do perdedor', () => {
     expect(expectedStop(14, 11, LIMITE)).toEqual([13, 11]);
     expect(expectedStop(12, 11, LIMITE)).toEqual([13, 11]);
+  });
+});
+
+describe('scoreCeiling', () => {
+  it('com o adversário longe do limite, o teto é o limite', () => {
+    expect(scoreCeiling(0, LIMITE)).toBe(12);
+    expect(scoreCeiling(9, LIMITE)).toBe(12);
+    expect(scoreCeiling(10, LIMITE)).toBe(12);
+  });
+
+  it('a um ponto do limite, o jogo entra no empurrado e o teto anda junto', () => {
+    expect(scoreCeiling(11, LIMITE)).toBe(13);
+    expect(scoreCeiling(12, LIMITE)).toBe(14);
+    expect(scoreCeiling(16, LIMITE)).toBe(18);
+  });
+
+  it('o teto deixa passar pelo placar intermediário', () => {
+    // Em 12 × 11 o `+` não some: ele leva a 13 × 11, que é fim de jogo.
+    expect(readFinalScore(12, 11, LIMITE)).toBe('needs-two');
+    expect(scoreCeiling(11, LIMITE)).toBeGreaterThan(12);
+  });
+
+  it('e nunca deixa parar num placar que não existiu', () => {
+    // Todo placar no teto, ou abaixo dele, é salvável ou é pergunta.
+    for (let outro = 0; outro <= 20; outro += 1) {
+      const teto = scoreCeiling(outro, LIMITE);
+      expect(readFinalScore(teto, outro, LIMITE), `${teto} × ${outro}`).not.toBe('past-limit');
+      expect(readFinalScore(teto + 1, outro, LIMITE), `${teto + 1} × ${outro}`).toBe('past-limit');
+    }
   });
 });
