@@ -8,7 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint",
-    "build:gh": "ng build --base-href /volei-stats/",
+    "build:gh": "ng build --base-href /",
     "test:e2e": "playwright test",
     "test:sql": "./supabase/tests/run.sh",
     "test:scripts": "vitest run --config vitest.scripts.config.mjs",
