@@ -6,7 +6,7 @@ percebe o número errado. O prazo aumenta.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** needs-info — falta o número
+**Status:** done — 12 horas
 
 ## O que já existe (e já é 30 min)
 
@@ -71,11 +71,32 @@ Passado o prazo, o dono continua podendo **excluir** o campeonato — é a saíd
 registrada no ticket 35 para um resultado que ninguém pode mais consertar. O
 ticket 45 estende esse excluir para o campeonato em andamento.
 
-- [ ] **Decidir o número** (recomendação: 12 h = 720 min)
-- [ ] `CORRECTION_WINDOW_MINUTES` atualizado
-- [ ] Migration nova com `create or replace function correct_match_score`, mesmo
+- [x] **Decidir o número**: 12 h = 720 min
+- [x] `CORRECTION_WINDOW_MINUTES` atualizado
+- [x] Migration nova com `create or replace function correct_match_score`, mesmo
       número e mesma mensagem
-- [ ] `supabase/tests/05-correcao-de-placar.sql` conferindo o prazo novo
-- [ ] `tournament-timing.spec.ts` atualizado
-- [ ] Conferir que a frase da tela mostra o número novo sem edição manual
+- [x] `supabase/tests/05-correcao-de-placar.sql` conferindo o prazo novo
+- [x] `tournament-timing.spec.ts` atualizado
+- [x] Conferir que a frase da tela mostra o número novo sem edição manual
 - [ ] **Humano:** aplicar a migration na nuvem antes do deploy
+
+## Comments
+
+Prazo novo: **12 horas** (`CORRECTION_WINDOW_MINUTES = 12 * 60`), a mesma régua
+de `HORAS_ATE_DESISTIR`. Cobre a noite e a manhã seguinte e para antes de
+qualquer outro dia de jogo — o teste "o prazo nunca alcança a sessão da semana
+seguinte" é quem guarda isso.
+
+Uma coisa que o ticket não previa: a frase da tela interpolava **minutos**
+("Placar só até 30 min depois do fim"), e "720 min" não é coisa que se diga.
+Entrou `CORRECTION_WINDOW_LABEL`, que é o prazo passado por `formatDuration` —
+"12h" — e as duas telas (classificação e folha de placar) passaram a usar ele.
+Assim o número continua vindo de um lugar só.
+
+A migration nova é `20261117120000_prazo_de_correcao_de_doze_horas.sql`: um
+`create or replace` da função inteira, porque migration publicada não se edita.
+A suíte SQL passou a conferir 12h01 (recusa) e 11h59 (passa), e roda verde.
+
+O portão do ticket 41 (`scripts/checar-migrations.mjs`) pega esta migration
+sozinho — ele compara o que está no repositório com o que a nuvem aplicou —,
+então o deploy vai parar enquanto ela não for aplicada à mão no SQL Editor.

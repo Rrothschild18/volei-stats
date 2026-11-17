@@ -4,7 +4,7 @@ import { CorrectionRefusal, LiveTournamentStore } from '../../../core/stores/liv
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { phaseLabel } from '../../../core/rules/bracket-phases';
 import { expectedStop, readFinalScore, scoreCeiling } from '../../../core/rules/final-score';
-import { CORRECTION_WINDOW_MINUTES } from '../../../core/rules/tournament-timing';
+import { CORRECTION_WINDOW_LABEL } from '../../../core/rules/tournament-timing';
 import { Match } from '../../../shared/models';
 import { formatTime } from '../../../shared/utils/date.util';
 import {
@@ -224,7 +224,7 @@ export class ScoreSheetComponent {
   protected readonly refusalMessage = computed(() => {
     switch (this.refusal()) {
       case 'window-closed':
-        return `Este campeonato fechou. Placar só até ${CORRECTION_WINDOW_MINUTES} min depois do fim.`;
+        return `Este campeonato fechou. Placar só até ${CORRECTION_WINDOW_LABEL} depois do fim.`;
       case 'not-found':
         return 'Esta partida não existe mais.';
       default:

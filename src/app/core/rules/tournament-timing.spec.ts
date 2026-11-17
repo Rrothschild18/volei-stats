@@ -93,20 +93,27 @@ describe('correctionWindowOpen', () => {
     expect(correctionWindowOpen(timing, '2026-11-20T10:00:00.000Z')).toBe(true);
   });
 
-  it('dentro dos 30 min depois da final, corrigir vale', () => {
-    expect(correctionWindowOpen(comFinal(FINAL), '2026-10-27T00:09:00.000Z')).toBe(true);
+  it('na mesma noite, horas depois da final, corrigir vale', () => {
+    // A final saiu 23h40. Às 6h da manhã ainda dá: é a mesma noite de jogo.
+    expect(correctionWindowOpen(comFinal(FINAL), '2026-10-27T06:00:00.000Z')).toBe(true);
   });
 
-  it('nos 30 min exatos ainda vale', () => {
-    expect(correctionWindowOpen(comFinal(FINAL), '2026-10-27T00:10:00.000Z')).toBe(true);
+  it('nas 12 horas exatas ainda vale', () => {
+    expect(correctionWindowOpen(comFinal(FINAL), '2026-10-27T11:40:00.000Z')).toBe(true);
   });
 
-  it('31 min depois da final, não vale mais', () => {
-    expect(correctionWindowOpen(comFinal(FINAL), '2026-10-27T00:11:00.000Z')).toBe(false);
+  it('12 horas e um minuto depois da final, não vale mais', () => {
+    expect(correctionWindowOpen(comFinal(FINAL), '2026-10-27T11:41:00.000Z')).toBe(false);
   });
 
   it('o prazo conta do fim do campeonato, não de quando a tela abriu', () => {
     // Duas semanas depois: o campeonato já virou ranking de todo mundo.
     expect(correctionWindowOpen(comFinal(FINAL), '2026-11-09T20:00:00.000Z')).toBe(false);
+  });
+
+  it('o prazo nunca alcança a sessão da semana seguinte', () => {
+    // 12 h é a mesma régua de HORAS_ATE_DESISTIR: cobre a noite e a manhã
+    // seguinte, e para antes de qualquer outro dia de jogo.
+    expect(correctionWindowOpen(comFinal(FINAL), '2026-10-28T20:00:00.000Z')).toBe(false);
   });
 });

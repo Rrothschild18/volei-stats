@@ -72,7 +72,7 @@ export class SupabaseMatchRepository extends SupabaseRepositoryBase implements M
    * Vai por `correct_match_score` e não por `update` + `delete` porque apagar
    * partida é do dono, e corrigir é de qualquer jogador. A função é quem
    * reconcilia os dois: ela confere o alcance (mesmo campeonato, nunca a
-   * rodada 1, só a dupla sintética), o prazo dos 30 min, e faz tudo numa
+   * rodada 1, só a dupla sintética), o prazo de correção, e faz tudo numa
    * transação só.
    */
   async correctScore(correction: ScoreCorrection): Promise<void> {

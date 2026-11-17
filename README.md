@@ -136,6 +136,7 @@ existir.
 | `20261031000000_schema_inicial.sql`     | Tudo: tabelas, políticas e as funções de acesso                                                                    |
 | `20261101120000_correcao_de_placar.sql` | `correct_match_score`, que corrige um placar e apaga junto o que o resultado novo derrubou                         |
 | `20261101130000_regra_do_placar.sql`    | O trigger `matches_check_final_score`: limite de pontos com dois de diferença, lendo o `point_limit` do campeonato |
+| `20261117120000_prazo_de_correcao_de_doze_horas.sql` | O prazo para corrigir placar passa de 30 min para 12 h, dentro de `correct_match_score` |
 
 Projeto grátis é pausado após ~7 dias sem acesso, e o vôlei é semanal: o
 workflow `keepalive.yml` faz uma consulta trivial a cada três dias.

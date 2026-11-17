@@ -9,7 +9,7 @@ import { DrawService } from '../../../core/services/draw.service';
 import { TournamentPriorityEntry } from '../../../shared/models';
 import { formatTime } from '../../../shared/utils/date.util';
 import {
-  CORRECTION_WINDOW_MINUTES,
+  CORRECTION_WINDOW_LABEL,
   formatDuration,
   tournamentTiming,
 } from '../../../core/rules/tournament-timing';
@@ -217,7 +217,7 @@ interface StandingRow {
             </button>
           } @else {
             <p class="text-[13px] muted">
-              Este campeonato fechou. Placar só até {{ correctionMinutes }} min depois do fim.
+              Este campeonato fechou. Placar só até {{ correctionWindow }} depois do fim.
             </p>
           }
         }
@@ -308,7 +308,7 @@ export class StandingsComponent implements OnInit {
   readonly tournamentId = input.required<string>();
 
   /** O prazo, para a frase da tela e a recusa da store dizerem o mesmo número. */
-  protected readonly correctionMinutes = CORRECTION_WINDOW_MINUTES;
+  protected readonly correctionWindow = CORRECTION_WINDOW_LABEL;
 
   protected readonly menuOpen = signal(false);
   protected readonly confirmingDelete = signal(false);

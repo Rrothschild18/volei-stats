@@ -137,8 +137,9 @@ function setup(agora: string) {
 describe('LiveTournamentStore.correctScore e o prazo', () => {
   afterEach(() => vi.useRealTimers());
 
-  it('dentro dos 30 min depois da final, a correção é gravada', async () => {
-    const { store, corrections } = setup('2026-10-27T00:05:00.000Z');
+  it('dentro do prazo depois da final, a correção é gravada', async () => {
+    // A final saiu 23h40; são 6h da manhã, ainda dentro das 12 h.
+    const { store, corrections } = setup('2026-10-27T06:00:00.000Z');
     const result = await store.correctScore('m-final', 12, 9, 'rafa');
 
     expect(result.saved).toBe(true);
@@ -147,8 +148,8 @@ describe('LiveTournamentStore.correctScore e o prazo', () => {
     expect(corrections[0].scoreB).toBe(9);
   });
 
-  it('31 min depois do fim, a store recusa — e não grava nada', async () => {
-    const { store, corrections } = setup('2026-10-27T00:11:00.000Z');
+  it('12h01 depois do fim, a store recusa — e não grava nada', async () => {
+    const { store, corrections } = setup('2026-10-27T11:41:00.000Z');
     const result = await store.correctScore('m-final', 12, 9, 'rafa');
 
     expect(result).toEqual({ saved: false, refusal: 'window-closed' });

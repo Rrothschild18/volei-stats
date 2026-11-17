@@ -319,7 +319,7 @@ export class LiveTournamentStore {
   }
 
   /**
-   * Corrigir vale até 30 min depois de o campeonato encerrar?
+   * Corrigir vale até `CORRECTION_WINDOW_MINUTES` depois de o campeonato encerrar?
    *
    * A pergunta é da tela (para esconder o botão) e da gravação (para recusar).
    * Uma condição só, lida pelos dois: se a tela fosse a única guardiã, o estado

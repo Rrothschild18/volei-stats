@@ -69,8 +69,14 @@ export function tournamentTiming(
  * placar?" abria para sempre. Mas um campeonato de duas semanas atrás já virou
  * ranking, prioridade e estatística de todo mundo: mexer nele é reescrever o
  * passado de gente que não está ali.
+ *
+ * Foram 30 minutos, e era pouco: a noite continua, a quadra é devolvida, e o
+ * número errado só aparece quando alguém olha o ranking em casa. São 12 horas —
+ * a mesma régua de `HORAS_ATE_DESISTIR`, que é quando o app já considera que um
+ * campeonato sem final ficou pelo caminho. Cobre a noite e a manhã seguinte, e
+ * para antes de qualquer outro dia de jogo (ticket 43).
  */
-export const CORRECTION_WINDOW_MINUTES = 30;
+export const CORRECTION_WINDOW_MINUTES = 12 * 60;
 
 /**
  * Dá para corrigir um placar deste campeonato agora?
@@ -105,3 +111,12 @@ export function formatDuration(minutes: number): string {
   const resto = minutes % 60;
   return resto === 0 ? `${horas}h` : `${horas}h${String(resto).padStart(2, '0')}`;
 }
+
+/**
+ * O prazo como a tela e o banco o dizem: "12h", e não "720 min".
+ *
+ * Mora aqui, e não em cada tela, porque as duas frases que o mostram precisam
+ * dizer o mesmo que a constante — e, com o prazo em horas, "min" deixou de ser
+ * a unidade honesta.
+ */
+export const CORRECTION_WINDOW_LABEL = formatDuration(CORRECTION_WINDOW_MINUTES);

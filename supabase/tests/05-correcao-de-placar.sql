@@ -258,7 +258,7 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
-update matches set played_at = now() - interval '31 minutes'
+update matches set played_at = now() - interval '12 hours 1 minute'
 where id = (select m_final from ids);
 commit;
 
@@ -272,7 +272,7 @@ begin
     perform correct_match_score((select m_round1 from ids), 1, 12);
   exception when others then ok := true;
   end;
-  perform assert(ok, '31 min depois do fim, o banco recusa a correção');
+  perform assert(ok, '12h01 depois do fim, o banco recusa a correção');
 end $$;
 select assert(
   (select score_b from matches where id = (select m_round1 from ids)) = 10,
@@ -283,7 +283,7 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
-update matches set played_at = now() - interval '29 minutes'
+update matches set played_at = now() - interval '11 hours 59 minutes'
 where id = (select m_final from ids);
 commit;
 
@@ -293,7 +293,7 @@ set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 select correct_match_score((select m_round1 from ids), 12, 4);
 select assert(
   (select score_b from matches where id = (select m_round1 from ids)) = 4,
-  '29 min depois do fim ainda dá para corrigir');
+  '11h59 depois do fim ainda dá para corrigir');
 commit;
 
 -- Sem final lançada, corrigir vale sem prazo: o campeonato está rolando.
