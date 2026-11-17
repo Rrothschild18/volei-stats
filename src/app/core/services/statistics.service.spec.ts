@@ -143,3 +143,104 @@ describe('StatisticsService — recorte por grupo', () => {
     expect(dashboard.totalDraws).toBe(1);
   });
 });
+
+function match(id: string, sessionId: string, winner: 'a' | 'b'): Match {
+  return {
+    id,
+    tournamentId: 't-d1',
+    sessionId,
+    phase: 'final',
+    teamAId: 'team-1',
+    teamBId: 'team-2',
+    scoreA: winner === 'a' ? 12 : 7,
+    scoreB: winner === 'a' ? 7 : 12,
+    winnerId: winner === 'a' ? 'team-1' : 'team-2',
+    loserId: winner === 'a' ? 'team-2' : 'team-1',
+    pointDifference: 5,
+    playedAt: '2026-10-26T22:30:00.000Z',
+    reportedBy: null,
+    correctedBy: null,
+    correctedAt: null,
+    createdAt: '2026-10-26T22:30:00.000Z',
+  };
+}
+
+/** O mesmo campeonato com as duas duplas, em uma noite escolhida. */
+function tournamentNaNoite(id: string, sessionId: string): Tournament {
+  return {
+    ...tournamentWith('d1', null),
+    id,
+    sessionId,
+    teams: [
+      {
+        id: 'team-1',
+        playerIds: ['caio', 'rafa'],
+        eliminated: false,
+        eliminatedDirectly: false,
+        synthetic: false,
+        originalPlayerIds: null,
+      },
+      {
+        id: 'team-2',
+        playerIds: ['malu', 'caio'],
+        eliminated: false,
+        eliminatedDirectly: false,
+        synthetic: false,
+        originalPlayerIds: null,
+      },
+    ],
+  };
+}
+
+describe('StatisticsService — a conta por noite (ticket 04)', () => {
+  it('dá uma linha por noite, com a vitória na noite certa', async () => {
+    const service = setup(
+      [],
+      [tournamentNaNoite('t-n1', 's1'), tournamentNaNoite('t-n2', 's2')],
+      [match('m1', 's1', 'a'), match('m2', 's2', 'b')],
+    );
+
+    const rows = await service.getPlayerSessionStats();
+    const rafa = rows.filter((row) => row.playerId === 'rafa');
+
+    expect(rafa).toHaveLength(2);
+    expect(rafa.find((row) => row.sessionId === 's1')).toMatchObject({ wins: 1, losses: 0 });
+    expect(rafa.find((row) => row.sessionId === 's2')).toMatchObject({ wins: 0, losses: 1 });
+  });
+
+  it('a soma das noites bate com o total de todos os tempos', async () => {
+    const service = setup(
+      [draw('d1', true, 'malu')],
+      [tournamentNaNoite('t-n1', 's1'), tournamentNaNoite('t-n2', 's2')],
+      [match('m1', 's1', 'a'), match('m2', 's2', 'b')],
+    );
+
+    const [porNoite, total] = await Promise.all([
+      service.getPlayerSessionStats(),
+      service.getAllPlayerStats({ includeWithoutGames: true }),
+    ]);
+
+    for (const entry of total) {
+      const noites = porNoite.filter((row) => row.playerId === entry.playerId);
+      const jogos = noites.reduce((soma, row) => soma + row.gamesPlayed, 0);
+      const esperas = noites.reduce((soma, row) => soma + row.timesWaited, 0);
+
+      expect(jogos).toBe(entry.gamesPlayed);
+      expect(esperas).toBe(entry.timesWaited);
+    }
+  });
+
+  it('a mesma dupla em noites diferentes vem em linhas separadas', async () => {
+    const service = setup(
+      [],
+      [tournamentNaNoite('t-n1', 's1'), tournamentNaNoite('t-n2', 's2')],
+      [match('m1', 's1', 'a'), match('m2', 's2', 'a')],
+    );
+
+    const rows = await service.getTeamSessionStats();
+    const caioRafa = rows.filter((row) => row.playerIds.join('|') === 'caio|rafa');
+
+    expect(caioRafa.map((row) => row.sessionId).sort()).toEqual(['s1', 's2']);
+    expect(caioRafa.every((row) => row.wins === 1)).toBe(true);
+  });
+});

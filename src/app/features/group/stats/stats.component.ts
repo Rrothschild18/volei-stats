@@ -6,7 +6,20 @@ import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { StatsRepository } from '../../../core/repositories';
 import { phaseLabel } from '../../../core/rules/bracket-phases';
 import { byPlayerWins, byTeamWins } from '../../../core/rules/stats-order';
-import { Match, Player, PlayerStats, Session, TeamStats, Tournament } from '../../../shared/models';
+import {
+  JANELA_PADRAO,
+  lastSessionIds,
+  sumPlayerStats,
+  sumTeamStats,
+} from '../../../core/rules/stats-window';
+import {
+  Match,
+  Player,
+  PlayerSessionStats,
+  Session,
+  TeamSessionStats,
+  Tournament,
+} from '../../../shared/models';
 import {
   daysBetween,
   formatShortDate,
@@ -24,6 +37,8 @@ import {
 } from '../../../shared/ui';
 
 type Tab = 'individual' | 'teams' | 'matches';
+/** O recorte do mural: as últimas noites, ou o vôlei inteiro. */
+type Janela = 'recente' | 'tudo';
 type Period = 'today' | '7' | '30' | 'all';
 
 interface MatchRow {
@@ -94,6 +109,23 @@ interface MatchGroup {
         <app-skeleton [rows]="8" label="Somando as estatísticas do vôlei…" />
       </div>
     } @else {
+      <!--
+        O recorte vale para as duas tabelas de números. A aba de partidas tem o
+        filtro de período dela, que é outra pergunta — "quais jogos", não
+        "quais noites contam no mural".
+      -->
+      @if (tab() !== 'matches') {
+        <div class="flex flex-col gap-2 px-4 pt-4">
+          <app-segmented
+            [options]="janelas"
+            [value]="janela()"
+            (valueChange)="janela.set($any($event))"
+            [tabs]="false"
+          />
+          <p class="text-[12px] muted" aria-live="polite">{{ recorte() }}</p>
+        </div>
+      }
+
       @switch (tab()) {
         @case ('individual') {
           <table class="w-full border-collapse">
@@ -244,12 +276,18 @@ export class StatsComponent implements OnInit {
   protected readonly carregando = signal(true);
   protected readonly tab = signal<Tab>('individual');
   protected readonly period = signal<Period>('today');
+  protected readonly janela = signal<Janela>('recente');
   protected readonly playerFilter = signal<string | null>(null);
 
   protected readonly tabs = [
     { id: 'individual', label: 'Individual' },
     { id: 'teams', label: 'Duplas' },
     { id: 'matches', label: 'Partidas' },
+  ];
+
+  protected readonly janelas = [
+    { id: 'recente', label: `Últimas ${JANELA_PADRAO} noites` },
+    { id: 'tudo', label: 'Desde sempre' },
   ];
 
   protected readonly periods = [
@@ -261,8 +299,8 @@ export class StatsComponent implements OnInit {
 
   private readonly players = signal<readonly Player[]>([]);
   private readonly groupPlayerIds = signal<ReadonlySet<string>>(new Set());
-  private readonly playerStats = signal<readonly PlayerStats[]>([]);
-  private readonly teamStats = signal<readonly TeamStats[]>([]);
+  private readonly playerSessionStats = signal<readonly PlayerSessionStats[]>([]);
+  private readonly teamSessionStats = signal<readonly TeamSessionStats[]>([]);
   private readonly sessions = signal<readonly Session[]>([]);
   private readonly tournaments = signal<readonly Tournament[]>([]);
   private readonly matches = signal<readonly Match[]>([]);
@@ -276,13 +314,26 @@ export class StatsComponent implements OnInit {
     () => new Map(this.players().map((player) => [player.id, player.name])),
   );
 
+  /**
+   * As noites que contam agora: as últimas, ou todas. Nulo é "desde sempre" —
+   * é o que `sumPlayerStats` entende como histórico inteiro.
+   */
+  private readonly janelaIds = computed(() =>
+    this.janela() === 'tudo' ? null : lastSessionIds(this.sessions(), JANELA_PADRAO),
+  );
+
+  /** Quantas noites a janela de fato pegou: num vôlei novo são menos de 4. */
+  protected readonly noitesNaJanela = computed(
+    () => this.janelaIds()?.size ?? this.sessions().length,
+  );
+
   protected readonly individual = computed(() => {
     const names = this.namesById();
     const inGroup = this.groupPlayerIds();
     const me = this.group.playerId();
 
-    return this.playerStats()
-      .filter((stats) => inGroup.has(stats.playerId))
+    return sumPlayerStats(this.playerSessionStats(), this.janelaIds())
+      .filter((stats) => inGroup.has(stats.playerId) && stats.gamesPlayed > 0)
       .sort(byPlayerWins((playerId) => names.get(playerId) ?? ''))
       .map((stats) => ({
         stats,
@@ -295,8 +346,10 @@ export class StatsComponent implements OnInit {
     const inGroup = this.groupPlayerIds();
     const me = this.group.playerId();
 
+    const names = this.namesById();
+
     return (
-      this.teamStats()
+      sumTeamStats(this.teamSessionStats(), this.janelaIds(), (id) => names.get(id) ?? '?')
         .filter((stats) => stats.playerIds.every((id) => inGroup.has(id)))
         // Sem o corte de 3 jogos: ordenada por vitórias, a dupla que jogou uma
         // vez e venceu não lidera nada, e esconder quem jogou pouco era o jeito
@@ -309,6 +362,20 @@ export class StatsComponent implements OnInit {
           isMine: me !== null && stats.playerIds.includes(me),
         }))
     );
+  });
+
+  /** O que está somado na tela agora, dito em palavras. */
+  protected readonly recorte = computed(() => {
+    const noites = this.noitesNaJanela();
+    const plural = noites === 1 ? 'noite' : 'noites';
+
+    if (this.janela() === 'tudo') {
+      return `Somando todo o histórico do vôlei: ${noites} ${plural}.`;
+    }
+
+    return noites < JANELA_PADRAO
+      ? `Somando as ${noites} ${plural} que o vôlei tem.`
+      : `Somando as últimas ${JANELA_PADRAO} noites.`;
   });
 
   protected readonly playerFilterLabel = computed(() => {
@@ -432,15 +499,15 @@ export class StatsComponent implements OnInit {
     // para parar de fazer.
     const [groupPlayers, playerStats, teamStats, sessions] = await Promise.all([
       this.facade.getPlayersByGroupId(groupId),
-      this.stats.playerStats(groupId),
-      this.stats.teamStats(groupId),
+      this.stats.playerSessionStats(groupId),
+      this.stats.teamSessionStats(groupId),
       this.facade.getSessionsByGroupId(groupId),
     ]);
 
     this.players.set(groupPlayers);
     this.groupPlayerIds.set(new Set(groupPlayers.map((player) => player.id)));
-    this.playerStats.set(playerStats);
-    this.teamStats.set(teamStats);
+    this.playerSessionStats.set(playerStats);
+    this.teamSessionStats.set(teamStats);
     this.sessions.set(sessions);
 
     const sessionIds = new Set(sessions.map((session) => session.id));

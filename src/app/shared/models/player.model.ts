@@ -26,3 +26,19 @@ export interface PlayerStats {
   timesWaited: number;
   winPercentage: number;
 }
+
+/**
+ * O mesmo que `PlayerStats`, porém de UMA noite.
+ *
+ * É a linha que a janela soma: sem ela, a única coisa que o banco sabia
+ * devolver era o total de todos os tempos, e "últimas 4 noites" não teria de
+ * onde sair. Não traz aproveitamento de propósito — porcentagem não se soma.
+ */
+export interface PlayerSessionStats {
+  sessionId: string;
+  playerId: string;
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  timesWaited: number;
+}

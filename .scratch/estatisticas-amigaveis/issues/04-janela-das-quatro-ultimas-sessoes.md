@@ -7,7 +7,7 @@ quem jogou muito bem numa noite mantém os números melhores até aquela sessão
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (migration ainda não aplicada na nuvem)
 
 ## Por que não é só trabalho de front
 
@@ -74,11 +74,52 @@ sequência histórica (recorde) é outra coisa e não expira.
 Vai à nuvem por comando, não pela esteira: `supabase db push --linked`
 (README §deploy). Como é view nova, `--dry-run` primeiro.
 
-- [ ] View `player_session_stats` (e a de duplas, se preciso)
-- [ ] `StatsRepository` lê por sessão e soma no cliente
-- [ ] `StatsScope` montado com as 4 últimas sessões
-- [ ] Botão "Últimas 4 noites" / "Desde sempre", com o recorte visível na tela
-- [ ] Dupla do coração ignora a janela
-- [ ] Sequência viva expira na última noite jogada; recorde não
-- [ ] Teste SQL da view nova (`supabase/tests/`)
-- [ ] Grupo com menos de 4 sessões: a janela é o que existe, sem erro
+- [x] View `player_session_stats` (e `team_session_stats`)
+- [x] `StatsRepository` lê por sessão e soma no cliente
+- [x] A janela montada com as 4 últimas sessões (`lastSessionIds`)
+- [x] Botão "Últimas 4 noites" / "Desde sempre", com o recorte visível na tela
+- [ ] Dupla do coração ignora a janela — **não há cartão de dupla do coração
+      ainda**; a regra vale quando o ticket 06 o construir
+- [ ] Sequência viva expira na última noite jogada — **nenhuma tela mostra
+      sequência ainda**; sai com o ticket 02 (sessão) e o 06 (recorde)
+- [x] Teste SQL das views novas (`supabase/tests/09-estatisticas-por-sessao.sql`)
+- [x] Grupo com menos de 4 sessões: a janela é o que existe, sem erro
+- [x] e2e: a janela é o padrão, e "desde sempre" aumenta os números
+
+## Comments
+
+### A migration NÃO foi aplicada na nuvem
+
+`pnpm deploy:check` vai recusar o deploy até alguém rodar
+`supabase db push --linked` (com `--dry-run` antes). Aplicar schema em produção
+é decisão do dono, não de quem escreve o ticket.
+
+Local: aplicada por `supabase db reset`, e os tipos de
+`src/app/core/supabase/database.types.ts` foram regerados com
+`supabase gen types typescript --local` — o diff são só as duas views, 34
+linhas.
+
+### Por que `full join` entre jogos e esperas
+
+Quem passou a noite inteira esperando não tem partida nenhuma naquela noite. Com
+`left join` a partir dos jogos, essa pessoa sumiria da conta de esperas — que é
+justamente a única coisa que a noite dela teria a mostrar.
+
+### O aproveitamento não vem do banco nas views novas
+
+Porcentagem não se soma: a média de quatro noites não é o aproveitamento das
+quatro juntas. As views trazem jogos, vitórias e derrotas; quem junta a janela
+recalcula o `%` do total (`sumPlayerStats`).
+
+### Duas contagens que precisam concordar
+
+As views antigas (`player_stats`, `team_stats`) continuam existindo e somam tudo
+— o perfil do jogador e o cartão do vôlei usam elas. O teste SQL confere que a
+soma das noites bate com o total de todos os tempos; sem isso, duas telas dariam
+números diferentes para a mesma pessoa.
+
+### O que ficou de fora, de propósito
+
+O perfil do jogador continua mostrando o total de todos os tempos, sem o
+controle de janela. É coerente dentro da tela (todos os números dele são
+all-time), mas vale decidir no ticket 06 se o perfil também ganha o recorte.

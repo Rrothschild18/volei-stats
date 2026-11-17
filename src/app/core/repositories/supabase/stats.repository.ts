@@ -1,5 +1,10 @@
 import { Injectable } from '@angular/core';
-import { PlayerStats, TeamStats } from '../../../shared/models';
+import {
+  PlayerSessionStats,
+  PlayerStats,
+  TeamSessionStats,
+  TeamStats,
+} from '../../../shared/models';
 import { StatsRepository } from '../repository.contracts';
 import { SupabaseRepositoryBase } from './supabase-repository.base';
 
@@ -67,5 +72,53 @@ export class SupabaseStatsRepository extends SupabaseRepositoryBase implements S
         winPercentage: row.win_percentage ?? 0,
       };
     });
+  }
+
+  /**
+   * A conta por noite, para a janela das últimas sessões (ticket 04).
+   *
+   * Vem do banco já agrupada por sessão: somar aqui as 4 noites escolhidas é
+   * aritmética de dezenas de linhas, enquanto carregar as partidas para contar
+   * no navegador era o que o §7.12 mandou parar de fazer.
+   */
+  async playerSessionStats(groupId: string): Promise<readonly PlayerSessionStats[]> {
+    const client = await this.rpc();
+    const { data, error } = await client
+      .from('player_session_stats')
+      .select('session_id, player_id, games_played, wins, losses, times_waited')
+      .eq('group_id', groupId);
+
+    if (error) {
+      throw new Error(`Não foi possível ler as estatísticas por noite: ${error.message}`);
+    }
+
+    return (data ?? []).map((row) => ({
+      sessionId: row.session_id ?? '',
+      playerId: row.player_id ?? '',
+      gamesPlayed: row.games_played ?? 0,
+      wins: row.wins ?? 0,
+      losses: row.losses ?? 0,
+      timesWaited: row.times_waited ?? 0,
+    }));
+  }
+
+  async teamSessionStats(groupId: string): Promise<readonly TeamSessionStats[]> {
+    const client = await this.rpc();
+    const { data, error } = await client
+      .from('team_session_stats')
+      .select('session_id, player1_id, player2_id, games_played, wins, losses')
+      .eq('group_id', groupId);
+
+    if (error) {
+      throw new Error(`Não foi possível ler as duplas por noite: ${error.message}`);
+    }
+
+    return (data ?? []).map((row) => ({
+      sessionId: row.session_id ?? '',
+      playerIds: [row.player1_id ?? '', row.player2_id ?? ''] as [string, string],
+      gamesPlayed: row.games_played ?? 0,
+      wins: row.wins ?? 0,
+      losses: row.losses ?? 0,
+    }));
   }
 }

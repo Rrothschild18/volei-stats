@@ -220,7 +220,11 @@ interface Shortcut {
 
           <section class="px-4">
             <app-section-band index="01" label="DESTAQUES DO GRUPO">
-              <button type="button" class="text-[13px] text-accent-700" (click)="go(['estatisticas'])">
+              <button
+                type="button"
+                class="text-[13px] text-accent-700"
+                (click)="go(['estatisticas'])"
+              >
                 Estatísticas
               </button>
             </app-section-band>

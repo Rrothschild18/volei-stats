@@ -5,7 +5,15 @@ import {
   PlayerRepository,
   TournamentRepository,
 } from '../repositories';
-import { DrawProposal, Match, PlayerStats, TeamStats, Tournament } from '../../shared/models';
+import {
+  DrawProposal,
+  Match,
+  PlayerSessionStats,
+  PlayerStats,
+  TeamSessionStats,
+  TeamStats,
+  Tournament,
+} from '../../shared/models';
 
 /**
  * Recorte de um grupo: a mesma pessoa tem números diferentes em cada vôlei, e
@@ -123,6 +131,120 @@ export class StatisticsService {
     }
 
     return stats;
+  }
+
+  /**
+   * A mesma conta de `getAllPlayerStats`, quebrada por noite — o que a janela
+   * das últimas sessões soma (ticket 04). No banco isto é a view
+   * `player_session_stats`; aqui é a mesma varredura, agrupando por sessão.
+   *
+   * Sem aproveitamento de propósito: porcentagem não se soma, e quem junta as
+   * noites recalcula do total (`sumPlayerStats`).
+   */
+  async getPlayerSessionStats(scope?: StatsScope): Promise<PlayerSessionStats[]> {
+    const [matches, tournaments, draws] = await Promise.all([
+      this.matchRepo.getAll(),
+      this.tournamentRepo.getAll(),
+      this.drawRepo.getAll(),
+    ]);
+
+    const teamsById = this.indexTeams(tournaments, scope);
+    const rows = new Map<string, PlayerSessionStats>();
+    const entry = (sessionId: string, playerId: string): PlayerSessionStats => {
+      const key = `${sessionId}|${playerId}`;
+      let row = rows.get(key);
+      if (!row) {
+        row = { sessionId, playerId, gamesPlayed: 0, wins: 0, losses: 0, timesWaited: 0 };
+        rows.set(key, row);
+      }
+      return row;
+    };
+
+    for (const match of matches) {
+      if (!match.winnerId || (scope && !scope.sessionIds.has(match.sessionId))) {
+        continue;
+      }
+
+      for (const teamId of [match.teamAId, match.teamBId]) {
+        for (const playerId of teamsById.get(teamId) ?? []) {
+          if (scope && !scope.playerIds.has(playerId)) {
+            continue;
+          }
+          const row = entry(match.sessionId, playerId);
+          row.gamesPlayed++;
+          if (match.winnerId === teamId) {
+            row.wins++;
+          } else {
+            row.losses++;
+          }
+        }
+      }
+    }
+
+    // Só o sorteio escolhido conta espera: as três propostas são a mesma
+    // espera (§7.6). Quem só esperou aparece com zero jogo, e é de propósito —
+    // é a única coisa que a noite dele tem a mostrar.
+    for (const draw of draws) {
+      if (!draw.selected || !draw.waitingPlayerId) {
+        continue;
+      }
+      if (
+        scope &&
+        (!scope.sessionIds.has(draw.sessionId) || !scope.playerIds.has(draw.waitingPlayerId))
+      ) {
+        continue;
+      }
+      entry(draw.sessionId, draw.waitingPlayerId).timesWaited++;
+    }
+
+    return [...rows.values()];
+  }
+
+  /** O mesmo por dupla, identificada pelo PAR de jogadores. */
+  async getTeamSessionStats(scope?: StatsScope): Promise<TeamSessionStats[]> {
+    const [matches, tournaments] = await Promise.all([
+      this.matchRepo.getAll(),
+      this.tournamentRepo.getAll(),
+    ]);
+
+    const teamsById = this.indexTeams(tournaments, scope);
+    const rows = new Map<string, TeamSessionStats>();
+
+    for (const match of matches) {
+      if (!match.winnerId || (scope && !scope.sessionIds.has(match.sessionId))) {
+        continue;
+      }
+
+      for (const teamId of [match.teamAId, match.teamBId]) {
+        const playerIds = teamsById.get(teamId);
+        if (!playerIds) {
+          continue;
+        }
+
+        const pair = [...playerIds].sort() as [string, string];
+        const key = `${match.sessionId}|${pair.join('|')}`;
+        let row = rows.get(key);
+        if (!row) {
+          row = {
+            sessionId: match.sessionId,
+            playerIds: pair,
+            gamesPlayed: 0,
+            wins: 0,
+            losses: 0,
+          };
+          rows.set(key, row);
+        }
+
+        row.gamesPlayed++;
+        if (match.winnerId === teamId) {
+          row.wins++;
+        } else {
+          row.losses++;
+        }
+      }
+    }
+
+    return [...rows.values()];
   }
 
   async getTeamStats(scope?: StatsScope): Promise<TeamStats[]> {

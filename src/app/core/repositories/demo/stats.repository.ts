@@ -1,5 +1,10 @@
 import { Injectable, inject } from '@angular/core';
-import { PlayerStats, TeamStats } from '../../../shared/models';
+import {
+  PlayerSessionStats,
+  PlayerStats,
+  TeamSessionStats,
+  TeamStats,
+} from '../../../shared/models';
 import { AppFacade } from '../../facade/app.facade';
 import { StatisticsService } from '../../services/statistics.service';
 import { StatsRepository } from '../repository.contracts';
@@ -22,5 +27,15 @@ export class DemoStatsRepository extends StatsRepository {
   override async teamStats(groupId: string): Promise<readonly TeamStats[]> {
     const scope = await this.facade.getGroupScope(groupId);
     return this.statistics.getTeamStats(scope);
+  }
+
+  override async playerSessionStats(groupId: string): Promise<readonly PlayerSessionStats[]> {
+    const scope = await this.facade.getGroupScope(groupId);
+    return this.statistics.getPlayerSessionStats(scope);
+  }
+
+  override async teamSessionStats(groupId: string): Promise<readonly TeamSessionStats[]> {
+    const scope = await this.facade.getGroupScope(groupId);
+    return this.statistics.getTeamSessionStats(scope);
   }
 }

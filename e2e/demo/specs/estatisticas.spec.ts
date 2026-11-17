@@ -52,6 +52,26 @@ test.describe('estatísticas', () => {
     expect(vitorias).toEqual([...vitorias].sort((a, b) => b - a));
   });
 
+  test('a janela padrão são as últimas noites, e o botão abre o histórico', async ({
+    page,
+    grupo,
+  }) => {
+    await grupo.abrir('estatisticas');
+
+    await expect(page.getByText('Somando as últimas 4 noites.')).toBeVisible();
+    const recente = await coluna(page, 2);
+
+    await page.getByRole('button', { name: 'Desde sempre' }).click();
+
+    await expect(page.getByText(/Somando todo o histórico/)).toBeVisible();
+    const tudo = await coluna(page, 2);
+
+    // O vôlei do demo tem meses de histórico: o total tem de ser maior que a
+    // janela. Se fossem iguais, o recorte não estaria sendo aplicado.
+    const soma = (valores: number[]) => valores.reduce((a, b) => a + b, 0);
+    expect(soma(tudo)).toBeGreaterThan(soma(recente));
+  });
+
   test('a aba Partidas lista o histórico de jogos', async ({ page, grupo }) => {
     await grupo.abrir('estatisticas');
     await expect(page.getByRole('tab', { name: 'Individual' })).toBeVisible();

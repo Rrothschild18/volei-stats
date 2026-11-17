@@ -195,10 +195,11 @@ export class GroupsStore {
     );
     const ranked = [...tally.entries()]
       .filter(([, entry]) => entry.games > 0)
-      .sort(([idA, a], [idB, b]) =>
-        b.wins - a.wins ||
-        b.games - a.games ||
-        (names.get(idA) ?? '').localeCompare(names.get(idB) ?? ''),
+      .sort(
+        ([idA, a], [idB, b]) =>
+          b.wins - a.wins ||
+          b.games - a.games ||
+          (names.get(idA) ?? '').localeCompare(names.get(idB) ?? ''),
       );
 
     const index = ranked.findIndex(([id]) => id === playerId);

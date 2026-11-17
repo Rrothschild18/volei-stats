@@ -1053,6 +1053,19 @@ export type Database = {
           },
         ];
       };
+      player_session_stats: {
+        Row: {
+          games_played: number | null;
+          group_id: string | null;
+          losses: number | null;
+          player_id: string | null;
+          session_id: string | null;
+          times_waited: number | null;
+          wins: number | null;
+        };
+        ComputedFields: never;
+        Relationships: [];
+      };
       player_stats: {
         Row: {
           games_played: number | null;
@@ -1079,6 +1092,27 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'my_groups';
             referencedColumns: ['id'];
+          },
+        ];
+      };
+      team_session_stats: {
+        Row: {
+          games_played: number | null;
+          group_id: string;
+          losses: number | null;
+          player1_id: string | null;
+          player2_id: string | null;
+          session_id: string;
+          wins: number | null;
+        };
+        ComputedFields: never;
+        Relationships: [
+          {
+            foreignKeyName: 'matches_session_id_group_id_fkey';
+            columns: ['session_id', 'group_id'];
+            isOneToOne: false;
+            referencedRelation: 'sessions';
+            referencedColumns: ['id', 'group_id'];
           },
         ];
       };

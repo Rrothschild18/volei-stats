@@ -63,10 +63,7 @@ describe('byTeamWins', () => {
     const douglasWily = dupla(['Douglas', 'Wily'], 4, 5);
     const sorteDeUmJogo = dupla(['Be', 'Pati'], 1, 1);
 
-    expect([sorteDeUmJogo, douglasWily].sort(byTeamWins())).toEqual([
-      douglasWily,
-      sorteDeUmJogo,
-    ]);
+    expect([sorteDeUmJogo, douglasWily].sort(byTeamWins())).toEqual([douglasWily, sorteDeUmJogo]);
   });
 
   it('empate em vitórias e jogos é desfeito pelo nome da dupla', () => {

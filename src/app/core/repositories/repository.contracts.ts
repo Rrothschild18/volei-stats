@@ -5,8 +5,10 @@ import {
   GroupMember,
   Match,
   Player,
+  PlayerSessionStats,
   PlayerStats,
   Session,
+  TeamSessionStats,
   TeamStats,
   Tournament,
 } from '../../shared/models';
@@ -105,4 +107,11 @@ export abstract class MatchRepository {
 export abstract class StatsRepository {
   abstract playerStats(groupId: string): Promise<readonly PlayerStats[]>;
   abstract teamStats(groupId: string): Promise<readonly TeamStats[]>;
+  /**
+   * A mesma conta, quebrada por noite — é o que a janela das últimas sessões
+   * soma (ticket 04). Vem separado do total porque porcentagem não se soma: o
+   * cliente recalcula o aproveitamento depois de somar as noites.
+   */
+  abstract playerSessionStats(groupId: string): Promise<readonly PlayerSessionStats[]>;
+  abstract teamSessionStats(groupId: string): Promise<readonly TeamSessionStats[]>;
 }
