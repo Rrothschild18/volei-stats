@@ -154,3 +154,22 @@ vê o gesto); o resto está em teste de componente (`team-order-sheet.component.
 travadas sem botão, prévia, o que o salvar emite) e no seam do serviço. Atravessar
 o fluxo inteiro de dono pede uma sessão ao vivo no Vôlei Trabalho na semente,
 que mexeria na contagem de outros testes — fica para quando houver motivo.
+
+### Depois da revisão
+
+Três coisas mudaram, e uma delas era um buraco de verdade:
+
+- **Remontar a chave virou do dono no BANCO**, por gatilho
+  (`20261117140000_remontar_a_chave_e_do_dono.sql`). A política de
+  `tournament_teams` é de jogador e não olha coluna, então a regra "é do dono"
+  vivia só na tela — e a suíte SQL chegou a **fixar** a permissividade, fazendo
+  a reordenação como jogadora. Agora o gatilho recusa a troca de `position` de
+  quem não é dono, e o resto da linha (eliminada, encaixe) continua sendo
+  reescrito por qualquer jogador jogando, que é como o app funciona.
+- **A recusa deixou de ser silenciosa.** A folha aberta num aparelho enquanto
+  alguém lança um placar no outro: a dupla trava, o serviço recusa, e a folha
+  fechava como se tivesse gravado. Agora a store devolve se gravou, a folha fica
+  aberta, volta a mostrar a ordem de verdade e diz o que houve.
+- **A prévia pergunta à chave.** Ela reimplementava "dois a dois" na tela, o que
+  está certo nos formatos de hoje e mentiria no primeiro formato que casasse as
+  duplas de outro jeito. Passou por `generateInitialMatches`, que é quem sabe.

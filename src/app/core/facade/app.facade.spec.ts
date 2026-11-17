@@ -95,7 +95,14 @@ describe('AppFacade.deleteTournament', () => {
         },
         {
           provide: DrawRepository,
-          useValue: { delete: async () => void ordem.push('sorteio') },
+          useValue: {
+            getById: async () => ({ id: 'd1', selected: true }),
+            save: async (draw: unknown) => {
+              ordem.push('sorteio desmarcado');
+              return draw;
+            },
+            delete: async () => void ordem.push('sorteio'),
+          },
         },
         {
           provide: MatchRepository,
@@ -121,6 +128,17 @@ describe('AppFacade.deleteTournament', () => {
 
     return { facade: TestBed.inject(AppFacade), ordem, session };
   }
+
+  it('desmarca o sorteio antes de apagar qualquer coisa', async () => {
+    // Nada aqui é transação. Parando no meio, o que não pode sobrar é um
+    // sorteio escolhido sem campeonato: isso é sorteio pendente, e o app
+    // ofereceria "COMEÇAR O PRÓXIMO" com as duplas recém-apagadas.
+    const { facade, ordem } = setup();
+
+    await facade.deleteTournament('tn');
+
+    expect(ordem[0]).toBe('sorteio desmarcado');
+  });
 
   it('apaga o campeonato antes do sorteio', async () => {
     const { facade, ordem } = setup();

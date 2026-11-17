@@ -229,7 +229,7 @@ function describeTiming(timing: TournamentTiming): string {
     @if (deleting(); as alvo) {
       <app-confirm-dialog
         title="Excluir campeonato?"
-        [message]="deleteMessage()"
+        [message]="deleteError() ?? deleteMessage()"
         [busy]="busy()"
         (confirmed)="remove(alvo)"
         (canceled)="deleting.set(null)"
@@ -278,6 +278,16 @@ export class TournamentListComponent implements OnInit {
   /** O campeonato que está prestes a ser excluído. Nulo é diálogo fechado. */
   protected readonly deleting = signal<string | null>(null);
   protected readonly busy = signal(false);
+  /**
+   * A frase do diálogo, congelada quando ele abre.
+   *
+   * Congelada porque o excluir recarrega a lista ANTES de fechar o diálogo: com
+   * a frase derivada, ela perdia os placares no meio da espera e passava a
+   * dizer outra coisa enquanto a pessoa ainda a estava lendo.
+   */
+  protected readonly deleteMessage = signal('');
+  /** Quando o excluir não deu: a frase fica no diálogo, que não fecha. */
+  protected readonly deleteError = signal<string | null>(null);
 
   protected readonly session = this.sessionStore.session;
   protected readonly present = computed(() => this.sessionStore.present().length);
@@ -441,6 +451,8 @@ export class TournamentListComponent implements OnInit {
    * (ticket 45).
    */
   protected confirmDelete(tournamentId: string): void {
+    this.deleteMessage.set(this.describeDelete(tournamentId));
+    this.deleteError.set(null);
     this.deleting.set(tournamentId);
   }
 
@@ -451,8 +463,7 @@ export class TournamentListComponent implements OnInit {
    * frase genérica escondia: "não tem como desfazer" se lê sem pensar; "os 3
    * placares lançados vão junto" não.
    */
-  protected readonly deleteMessage = computed(() => {
-    const tournamentId = this.deleting();
+  private describeDelete(tournamentId: string): string {
     const partidas = this.sessionStore
       .matches()
       .filter((match) => match.tournamentId === tournamentId).length;
@@ -471,7 +482,7 @@ export class TournamentListComponent implements OnInit {
     const andamento = live ? 'Este campeonato ainda está rolando. ' : '';
 
     return `${andamento}${placares}Ele sai das prioridades do próximo sorteio e das estatísticas de todo mundo. Não tem como desfazer.`;
-  });
+  }
 
   protected async remove(tournamentId: string): Promise<void> {
     if (this.busy()) {
@@ -482,12 +493,22 @@ export class TournamentListComponent implements OnInit {
     // pessoa olhando uma lista que já está sendo refeita, sem saber se deu.
     const groupId = this.group.groupId();
     this.busy.set(true);
+    this.deleteError.set(null);
     try {
       await this.facade.deleteTournament(tournamentId);
+      this.deleting.set(null);
       if (groupId) {
         await this.carregar(groupId);
       }
-      this.deleting.set(null);
+    } catch {
+      // O diálogo FICA, dizendo o que houve. Fechar sem gravar deixaria a
+      // pessoa olhando a lista sem saber se o campeonato foi ou não.
+      this.deleteError.set(
+        'Não deu para excluir. Confira a conexão e tente de novo — nada foi perdido.',
+      );
+      if (groupId) {
+        await this.carregar(groupId).catch(() => undefined);
+      }
     } finally {
       this.busy.set(false);
     }

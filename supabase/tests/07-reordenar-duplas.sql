@@ -77,7 +77,7 @@ commit;
 -- Uma statement só, todas as linhas, posições já trocadas: 2 ↔ 3.
 begin;
 set local role authenticated;
-set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 do $$
 declare ok boolean := true;
 begin
@@ -110,12 +110,45 @@ select assert(
   (select count(*) from tournament_teams where tournament_id = (select tour from ids)) = 4,
   'nenhuma dupla some numa reordenação');
 
--- ===== 3. DUAS DUPLAS NA MESMA POSIÇÃO CONTINUAM PROIBIDAS =====
+-- ===== 3. REMONTAR A CHAVE É DO DONO =====
+-- A tela mostra o gesto só para o dono; isto é o que vale quando a tela não
+-- está no caminho.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update tournament_teams set position = 4 where id = (select ta from ids);
+  exception when others then ok := true;
+  end;
+  perform assert(ok, 'jogadora não muda a ordem das duplas');
+end $$;
+commit;
+
+select assert(
+  (select position from tournament_teams where id = (select ta from ids)) = 1,
+  'e a posição continua a que o dono deixou');
+
+-- O resto da linha continua sendo de jogador: é o app reescrevendo estado
+-- enquanto se joga.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+update tournament_teams set eliminated = true where id = (select ta from ids);
+commit;
+
+select assert(
+  (select eliminated from tournament_teams where id = (select ta from ids)),
+  'jogadora continua marcando dupla eliminada');
+
+-- ===== 4. DUAS DUPLAS NA MESMA POSIÇÃO CONTINUAM PROIBIDAS =====
 -- A trava que torna a reordenação delicada é a mesma que mantém a chave
 -- legível. Ela não pode ter sido afrouxada por engano.
 begin;
 set local role authenticated;
-set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 do $$
 declare ok boolean := false;
 begin

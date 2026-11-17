@@ -261,7 +261,7 @@ interface StandingRow {
     @if (confirmingDelete()) {
       <app-confirm-dialog
         title="Excluir campeonato?"
-        [message]="deleteMessage()"
+        [message]="deleteError() ?? deleteMessage()"
         [busy]="busy()"
         (confirmed)="remove()"
         (canceled)="confirmingDelete.set(false)"
@@ -560,14 +560,21 @@ export class StandingsComponent implements OnInit {
   protected readonly deleteMessage = computed(() => {
     const partidas = this.store.matches().length;
     const placar =
-      partidas === 1 ? 'O placar lançado vai junto.' : `Os ${partidas} placares lançados vão junto.`;
+      partidas === 1
+        ? 'O placar lançado vai junto.'
+        : `Os ${partidas} placares lançados vão junto.`;
     return `${partidas > 0 ? placar + ' ' : ''}Ele sai das prioridades do próximo sorteio e das estatísticas de todo mundo. Não tem como desfazer.`;
   });
+
+  /** Quando o excluir não deu: a frase fica no diálogo, que não fecha. */
+  protected readonly deleteError = signal<string | null>(null);
 
   protected async remove(): Promise<void> {
     if (this.busy()) {
       return;
     }
+
+    this.deleteError.set(null);
 
     // O diálogo fica aberto até o banco responder. Excluir apaga partida por
     // partida, o sorteio e a sessão — fechar antes deixaria a pessoa olhando
@@ -577,6 +584,10 @@ export class StandingsComponent implements OnInit {
       await this.facade.deleteTournament(this.tournamentId());
       this.confirmingDelete.set(false);
       void this.router.navigate(['/g', this.group.groupId(), 'campeonatos']);
+    } catch {
+      this.deleteError.set(
+        'Não deu para excluir. Confira a conexão e tente de novo — nada foi perdido.',
+      );
     } finally {
       this.busy.set(false);
     }

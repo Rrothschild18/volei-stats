@@ -142,3 +142,20 @@ demonstração o Caio só é dono do Vôlei Trabalho, que não tem sessão hoje 
 uma ao Trabalho quebraria "o vôlei com sessão ao vivo hoje vem em destaque", que
 conta com um só. O e2e cobre o **portão** (quem só joga não vê o gesto); o
 resto está em teste de unidade na facade e no caminho SQL.
+
+### Depois da revisão
+
+- **Carga que falha não é campeonato excluído.** A tela ao vivo dizia "foi
+  excluído" para qualquer `tournament` nulo, inclusive o de uma falha de rede —
+  anunciar que o campeonato de alguém sumiu porque o wi-fi da quadra piscou é
+  pior do que não dizer nada. A store passou a registrar a falha, e a tela tem
+  os dois estados, com "tentar de novo" no que é erro.
+- **O excluir que não dá agora diz.** Sem `catch`, o diálogo ficava aberto com o
+  botão ativo e nenhuma explicação. As duas telas (lista e classificação)
+  mostram a frase no próprio diálogo.
+- **O sorteio é desmarcado ANTES de qualquer apagar.** Nada aqui é transação, e
+  a sobra ruim era justamente a que o método existe para evitar: sorteio
+  `selected` sem campeonato é sorteio pendente. Desmarcado primeiro, a pior
+  sobra passa a ser uma linha que ninguém lê.
+- A frase do diálogo é congelada quando ele abre: derivada, ela perdia os
+  placares no meio da espera e trocava de texto enquanto a pessoa lia.

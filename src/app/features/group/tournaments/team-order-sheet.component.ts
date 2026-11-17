@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { LiveTournamentStore } from '../../../core/stores/live-tournament.store';
 import {
   BottomSheetComponent,
@@ -43,6 +43,13 @@ import {
           A ordem é o confronto: a primeira dupla enfrenta a segunda, a terceira a quarta. Mexer
           aqui não grava nada — os confrontos novos aparecem ao lado.
         </p>
+
+        @if (refused()) {
+          <app-inline-note tone="event">
+            A ordem não foi gravada: alguma dupla jogou enquanto esta folha estava aberta. A lista
+            abaixo já é a de agora — refaça a troca.
+          </app-inline-note>
+        }
 
         @if (travadas() > 0) {
           <app-inline-note tone="event">
@@ -140,11 +147,30 @@ export class TeamOrderSheetComponent {
   /** Gravando: vem de fora porque quem grava é a tela do ao vivo. */
   readonly saving = input(false);
 
+  /**
+   * A gravação foi recusada.
+   *
+   * O caso real: a folha está aberta aqui e alguém lança um placar no outro
+   * aparelho. A dupla que acabou de jogar travou, a ordem deixou de valer, e o
+   * serviço recusa. Sem esta frase a folha fechava como se tivesse gravado.
+   */
+  readonly refused = input(false);
+
   readonly closed = output<void>();
   readonly apply = output<string[]>();
 
   /** A ordem em rascunho. Nula enquanto ninguém mexeu em nada. */
   private readonly draft = signal<readonly string[] | null>(null);
+
+  constructor() {
+    // Recusada, a folha volta a mostrar a ordem que está gravada — senão a
+    // frase diria "a lista abaixo já é a de agora" sobre o rascunho recusado.
+    effect(() => {
+      if (this.refused()) {
+        this.draft.set(null);
+      }
+    });
+  }
 
   private readonly order = computed(() => this.store.teamOrder());
 
@@ -154,7 +180,12 @@ export class TeamOrderSheetComponent {
   );
 
   private readonly lockedIds = computed(
-    () => new Set(this.order().filter((slot) => slot.locked).map((slot) => slot.team.id)),
+    () =>
+      new Set(
+        this.order()
+          .filter((slot) => slot.locked)
+          .map((slot) => slot.team.id),
+      ),
   );
 
   protected readonly travadas = computed(() => this.lockedIds().size);
@@ -192,17 +223,18 @@ export class TeamOrderSheetComponent {
 
   /** Os confrontos que a ordem de agora produz, e quais deles mudaram. */
   protected readonly preview = computed(() => {
-    const ids = this.current();
     const gravada = this.order().map((slot) => slot.team.id);
     const antes = new Set(this.pares(gravada));
 
-    return this.pares(ids).map((key) => {
+    return this.pares(this.current()).map((key) => {
       const [a, b] = key.split('|');
       return {
         key,
         label: `${this.store.teamLabel(a)} × ${this.store.teamLabel(b)}`,
         changed: !antes.has(key),
-        played: this.store.matches().some((match) => this.par(match.teamAId, match.teamBId) === key),
+        played: this.store
+          .matches()
+          .some((match) => this.par(match.teamAId, match.teamBId) === key),
       };
     });
   });
@@ -229,21 +261,30 @@ export class TeamOrderSheetComponent {
   /**
    * Com quem a dupla desta posição joga, na ordem dada.
    *
-   * A última dupla de um número ímpar não tem par: ela entra na fase seguinte
-   * sem jogar a rodada inicial, e dizer "joga com ela mesma" seria mentira.
+   * Nem toda dupla tem par: num número ímpar de duplas alguém entra na fase
+   * seguinte sem jogar a rodada inicial, e dizer "joga com ela mesma" seria
+   * mentira.
    */
   private adversarioLabel(ids: readonly string[], index: number): string {
-    const adversario = index % 2 === 0 ? ids[index + 1] : ids[index - 1];
+    const teamId = ids[index];
+    const par = this.pares(ids).find((key) => key.split('|').includes(teamId));
+    const adversario = par?.split('|').find((candidate) => candidate !== teamId);
+
     return adversario ? `joga com ${this.store.teamLabel(adversario)}` : 'entra sem jogar a rodada';
   }
 
-  /** Os pares da rodada inicial, dois a dois. Uma dupla ímpar sobra de fora. */
+  /**
+   * Os pares da rodada inicial nesta ordem, perguntados à CHAVE.
+   *
+   * Não é "dois a dois" escrito aqui: quem sabe que formato casa quem com quem
+   * é `generateInitialMatches`, e há formatos em que ela não gera partida
+   * nenhuma. Uma prévia reescrita na tela estaria certa hoje e mentiria no dia
+   * em que um formato novo entrasse (apontado na revisão do ticket 44).
+   */
   private pares(ids: readonly string[]): string[] {
-    const pares: string[] = [];
-    for (let index = 0; index + 1 < ids.length; index += 2) {
-      pares.push(this.par(ids[index], ids[index + 1]));
-    }
-    return pares;
+    return this.store
+      .previewInitialPairs(ids)
+      .map((bracket) => this.par(bracket.teamAId, bracket.teamBId));
   }
 
   /** O par sem lado: a chave reconhece partida pelas duas duplas, em qualquer ordem. */

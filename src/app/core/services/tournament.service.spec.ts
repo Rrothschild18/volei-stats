@@ -955,11 +955,7 @@ describe('TournamentService.moveInOrder e applyTeamOrder (ticket 44)', () => {
     const { service } = setup([]);
     const entry = tournament({ formatId: 'knockout-6', teams });
 
-    const depois = await service.applyTeamOrder(
-      entry,
-      ['t1', 't3', 't2', 't4', 't5', 't6'],
-      [],
-    );
+    const depois = await service.applyTeamOrder(entry, ['t1', 't3', 't2', 't4', 't5', 't6'], []);
 
     expect(ids(depois.teams)).toEqual(['t1', 't3', 't2', 't4', 't5', 't6', 't7']);
   });

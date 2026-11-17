@@ -129,6 +129,16 @@ export class LiveTournamentStore {
   readonly loading = signal(false);
 
   /**
+   * A carga falhou — rede, banco, qualquer coisa.
+   *
+   * Existe para a tela não confundir as duas formas de não haver campeonato.
+   * Sem isto, uma falha de rede deixava `tournament` nulo e a tela anunciava
+   * que o campeonato tinha sido EXCLUÍDO: dizer a alguém que o campeonato dele
+   * sumiu porque o wi-fi da quadra piscou é pior do que não dizer nada.
+   */
+  readonly loadFailed = signal(false);
+
+  /**
    * O que a última correção derrubou, enquanto a tela não disser.
    *
    * Mora na store, e não numa saída do componente, porque quem precisa falar é
@@ -216,6 +226,7 @@ export class LiveTournamentStore {
 
   async load(tournamentId: string): Promise<void> {
     this.loading.set(true);
+    this.loadFailed.set(false);
     try {
       const tournament = await this.facade.getTournamentById(tournamentId);
       if (!tournament) {
@@ -235,6 +246,11 @@ export class LiveTournamentStore {
       this.players.set(players);
       this.pending.set(await this.resolvePending(tournament));
       this.slots.set(await this.resolveSlots(tournament));
+    } catch {
+      // Engolido de propósito, e registrado num sinal: quem chama é o
+      // `ngOnInit` de uma tela, que não tem como tratar uma promessa rejeitada
+      // — ela viraria erro não tratado no console e tela parada.
+      this.loadFailed.set(true);
     } finally {
       this.loading.set(false);
     }
@@ -504,20 +520,58 @@ export class LiveTournamentStore {
    * Devolve a ordem nova (ids), ou `null` quando o movimento não vale. Quem
    * grava é `applyTeamOrder`, depois de a pessoa ver os confrontos novos.
    */
-  moveInOrder(order: readonly TeamOrderSlot[], teamId: string, direction: TeamMove): string[] | null {
+  moveInOrder(
+    order: readonly TeamOrderSlot[],
+    teamId: string,
+    direction: TeamMove,
+  ): string[] | null {
     const movida = this.tournaments.moveInOrder(order, teamId, direction);
     return movida?.map((team) => team.id) ?? null;
   }
 
-  /** Grava a ordem nova das duplas, e com ela os confrontos novos. */
-  async applyTeamOrder(teamIds: readonly string[]): Promise<void> {
+  /**
+   * Grava a ordem nova das duplas, e com ela os confrontos novos.
+   *
+   * Devolve se gravou. O serviço recusa em silêncio uma ordem que mexe em dupla
+   * travada — e isso acontece de verdade: a folha aberta num aparelho enquanto
+   * alguém lança um placar no outro. Fechar a folha como se tivesse gravado
+   * deixaria a pessoa certa de que remontou a chave.
+   */
+  async applyTeamOrder(teamIds: readonly string[]): Promise<boolean> {
     const tournament = this.tournament();
     if (!tournament) {
-      return;
+      return false;
     }
 
-    await this.tournaments.applyTeamOrder(tournament, teamIds, this.matches());
+    const antes = tournament.teams.map((team) => team.id).join(',');
+    const depois = await this.tournaments.applyTeamOrder(tournament, teamIds, this.matches());
+    const gravou = depois.teams.map((team) => team.id).join(',') !== antes;
+
     await this.reload();
+    return gravou;
+  }
+
+  /**
+   * Os confrontos que uma ordem hipotética produziria.
+   *
+   * Pergunta à própria chave, e não a uma regra reescrita na tela: é
+   * `generateInitialMatches` quem sabe que formato casa quem com quem, e há
+   * formatos em que ela não gera partida nenhuma. Uma prévia inventada na tela
+   * estaria certa hoje e mentiria no dia em que um formato novo entrasse.
+   */
+  previewInitialPairs(teamIds: readonly string[]): BracketMatch[] {
+    const tournament = this.tournament();
+    if (!tournament) {
+      return [];
+    }
+
+    const porId = new Map(tournament.teams.map((team) => [team.id, team]));
+    const reordenadas = teamIds.map((id) => porId.get(id)).filter((team) => team !== undefined);
+
+    return this.tournaments.generateInitialMatches({
+      ...tournament,
+      teams: [...reordenadas, ...tournament.teams.filter((team) => team.synthetic)],
+    });
   }
 
   /** Registra quem venceu o par-ou-ímpar do encaixe. */

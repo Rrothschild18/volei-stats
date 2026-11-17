@@ -56,6 +56,16 @@ describe('TeamOrderSheetComponent', () => {
       teamOrder: order,
       matches: signal<readonly Match[]>(matches),
       teamLabel: (teamId: string) => teamId.toUpperCase(),
+      // No lugar da chave de verdade: quatro duplas em knockout-4 são duas
+      // semifinais, casadas dois a dois na ordem dada.
+      previewInitialPairs: (teamIds: readonly string[]) =>
+        teamIds
+          .filter((_, index) => index % 2 === 0)
+          .map((teamAId, par) => ({
+            phase: 'semifinal' as const,
+            teamAId,
+            teamBId: teamIds[par * 2 + 1],
+          })),
     };
 
     TestBed.configureTestingModule({

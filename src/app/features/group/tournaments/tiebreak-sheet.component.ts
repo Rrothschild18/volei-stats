@@ -121,7 +121,8 @@ export class TiebreakSheetComponent {
   protected readonly explanation = computed(() => {
     const waiting = this.store.playerName(this.store.tournament()?.waitingPlayerId ?? null);
 
-    const mesmoJogo = 'Os dois jogos terminaram no mesmo placar: nem a diferença nem os pontos separam.';
+    const mesmoJogo =
+      'Os dois jogos terminaram no mesmo placar: nem a diferença nem os pontos separam.';
 
     if (this.tiebreak()?.kind === 'losers') {
       return waiting

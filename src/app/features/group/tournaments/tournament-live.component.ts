@@ -122,6 +122,18 @@ function writeDismissed(tournamentId: string): void {
           <app-skeleton [rows]="4" />
         </div>
       </div>
+    } @else if (store.loadFailed()) {
+      <!--
+        Carga que falhou NÃO é campeonato excluído. Antes as duas caíam na
+        mesma frase, e um wi-fi ruim na quadra anunciava que o campeonato tinha
+        sumido (apontado na revisão do ticket 45).
+      -->
+      <app-blueprint class="mx-4 mt-4 flex flex-col items-start gap-2 p-4">
+        <app-icon name="triangle-alert" [size]="26" class="text-accent-700" />
+        <h2 class="font-heading text-[22px] font-semibold uppercase">Não deu para carregar</h2>
+        <p class="text-[14px]">A chave não chegou. Pode ser a conexão da quadra.</p>
+        <button type="button" class="btn btn-secondary" (click)="retry()">TENTAR DE NOVO</button>
+      </app-blueprint>
     } @else if (!store.tournament()) {
       <!--
         O campeonato foi excluído enquanto esta tela estava aberta, ou o link é
@@ -359,8 +371,9 @@ function writeDismissed(tournamentId: string): void {
     @if (orderingTeams()) {
       <app-team-order-sheet
         [saving]="savingOrder()"
+        [refused]="orderRefused()"
         (apply)="applyTeamOrder($event)"
-        (closed)="orderingTeams.set(false)"
+        (closed)="orderingTeams.set(false); orderRefused.set(false)"
       />
     }
   `,
@@ -394,6 +407,8 @@ export class TournamentLiveComponent implements OnInit {
   /** A folha da ordem das duplas está aberta? */
   protected readonly orderingTeams = signal(false);
   protected readonly savingOrder = signal(false);
+  /** A última tentativa de gravar a ordem foi recusada. */
+  protected readonly orderRefused = signal(false);
 
   /**
    * Remontar os confrontos é do dono, e só com o campeonato em andamento.
@@ -442,6 +457,10 @@ export class TournamentLiveComponent implements OnInit {
     return partes.length > 0 ? `A correção ${partes.join('; ')}.` : null;
   });
 
+  protected retry(): void {
+    void this.store.load(this.tournamentId());
+  }
+
   protected toList(): void {
     void this.router.navigate(['/g', this.group.groupId(), 'campeonatos']);
   }
@@ -453,8 +472,15 @@ export class TournamentLiveComponent implements OnInit {
 
     this.savingOrder.set(true);
     try {
-      await this.store.applyTeamOrder(teamIds);
-      this.orderingTeams.set(false);
+      // A folha só fecha se gravou. O serviço recusa uma ordem que mexe em
+      // dupla travada — e isso acontece com a folha aberta num aparelho
+      // enquanto alguém lança um placar no outro.
+      if (await this.store.applyTeamOrder(teamIds)) {
+        this.orderingTeams.set(false);
+        this.orderRefused.set(false);
+      } else {
+        this.orderRefused.set(true);
+      }
     } finally {
       this.savingOrder.set(false);
     }

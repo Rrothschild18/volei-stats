@@ -267,10 +267,9 @@ describe('empate de diferença olha os pontos a favor (ticket 42)', () => {
   it('não pausa a chave quando os jogos têm a mesma diferença e placares diferentes', () => {
     // Jogo A 12×10 e jogo B 14×12: a diferença é 2 nos dois, mas o jogo B foi
     // maior. Quem fez 14 vai à final; quem fez 10 está fora. Sem par-ou-ímpar.
-    const outcome = readRound1(
-      [round1Match('a1', 'a2', 12, 10), round1Match('b1', 'b2', 14, 12)],
-      { expectedMatches: 2 },
-    );
+    const outcome = readRound1([round1Match('a1', 'a2', 12, 10), round1Match('b1', 'b2', 14, 12)], {
+      expectedMatches: 2,
+    });
 
     expect(outcome.needsTiebreak).toBeNull();
     expect(outcome.winners.map((entry) => entry.id)).toEqual(['b1', 'a1']);
@@ -278,10 +277,9 @@ describe('empate de diferença olha os pontos a favor (ticket 42)', () => {
   });
 
   it('pausa só quando a diferença e os pontos empatam', () => {
-    const outcome = readRound1(
-      [round1Match('a1', 'a2', 12, 10), round1Match('b1', 'b2', 12, 10)],
-      { expectedMatches: 2 },
-    );
+    const outcome = readRound1([round1Match('a1', 'a2', 12, 10), round1Match('b1', 'b2', 12, 10)], {
+      expectedMatches: 2,
+    });
 
     expect(outcome.needsTiebreak).toEqual({ kind: 'losers', teamIds: ['a2', 'b2'] });
   });
@@ -325,10 +323,10 @@ describe('empate de diferença olha os pontos a favor (ticket 42)', () => {
 
     // O par-ou-ímpar foi feito com 12×10 nos dois. A correção leva o jogo B a
     // 14×12: mesma diferença, mas o empate acabou.
-    const outcome = readRound1(
-      [round1Match('a1', 'a2', 12, 10), round1Match('b1', 'b2', 14, 12)],
-      { expectedMatches: 2, decisions: [decisao] },
-    );
+    const outcome = readRound1([round1Match('a1', 'a2', 12, 10), round1Match('b1', 'b2', 14, 12)], {
+      expectedMatches: 2,
+      decisions: [decisao],
+    });
 
     expect(outcome.needsTiebreak).toBeNull();
     expect(outcome.staleDecisions).toEqual([decisao]);

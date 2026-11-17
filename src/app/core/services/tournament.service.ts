@@ -498,7 +498,9 @@ export class TournamentService {
       return tournament;
     }
 
-    const travadaMudou = order.some((slot, index) => slot.locked && teamIds[index] !== slot.team.id);
+    const travadaMudou = order.some(
+      (slot, index) => slot.locked && teamIds[index] !== slot.team.id,
+    );
     if (travadaMudou) {
       return tournament;
     }

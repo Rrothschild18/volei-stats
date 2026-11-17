@@ -179,6 +179,21 @@ export class AppFacade {
   async deleteTournament(id: string): Promise<void> {
     const tournament = await this.#tournamentRepo.getById(id);
 
+    // PRIMEIRO o sorteio deixa de ser o escolhido, e só depois o resto cai.
+    //
+    // Não é ordem por capricho: nada aqui é uma transação. Se o apagar parar no
+    // meio — rede, permissão —, o que não pode sobrar é um sorteio `selected`
+    // sem campeonato, porque isso É um sorteio pendente e o app passaria a
+    // oferecer "COMEÇAR O PRÓXIMO" com as duplas do campeonato que alguém
+    // acabou de apagar. Desmarcado primeiro, a pior sobra é uma linha de
+    // sorteio que ninguém lê (apontado na revisão do ticket 45).
+    if (tournament?.drawId) {
+      const draw = await this.#drawRepo.getById(tournament.drawId);
+      if (draw?.selected) {
+        await this.#drawRepo.save({ ...draw, selected: false });
+      }
+    }
+
     // As partidas também caem por cascata no banco; apagar uma a uma é o que
     // faz o modo demonstração, que não tem cascata nenhuma.
     const matches = await this.#matchRepo.getByTournamentId(id);

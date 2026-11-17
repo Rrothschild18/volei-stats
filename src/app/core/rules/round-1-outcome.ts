@@ -100,9 +100,7 @@ function rank(
     // mais pontos vem antes. Entre perdedores, o primeiro é a eliminação
     // direta — lá, quem fez MENOS pontos é que vem antes.
     if (entryB.points !== entryA.points) {
-      return kind === 'winners'
-        ? entryB.points - entryA.points
-        : entryA.points - entryB.points;
+      return kind === 'winners' ? entryB.points - entryA.points : entryA.points - entryB.points;
     }
 
     // Empate já resolvido na quadra. Entre vencedores, quem ganhou o
