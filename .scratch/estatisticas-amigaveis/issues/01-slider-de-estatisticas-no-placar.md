@@ -7,7 +7,7 @@ lado, com as estatísticas das duas duplas que estão em quadra.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** needs-info
+**Status:** done
 
 ## O que sai, e por quê
 
@@ -89,15 +89,35 @@ A tela abre no meio do jogo, muitas vezes com 4G ruim na quadra. O slider
 `app-skeleton`, e falha de carga esconde o slider em silêncio em vez de mostrar
 erro — o placar continua lançável.
 
-- [ ] Aviso de `zero` e parágrafo do limite removidos
-- [ ] `tie`, `needs-two` e `past-limit` continuam aparecendo
-- [ ] Slider com os 4 cartões, arrastável e por teclado
-- [ ] Cartão de confronto diz "primeira vez" quando o par de duplas é inédito
-- [ ] Números vêm de view (ou derivação) sem travar a tela
-- [ ] AXE limpo, foco depois dos steppers, troca de cartão anunciada
-- [ ] Teste: placar continua salvável com o slider em erro de carga
+- [x] Aviso de `zero` e parágrafo do limite removidos
+- [x] `tie`, `needs-two` e `past-limit` continuam aparecendo
+- [x] Slider com os 4 cartões, arrastável e por teclado
+- [x] Cartão de confronto diz "primeira vez" quando o par de duplas é inédito
+- [x] Números vêm de view (ou derivação) sem travar a tela
+- [x] AXE limpo, foco depois dos steppers, troca de cartão anunciada
+- [x] Teste: placar continua salvável com o slider em erro de carga
 
 ## Perguntas abertas
 
 - **Média de pontos**: dos pontos que a dupla fez, ou do placar total do jogo?
 - O slider olha a **janela de 4 sessões** (ticket 04) ou o histórico completo?
+
+## Comments
+
+### Três cartões, e as perguntas abertas fechadas
+
+Dupla A, Dupla B e O confronto. O cartão de confronto diz quantas vezes as duas
+duplas se enfrentaram e quem levou mais — e, como isso quase sempre é "primeira
+vez", traz junto os cruzamentos jogador × jogador, que é onde há história.
+
+- **Média de pontos** = pontos que a dupla faz × pontos que leva, por jogo.
+- **Recorte** = histórico inteiro, não a janela de 4 noites: dupla quase não se
+  repete, e a janela deixaria os cartões vazios.
+
+Não precisou de view nova: `historicoDoConfronto` (`core/rules/matchup-stats.ts`)
+deriva tudo das partidas e campeonatos que o app já sabe ler.
+
+### 0 × 0 deixou de ser erro
+
+`error()` devolve nulo para `zero`, e quem segura o SALVAR é `salvavel`. As
+outras três mensagens (empate, vai a dois, passou do limite) continuam.

@@ -6,7 +6,7 @@ diferentes: o **mural** (acumula), **a noite passada** (reseta toda semana) e os
 
 **Blocked by:** 04, 05
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## As faixas
 
@@ -44,9 +44,35 @@ contrapeso**: zera toda semana, e ali qualquer um aparece no primeiro dia.
 - Marcas redondas precisam de limite: 3 por pessoa, as mais recentes, senão a
   faixa vira lista de troféus de participação.
 
-- [ ] Três faixas, cada uma com seu recorte
-- [ ] Dupla do coração all-time mesmo com a janela ligada
-- [ ] Nenhum `%` na home
-- [ ] Faixas extraídas como componentes
-- [ ] Vôlei novo (sem sessão) continua com a home de hoje
-- [ ] AXE limpo nas três faixas
+- [x] Três faixas, cada uma com seu recorte
+- [x] Dupla do coração all-time mesmo com a janela ligada
+- [x] Nenhum `%` na home
+- [x] Faixas extraídas como componentes
+- [x] Vôlei novo (sem sessão) continua com a home de hoje
+- [x] AXE limpo nas três faixas
+
+## Comments
+
+### O que entrou em cada faixa
+
+- **Mural** (últimas 4 noites): mais vitórias, em sequência agora, mais pontos
+  marcados, mais títulos. De todos os tempos, e dito na linha: dupla do coração
+  e o clássico (os dois que mais se enfrentaram).
+- **A última noite**: o mesmo resumo da sessão, com o NO ZAP.
+- **Recordes do grupo**: maior sequência da história, placar mais elástico e o
+  jogo mais disputado.
+
+"Melhor aproveitamento", "melhor dupla por %" e "mais esperou" saíram da home.
+Marcas redondas ficaram fora: estavam no bloco de bastidores, que o dono cortou.
+
+### A sequência viva expira
+
+Só entra em "em sequência agora" quem jogou na última noite que teve jogo. As
+vitórias de quem sumiu continuam valendo como recorde, não como "agora".
+
+### Dívida que esta tela herda
+
+As faixas leem todas as partidas do vôlei (`getMatches`), como a aba de
+partidas já fazia. Não há paginação, e o PostgREST corta em 1000 linhas: com
+~16 partidas por noite isso chega em pouco mais de um ano de vôlei semanal.
+Precisa virar leitura por sessão ou view antes disso.

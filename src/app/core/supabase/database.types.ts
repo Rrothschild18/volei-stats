@@ -343,6 +343,7 @@ export type Database = {
           phase: Database['public']['Enums']['match_phase'];
           played_at: string;
           point_difference: number | null;
+          rally_log: number[] | null;
           reported_by: string | null;
           score_a: number;
           score_b: number;
@@ -368,6 +369,7 @@ export type Database = {
           phase: Database['public']['Enums']['match_phase'];
           played_at?: string;
           point_difference?: never;
+          rally_log?: number[] | null;
           reported_by?: string | null;
           score_a: number;
           score_b: number;
@@ -392,6 +394,7 @@ export type Database = {
           phase?: Database['public']['Enums']['match_phase'];
           played_at?: string;
           point_difference?: never;
+          rally_log?: number[] | null;
           reported_by?: string | null;
           score_a?: number;
           score_b?: number;

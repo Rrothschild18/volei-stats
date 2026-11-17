@@ -21,11 +21,11 @@ import {
   RootHeaderComponent,
   SectionBandComponent,
   SkeletonComponent,
-  SpecListComponent,
   StatGridComponent,
 } from '../../../shared/ui';
 import { IconName } from '../../../shared/ui';
 import { ScoreSheetComponent } from '../tournaments/score-sheet.component';
+import { GroupHighlightsComponent } from './group-highlights.component';
 
 interface Shortcut {
   readonly label: string;
@@ -55,7 +55,7 @@ interface Shortcut {
     ScoreSheetComponent,
     SectionBandComponent,
     SkeletonComponent,
-    SpecListComponent,
+    GroupHighlightsComponent,
     StatGridComponent,
   ],
   template: `
@@ -217,28 +217,6 @@ interface Shortcut {
               </button>
             }
           </div>
-
-          <section class="px-4">
-            <app-section-band index="01" label="DESTAQUES DO GRUPO">
-              <button
-                type="button"
-                class="text-[13px] text-accent-700"
-                (click)="go(['estatisticas'])"
-              >
-                Estatísticas
-              </button>
-            </app-section-band>
-            <app-blueprint>
-              <app-spec-list
-                [items]="highlights()"
-                note="Melhor dupla exige 3 jogos juntos. Esperas contam só a proposta escolhida."
-              />
-            </app-blueprint>
-          </section>
-
-          <div class="px-4">
-            <app-stat-grid [items]="groupStats()" />
-          </div>
         } @else {
           @if (myPath().length > 0) {
             <section class="px-4">
@@ -284,6 +262,24 @@ interface Shortcut {
             </div>
           }
         }
+
+        <!--
+          As três faixas (ticket 06): mural, a última noite e os recordes.
+          Valem para quem joga e para quem só olha — ler é de todo mundo. Antes
+          aqui ficavam "melhor aproveitamento" e "melhor dupla por %", que eram
+          um pódio; agora é o que o vôlei tem a comemorar.
+        -->
+        @if (group.groupId(); as groupId) {
+          <app-group-highlights
+            [groupId]="groupId"
+            [groupName]="group.group()?.name ?? 'Vôlei'"
+            [versao]="versao()"
+          />
+        }
+
+        <div class="px-4">
+          <app-stat-grid [items]="groupStats()" />
+        </div>
       }
     </div>
 
@@ -305,6 +301,8 @@ export class HomeComponent implements OnInit {
   /** Só a PRIMEIRA carga: puxar para atualizar não desmonta o que está na tela. */
   protected readonly carregando = signal(true);
   protected readonly scoreTarget = signal<BracketMatch | null>(null);
+  /** Sobe a cada carga da home: é o que manda as faixas relerem a história. */
+  protected readonly versao = signal(0);
   private readonly dashboard = signal<Awaited<
     ReturnType<StatisticsService['getDashboardData']>
   > | null>(null);
@@ -433,28 +431,6 @@ export class HomeComponent implements OnInit {
     ];
   });
 
-  protected readonly highlights = computed(() => {
-    const data = this.dashboard();
-    if (!data) {
-      return [];
-    }
-
-    return [
-      { label: 'Mais vitórias', value: data.topWinsPlayer ?? '—', figure: data.topWinsCount },
-      {
-        label: 'Melhor aproveitamento',
-        value: data.topWinPctPlayer ?? '—',
-        figure: `${data.topWinPctValue}%`,
-      },
-      { label: 'Melhor dupla', value: data.topTeam ?? '—', figure: `${data.topTeamWinPct}%` },
-      {
-        label: 'Mais esperou',
-        value: data.mostWaitedPlayer ?? '—',
-        figure: `${data.mostWaitedCount}×`,
-      },
-    ];
-  });
-
   protected readonly groupStats = computed(() => {
     const data = this.dashboard();
     return [
@@ -551,6 +527,7 @@ export class HomeComponent implements OnInit {
       this.dashboard.set(
         await this.statistics.getDashboardData(await this.facade.getGroupScope(groupId)),
       );
+      this.versao.update((versao) => versao + 1);
     } finally {
       this.carregando.set(false);
     }

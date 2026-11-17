@@ -1,4 +1,13 @@
-import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { BracketMatch } from '../../../core/services/tournament.service';
 import { CorrectionRefusal, LiveTournamentStore } from '../../../core/stores/live-tournament.store';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
@@ -6,8 +15,11 @@ import { phaseLabel } from '../../../core/rules/bracket-phases';
 import { expectedStop, readFinalScore, scoreCeiling } from '../../../core/rules/final-score';
 import { CORRECTION_WINDOW_LABEL } from '../../../core/rules/tournament-timing';
 import { Match } from '../../../shared/models';
-import { MatchOpening } from '../../../core/rules/match-opening';
+import { MatchOpening, quemAbreSacando } from '../../../core/rules/match-opening';
+import { ralisDoPlacar, sacadorAtual } from '../../../core/rules/serve-tracker';
+import { ScoreDraftService } from '../../../core/services/score-draft.service';
 import { INICIO_VAZIO, MatchOpeningComponent } from './match-opening.component';
+import { MatchupSliderComponent } from './matchup-slider.component';
 import { formatTime } from '../../../shared/utils/date.util';
 import {
   ActionBarComponent,
@@ -36,6 +48,7 @@ import {
     IconComponent,
     InlineNoteComponent,
     MatchOpeningComponent,
+    MatchupSliderComponent,
     StepperComponent,
   ],
   template: `
@@ -111,7 +124,8 @@ import {
               [teamALabel]="store.teamLabel(bracket().teamAId)"
               [teamBLabel]="store.teamLabel(bracket().teamBId)"
               [playersOfTeam]="playersOfTeam"
-              [(opening)]="opening"
+              [opening]="opening()"
+              (openingChange)="aoMudarInicio($event)"
             />
           }
 
@@ -127,17 +141,51 @@ import {
                 <span class="font-heading text-[26px] leading-none font-semibold uppercase">{{
                   side.label
                 }}</span>
+
+                <!--
+                  A bola: de quem é o saque agora. Ela anda sozinha a cada
+                  toque no +, pela regra da quadra. Tocar nela troca o sacador
+                  dentro da dupla; sem ninguém sacando, cada dupla oferece
+                  "marcar o saque".
+                -->
+                @if (!correcting()) {
+                  @if (side.sacador; as nome) {
+                    <button
+                      type="button"
+                      class="flex min-h-9 items-center gap-2 self-start bg-accent-100 px-2 text-[14px] font-semibold text-accent-800"
+                      [attr.aria-label]="
+                        'Saque com ' + nome + '. Toque para trocar o sacador da dupla.'
+                      "
+                      (click)="trocarSacador(side.teamId)"
+                    >
+                      <app-icon name="volleyball" [size]="18" />
+                      SACA {{ nome }}
+                    </button>
+                  } @else if (!sacador()) {
+                    <button
+                      type="button"
+                      class="flex min-h-9 items-center gap-2 self-start text-[13px] text-accent-700"
+                      (click)="marcarSaque(side.teamId)"
+                    >
+                      <app-icon name="volleyball" [size]="16" />
+                      marcar o saque aqui
+                    </button>
+                  }
+                }
+
                 @if (side.teamId === bracket().teamAId) {
                   <app-stepper
                     label="pontos da primeira dupla"
-                    [(value)]="scoreA"
+                    [value]="scoreA()"
+                    (valueChange)="pontuar(side.teamId, $event)"
                     [max]="maxA()"
                     [large]="true"
                   />
                 } @else {
                   <app-stepper
                     label="pontos da segunda dupla"
-                    [(value)]="scoreB"
+                    [value]="scoreB()"
+                    (valueChange)="pontuar(side.teamId, $event)"
                     [max]="maxB()"
                     [large]="true"
                   />
@@ -158,11 +206,20 @@ import {
             <app-inline-note tone="positive">{{ message }}</app-inline-note>
           }
 
-          <p class="text-[13px] muted">
-            Limite: {{ pointLimit() }} pontos, com dois de diferença — empatando em
-            {{ pointLimit() - 1 }}, o jogo vai até alguém abrir dois. Parou antes do limite, o app
-            pergunta.
-          </p>
+          <!--
+            Aqui ficavam o aviso de 0 × 0 e a frase do limite: dois textos que
+            diziam o que a tela já faz (o SALVAR nasce desligado, e o + para no
+            teto da regra). O lugar ficou para o histórico das duplas.
+          -->
+          @if (!correcting()) {
+            <app-matchup-slider
+              [teamA]="jogadoresDe(bracket().teamAId)"
+              [teamB]="jogadoresDe(bracket().teamBId)"
+              [teamALabel]="store.teamLabel(bracket().teamAId)"
+              [teamBLabel]="store.teamLabel(bracket().teamBId)"
+              [nameOf]="nomeDe"
+            />
+          }
         }
       </div>
 
@@ -172,7 +229,7 @@ import {
             type="button"
             class="btn btn-primary blueprint h-14 text-[17px]"
             [appBusy]="busy()"
-            [disabled]="!!error() || busy()"
+            [disabled]="!salvavel() || busy()"
             (click)="save()"
           >
             <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>
@@ -181,14 +238,14 @@ import {
           </button>
         </app-action-bar>
       } @else {
-        <app-action-bar [pair]="true">
-          <button type="button" class="btn btn-secondary h-13" (click)="shareScore()">
-            <app-icon name="send" [size]="18" />
-            NO ZAP
-          </button>
+        <!--
+          Uma ação só. O NO ZAP saiu daqui: fim de jogo é hora de ver a chave, e
+          o que vai para o grupo é o resumo da noite, pela sessão.
+        -->
+        <app-action-bar>
           <button
             type="button"
-            class="btn btn-primary blueprint h-13 text-[17px]"
+            class="btn btn-primary blueprint h-14 text-[17px]"
             (click)="closed.emit()"
           >
             <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i>
@@ -241,6 +298,43 @@ export class ScoreSheetComponent {
   protected readonly refusal = signal<CorrectionRefusal | null>(null);
   /** O início do jogo (ticket 07). Vazio é o normal: o registro é opcional. */
   protected readonly opening = signal<MatchOpening>(INICIO_VAZIO);
+
+  protected readonly rascunho = inject(ScoreDraftService);
+
+  /**
+   * A dupla que ganhou cada rali, desde o 0 × 0 — é o que vai para o banco.
+   * Nulo quando a ordem se perdeu (alguém pulou mais de um ponto de uma vez).
+   */
+  protected readonly ralis = signal<readonly string[] | null>([]);
+
+  /**
+   * De onde a bola está sendo acompanhada: a dupla que sacava naquele momento
+   * e os ralis desde então. Separado de `ralis` porque dá para marcar o saque
+   * no meio do jogo, sem ter contado desde o início.
+   */
+  private readonly saque = signal<{ teamId: string; rallies: readonly string[] } | null>(null);
+
+  /** Quem saca primeiro em cada dupla, quando a quadra trocou o padrão. */
+  private readonly primeiros = signal<Readonly<Record<string, string>>>({});
+
+  /** De quem é o saque agora, ou nulo se ninguém sabe. */
+  protected readonly sacador = computed(() => {
+    const saque = this.saque();
+    return saque
+      ? sacadorAtual({
+          firstServerTeamId: saque.teamId,
+          playersOfTeam: (teamId) => this.jogadoresDe(teamId),
+          firstServerOf: this.primeiros(),
+          rallies: saque.rallies,
+        })
+      : null;
+  });
+
+  protected readonly jogadoresDe = (teamId: string): readonly string[] =>
+    this.store.team(teamId)?.playerIds ?? [];
+
+  protected readonly nomeDe = (playerId: string): string =>
+    (this.store.playerName(playerId) ?? '?').toUpperCase();
 
   /** Os dois jogadores de uma dupla, para a pergunta de quem chamou. */
   protected readonly playersOfTeam = (teamId: string) =>
@@ -300,6 +394,9 @@ export class ScoreSheetComponent {
     return this.correcting() ? 'CORRIGIR PLACAR' : 'PLACAR FINAL';
   });
 
+  /** O rascunho deste jogo já foi lido: só depois disso a folha passa a gravar. */
+  private readonly restaurado = signal(false);
+
   constructor() {
     // Corrigir parte do placar que está lá, não do zero.
     effect(() => {
@@ -309,6 +406,118 @@ export class ScoreSheetComponent {
         this.scoreB.set(match.scoreB);
       }
     });
+
+    // Reabrir a folha devolve a contagem de onde parou. Correção não tem
+    // rascunho: ela parte do placar salvo, que é a verdade do grupo.
+    effect(() => {
+      const bracket = this.bracket();
+      if (this.correcting() || untracked(() => this.restaurado())) {
+        return;
+      }
+
+      const guardado = this.rascunho.ler(bracket);
+      untracked(() => {
+        if (guardado) {
+          this.scoreA.set(guardado.scoreA);
+          this.scoreB.set(guardado.scoreB);
+          this.ralis.set(guardado.ralis);
+          this.saque.set(guardado.saque);
+          this.primeiros.set(guardado.primeiros ?? {});
+          this.opening.set(guardado.opening ?? INICIO_VAZIO);
+        }
+        this.restaurado.set(true);
+      });
+    });
+
+    effect(() => {
+      const atual = {
+        scoreA: this.scoreA(),
+        scoreB: this.scoreB(),
+        ralis: this.ralis(),
+        saque: this.saque(),
+        primeiros: this.primeiros(),
+        opening: this.opening(),
+      };
+
+      if (!this.restaurado() || this.correcting() || this.saved()) {
+        return;
+      }
+
+      const bracket = untracked(() => this.bracket());
+      const vazio =
+        atual.scoreA + atual.scoreB === 0 &&
+        !atual.saque &&
+        !atual.opening.coinWinnerTeamId &&
+        !atual.opening.teamASide;
+
+      // Folha aberta e fechada sem nada: não há rascunho para guardar, e deixar
+      // um de 0 × 0 por partida só encheria o armazenamento do aparelho.
+      if (vazio) {
+        this.rascunho.apagar(bracket);
+      } else {
+        this.rascunho.guardar(bracket, atual);
+      }
+    });
+  }
+
+  /**
+   * Um toque no + ou no −. Cada + é um rali ganho por aquela dupla, e é dele
+   * que a bola anda: quem sacava e pontuou continua; pontuou o outro lado, a
+   * posse passa.
+   */
+  protected pontuar(teamId: string, valor: number): void {
+    const bracket = this.bracket();
+    const eA = teamId === bracket.teamAId;
+    const antes = eA ? this.scoreA() : this.scoreB();
+    const mudanca = { teamId, antes, depois: valor };
+
+    (eA ? this.scoreA : this.scoreB).set(valor);
+    this.ralis.update((ralis) => ralisDoPlacar(ralis, mudanca));
+    this.saque.update((saque) => {
+      if (!saque) {
+        return null;
+      }
+      const rallies = ralisDoPlacar(saque.rallies, mudanca);
+      // A ordem se perdeu: melhor apagar a bola do que apontar o sacador errado.
+      return rallies ? { ...saque, rallies } : null;
+    });
+  }
+
+  /** "O saque está com esta dupla agora" — dá para começar a acompanhar no meio do jogo. */
+  protected marcarSaque(teamId: string): void {
+    this.saque.set({ teamId, rallies: [] });
+  }
+
+  /** Dentro da dupla, quem está sacando é o outro. */
+  protected trocarSacador(teamId: string): void {
+    const jogadores = this.jogadoresDe(teamId);
+    const primeiro = this.primeiros()[teamId] ?? jogadores[0];
+    const outro = jogadores.find((playerId) => playerId !== primeiro);
+    if (outro) {
+      this.primeiros.update((atual) => ({ ...atual, [teamId]: outro }));
+    }
+  }
+
+  /**
+   * O par-ou-ímpar diz quem abre sacando. Enquanto a sequência de ralis é
+   * conhecida desde o 0 × 0, isso basta para pôr a bola no lugar — mesmo se o
+   * início for registrado com o jogo já andando.
+   */
+  protected aoMudarInicio(opening: MatchOpening): void {
+    this.opening.set(opening);
+
+    const bracket = this.bracket();
+    const abre = quemAbreSacando({
+      coinWinnerTeamId: opening.coinWinnerTeamId,
+      coinChoice: opening.coinChoice,
+      teamAId: bracket.teamAId,
+      teamBId: bracket.teamBId,
+    });
+    const ralis = this.ralis();
+
+    if (abre && ralis) {
+      this.saque.set({ teamId: abre, rallies: ralis });
+    }
   }
 
   protected readonly kicker = computed(
@@ -331,8 +540,10 @@ export class ScoreSheetComponent {
     const limite = this.pointLimit();
 
     switch (this.veredito()) {
+      // 0 × 0 não é erro: é como a folha abre. O SALVAR já nasce desligado
+      // (`salvavel`), e dizer "ninguém jogou 0 × 0" era narrar o óbvio.
       case 'zero':
-        return 'Ninguém jogou 0 × 0. Lance o placar da partida.';
+        return null;
       case 'tie':
         return 'Vôlei não tem empate. Ajuste o placar para salvar.';
       case 'needs-two':
@@ -346,11 +557,15 @@ export class ScoreSheetComponent {
     }
   });
 
+  /** Dá para salvar: sem erro de regra, e com algum ponto na folha. */
+  protected readonly salvavel = computed(() => !this.error() && this.veredito() !== 'zero');
+
   protected readonly sides = computed(() => {
     const bracket = this.bracket();
     const scoreA = this.scoreA();
     const scoreB = this.scoreB();
     const playerId = this.group.playerId();
+    const sacador = this.sacador();
 
     return [bracket.teamAId, bracket.teamBId].map((teamId) => {
       const isA = teamId === bracket.teamAId;
@@ -363,13 +578,18 @@ export class ScoreSheetComponent {
         label: this.store.teamLabel(teamId),
         origin: mine ? `VOCÊ · ${this.origin(teamId)}` : this.origin(teamId),
         winning: score > other,
+        /** O nome de quem saca, quando o saque é desta dupla. */
+        sacador:
+          sacador?.teamId === teamId
+            ? (this.store.playerName(sacador.playerId) ?? '?').toUpperCase()
+            : null,
       };
     });
   });
 
   /** O que o resultado produz em seguida, dito em palavras. */
   protected readonly preview = computed(() => {
-    if (this.error()) {
+    if (!this.salvavel()) {
       return null;
     }
 
@@ -436,7 +656,7 @@ export class ScoreSheetComponent {
   }
 
   protected async save(): Promise<void> {
-    if (this.error()) {
+    if (!this.salvavel()) {
       return;
     }
 
@@ -483,7 +703,11 @@ export class ScoreSheetComponent {
         this.scoreB(),
         this.group.playerId(),
         this.opening(),
+        this.ralis(),
       );
+
+      // Salvou: o rascunho deste jogo não tem mais o que guardar.
+      this.rascunho.apagar(this.bracket());
 
       // Outro aparelho chegou primeiro: mostra o placar que já está salvo.
       const match = result.existing ?? this.store.findSavedMatch(this.bracket());
@@ -497,17 +721,6 @@ export class ScoreSheetComponent {
     } finally {
       this.busy.set(false);
     }
-  }
-
-  /** Manda o resultado pelo WhatsApp, com o texto pronto. */
-  protected shareScore(): void {
-    const match = this.saved();
-    if (!match) {
-      return;
-    }
-
-    const text = `${this.store.tournament()?.name}: ${this.store.teamLabel(match.teamAId)} ${match.scoreA} × ${match.scoreB} ${this.store.teamLabel(match.teamBId)}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   }
 
   /** "DUPLA DO ENCAIXE", "BYE", "RODADA 1". */

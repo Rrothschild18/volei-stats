@@ -146,6 +146,8 @@ import {
           [tournaments]="store.tournaments()"
           [matches]="store.matches()"
           [playersById]="store.playersById()"
+          [titulo]="group.group()?.name ?? 'Vôlei'"
+          [subtitulo]="dia()"
         />
       }
     </div>
@@ -185,6 +187,12 @@ export class SessionDetailComponent implements OnInit {
   protected readonly context = computed(() => {
     const date = this.store.session()?.date;
     return `CAMPEONATOS · ${date ? formatShortDate(date) : ''}`;
+  });
+
+  /** O dia da sessão, para o cabeçalho da imagem do resumo. */
+  protected readonly dia = computed(() => {
+    const date = this.store.session()?.date;
+    return date ? formatShortDate(date) : '';
   });
 
   protected readonly title = computed(() =>

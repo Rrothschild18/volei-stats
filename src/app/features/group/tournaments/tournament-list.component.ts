@@ -60,6 +60,7 @@ function describeTiming(timing: TournamentTiming): string {
   }
   return `${inicio} · rolando há ${formatDuration(timing.minutes ?? 0)}`;
 }
+import { SummaryShareButtonComponent } from './summary-share-button.component';
 
 @Component({
   selector: 'app-tournament-list',
@@ -67,6 +68,7 @@ function describeTiming(timing: TournamentTiming): string {
     ActionBarComponent,
     BlueprintComponent,
     ConfirmDialogComponent,
+    SummaryShareButtonComponent,
     IconComponent,
     NavigatesDirective,
     PullToRefreshComponent,
@@ -183,6 +185,20 @@ function describeTiming(timing: TournamentTiming): string {
                   </div>
                 }
               </app-blueprint>
+
+              <!--
+                O NO ZAP mora aqui, e não no fim de cada jogo: o que vai para o
+                grupo é o resumo da noite, em imagem (ticket 03). Sem partida
+                lançada o botão não aparece.
+              -->
+              <app-summary-share-button
+                class="mt-3"
+                [tournaments]="sessionStore.tournaments()"
+                [matches]="sessionStore.matches()"
+                [playersById]="sessionStore.playersById()"
+                [titulo]="group.group()?.name ?? 'Vôlei'"
+                [subtitulo]="today()"
+              />
             } @else {
               <p class="text-[14px] muted">
                 Nenhum campeonato ainda. O próximo passo é sortear as duplas.

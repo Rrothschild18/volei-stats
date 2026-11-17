@@ -1,6 +1,6 @@
-import { Component, computed, input, model } from '@angular/core';
+import { Component, computed, effect, input, model, signal, untracked } from '@angular/core';
 import { MatchOpening, ladoOposto, quemAbreSacando } from '../../../core/rules/match-opening';
-import { SegmentedComponent } from '../../../shared/ui';
+import { IconComponent, SegmentedComponent } from '../../../shared/ui';
 
 /** Nada registrado: o estado em que a folha de placar abre. */
 export const INICIO_VAZIO: MatchOpening = {
@@ -24,73 +24,100 @@ export const INICIO_VAZIO: MatchOpening = {
  */
 @Component({
   selector: 'app-match-opening',
-  imports: [SegmentedComponent],
+  imports: [IconComponent, SegmentedComponent],
   template: `
-    <section class="flex flex-col gap-3 border border-divider p-3">
-      <div class="flex items-baseline justify-between gap-2">
-        <h3 class="kicker">Início do jogo</h3>
-        @if (preenchido()) {
-          <button type="button" class="text-[13px] text-accent-700" (click)="limpar()">
-            Limpar
-          </button>
-        } @else {
+    <section class="border border-divider">
+      <!--
+        Uma linha só quando fechado: depois de registrado, o início do jogo não
+        precisa mais ocupar a tela de quem está contando ponto.
+      -->
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 p-3 text-left"
+        [attr.aria-expanded]="aberto()"
+        aria-controls="inicio-do-jogo"
+        (click)="aberto.set(!aberto())"
+      >
+        <span class="min-w-0 flex-1">
+          <span class="kicker block">Início do jogo</span>
+          @if (!aberto()) {
+            <span class="block truncate text-[13px]">
+              {{ resumo() ?? 'Par-ou-ímpar, lado e saque — opcional' }}
+            </span>
+          }
+        </span>
+        @if (aberto() && !preenchido()) {
           <span class="text-[12px] muted">opcional</span>
         }
-      </div>
+        <app-icon [name]="aberto() ? 'chevron-down' : 'chevron-right'" [size]="18" class="muted" />
+      </button>
 
-      <div class="flex flex-col gap-1">
-        <p class="text-[13px] muted" id="par-ou-impar">Quem ganhou o par-ou-ímpar?</p>
-        <app-segmented
-          aria-labelledby="par-ou-impar"
-          [options]="duplas()"
-          [value]="opening().coinWinnerTeamId ?? ''"
-          (valueChange)="escolherVencedor($event)"
-          [tabs]="false"
-        />
-      </div>
+      @if (aberto()) {
+        <div id="inicio-do-jogo" class="flex flex-col gap-3 px-3 pb-3">
+          <div class="flex flex-col gap-1">
+            <p class="text-[13px] muted" id="par-ou-impar">Quem ganhou o par-ou-ímpar?</p>
+            <app-segmented
+              aria-labelledby="par-ou-impar"
+              [options]="duplas()"
+              [value]="opening().coinWinnerTeamId ?? ''"
+              (valueChange)="escolherVencedor($event)"
+              [tabs]="false"
+            />
+          </div>
 
-      @if (vencedores().length > 0) {
-        <div class="flex flex-col gap-1">
-          <p class="text-[13px] muted" id="quem-chamou">Quem chamou?</p>
-          <app-segmented
-            aria-labelledby="quem-chamou"
-            [options]="vencedores()"
-            [value]="opening().coinCallerPlayerId ?? ''"
-            (valueChange)="patch({ coinCallerPlayerId: $event })"
-            [tabs]="false"
-          />
-        </div>
+          @if (vencedores().length > 0) {
+            <div class="flex flex-col gap-1">
+              <p class="text-[13px] muted" id="quem-chamou">Quem chamou?</p>
+              <app-segmented
+                aria-labelledby="quem-chamou"
+                [options]="vencedores()"
+                [value]="opening().coinCallerPlayerId ?? ''"
+                (valueChange)="patch({ coinCallerPlayerId: $event })"
+                [tabs]="false"
+              />
+            </div>
 
-        <div class="flex flex-col gap-1">
-          <p class="text-[13px] muted" id="escolheu">E escolheu…</p>
-          <app-segmented
-            aria-labelledby="escolheu"
-            [options]="escolhas"
-            [value]="opening().coinChoice ?? ''"
-            (valueChange)="patch({ coinChoice: $any($event) })"
-            [tabs]="false"
-          />
+            <div class="flex flex-col gap-1">
+              <p class="text-[13px] muted" id="escolheu">E escolheu…</p>
+              <app-segmented
+                aria-labelledby="escolheu"
+                [options]="escolhas"
+                [value]="opening().coinChoice ?? ''"
+                (valueChange)="patch({ coinChoice: $any($event) })"
+                [tabs]="false"
+              />
+            </div>
+          }
+
+          <div class="flex flex-col gap-1">
+            <p class="text-[13px] muted" id="lado-da-quadra">
+              De que lado {{ teamALabel() }} começou?
+            </p>
+            <app-segmented
+              aria-labelledby="lado-da-quadra"
+              [options]="lados"
+              [value]="opening().teamASide ?? ''"
+              (valueChange)="patch({ teamASide: $any($event) })"
+              [tabs]="false"
+            />
+          </div>
+
+          <p class="flex items-baseline justify-between gap-2 text-[13px]" aria-live="polite">
+            <span>
+              @if (resumo(); as texto) {
+                {{ texto }}
+              } @else {
+                Ninguém precisa registrar isso para lançar o placar.
+              }
+            </span>
+            @if (preenchido()) {
+              <button type="button" class="shrink-0 text-accent-700" (click)="limpar()">
+                Limpar
+              </button>
+            }
+          </p>
         </div>
       }
-
-      <div class="flex flex-col gap-1">
-        <p class="text-[13px] muted" id="lado-da-quadra">De que lado {{ teamALabel() }} começou?</p>
-        <app-segmented
-          aria-labelledby="lado-da-quadra"
-          [options]="lados"
-          [value]="opening().teamASide ?? ''"
-          (valueChange)="patch({ teamASide: $any($event) })"
-          [tabs]="false"
-        />
-      </div>
-
-      <p class="text-[13px]" aria-live="polite">
-        @if (resumo(); as texto) {
-          {{ texto }}
-        } @else {
-          Ninguém precisa registrar isso para lançar o placar.
-        }
-      </p>
     </section>
   `,
 })
@@ -104,6 +131,27 @@ export class MatchOpeningComponent {
     input.required<(teamId: string) => readonly { id: string; name: string }[]>();
 
   readonly opening = model<MatchOpening>(INICIO_VAZIO);
+
+  /**
+   * Aberto até ser respondido. Com par-ou-ímpar, escolha e lado registrados o
+   * bloco se fecha sozinho numa linha — e tocar nela reabre para corrigir.
+   */
+  protected readonly aberto = signal(true);
+
+  private readonly completo = computed(() => {
+    const opening = this.opening();
+    return !!(opening.coinWinnerTeamId && opening.coinChoice && opening.teamASide);
+  });
+
+  constructor() {
+    // Só o MOMENTO em que fica completo fecha: quem reabriu para corrigir uma
+    // resposta não tem o bloco fechado na cara a cada toque.
+    effect(() => {
+      if (this.completo()) {
+        untracked(() => this.aberto.set(false));
+      }
+    });
+  }
 
   protected readonly escolhas = [
     { id: 'saque', label: 'Saque' },

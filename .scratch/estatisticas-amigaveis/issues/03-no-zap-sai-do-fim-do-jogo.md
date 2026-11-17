@@ -7,7 +7,7 @@ mensagem de texto.
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Como está hoje
 
@@ -50,9 +50,27 @@ mandar imagem é preciso:
 - Fonte embutida ou fallback declarado: fonte que não carregou vira imagem feia
 - Sem foto de ninguém, sem dado que o grupo não veria na tela
 
-- [ ] Fim do jogo com uma ação só (VER CHAVE)
-- [ ] NO ZAP por campeonato na listagem
-- [ ] PNG gerado no cliente, compartilhado por `navigator.share` com arquivo
-- [ ] Fallback de download + texto copiado, com aviso
-- [ ] Imagem legível em miniatura, sem corte
-- [ ] `shareScore()` removido do `score-sheet.component.ts`
+- [x] Fim do jogo com uma ação só (VER CHAVE)
+- [x] NO ZAP por campeonato na listagem
+- [x] PNG gerado no cliente, compartilhado por `navigator.share` com arquivo
+- [x] Fallback de download + texto copiado, com aviso
+- [x] Imagem legível em miniatura, sem corte
+- [x] `shareScore()` removido do `score-sheet.component.ts`
+
+## Comments
+
+### Onde o NO ZAP mora agora
+
+No resumo da noite (tela da sessão e faixa "a última noite" da home) e no bloco
+HOJE da listagem de campeonatos. No placar salvo ficou só VER CHAVE.
+
+### A imagem
+
+`SummaryShareService` desenha 1080 × 1350 num canvas, com as fontes do app
+carregadas antes (`document.fonts.load`) — fonte que não carregou vira a padrão
+do sistema sem erro nenhum. No celular vai pelo `navigator.share` com arquivo;
+onde isso não existe, baixa o PNG e abre o WhatsApp com o resumo em texto, e a
+tela diz o que aconteceu.
+
+A tela, a imagem e o texto saem da mesma função (`linhasDoResumo`), para as
+três dizerem a mesma coisa.

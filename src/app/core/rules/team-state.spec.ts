@@ -36,6 +36,7 @@ function match(phase: MatchPhase, vencedora: string, perdedora: string): Match {
     coinChoice: null,
     teamASide: null,
     firstServerTeamId: null,
+    rallyLog: null,
     createdAt: '2026-10-31T22:00:00.000Z',
   };
 }

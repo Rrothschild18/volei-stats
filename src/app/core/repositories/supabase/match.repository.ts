@@ -65,6 +65,7 @@ export class SupabaseMatchRepository extends SupabaseRepositoryBase implements M
         coin_choice: match.coinChoice,
         team_a_side: match.teamASide,
         first_server_team_id: match.firstServerTeamId,
+        rally_log: match.rallyLog,
       })
       .select(COLUMNS)
       .single();
@@ -116,7 +117,7 @@ export class SupabaseMatchRepository extends SupabaseRepositoryBase implements M
 // Literal de uma peça só: o cliente do Supabase deriva o tipo da resposta do
 // texto do select, e uma concatenação apagaria essa inferência.
 const COLUMNS =
-  'id, tournament_id, session_id, phase, team_a_id, team_b_id, score_a, score_b, winner_id, loser_id, point_difference, reported_by, corrected_by, corrected_at, played_at, created_at, coin_winner_team_id, coin_caller_player_id, coin_choice, team_a_side, first_server_team_id';
+  'id, tournament_id, session_id, phase, team_a_id, team_b_id, score_a, score_b, winner_id, loser_id, point_difference, reported_by, corrected_by, corrected_at, played_at, created_at, coin_winner_team_id, coin_caller_player_id, coin_choice, team_a_side, first_server_team_id, rally_log';
 
 /** As colunas que o select acima pede — `group_id` não está entre elas. */
 interface MatchColumns {
@@ -141,6 +142,7 @@ interface MatchColumns {
   coin_choice: string | null;
   team_a_side: string | null;
   first_server_team_id: string | null;
+  rally_log: number[] | null;
 }
 
 function toMatch(row: MatchColumns): Match {
@@ -166,5 +168,6 @@ function toMatch(row: MatchColumns): Match {
     coinChoice: (row.coin_choice as CoinChoice | null) ?? null,
     teamASide: (row.team_a_side as CourtSide | null) ?? null,
     firstServerTeamId: row.first_server_team_id,
+    rallyLog: row.rally_log,
   };
 }

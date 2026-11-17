@@ -24,6 +24,7 @@ function match(phase: MatchPhase, playedAt: string): Match {
     coinChoice: null,
     teamASide: null,
     firstServerTeamId: null,
+    rallyLog: null,
     createdAt: playedAt,
   };
 }

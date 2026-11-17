@@ -1,7 +1,7 @@
 import { expect, Locator, Page } from '@playwright/test';
 
 /** As quatro abas do vôlei, na ordem da barra de baixo. */
-export const ABAS = ['Início', 'Campeonatos', 'Números', 'Jogadores'] as const;
+export const ABAS = ['Início', 'Campeonatos', 'Estatísticas', 'Jogadores'] as const;
 export type Aba = (typeof ABAS)[number];
 
 /** O vôlei em que a pessoa do demo só joga: é onde se vê a tela de jogador. */

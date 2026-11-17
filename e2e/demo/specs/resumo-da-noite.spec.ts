@@ -23,7 +23,46 @@ test.describe('resumo da noite', () => {
     await grupo.abrir('campeonatos/sessoes/s-hoje');
 
     await expect(page.getByText('duração média da partida')).toBeVisible();
+    // O "≈" é o aviso de que é estimativa: a frase explicando saiu para dar
+    // lugar ao botão de compartilhar.
     await expect(page.getByText(/≈ \d+ min/)).toBeVisible();
-    await expect(page.getByText(/Duração estimada pelo intervalo entre os placares/)).toBeVisible();
+  });
+
+  test('o NO ZAP transforma o resumo numa imagem', async ({ page, grupo }) => {
+    await grupo.abrir('campeonatos/sessoes/s-hoje');
+
+    const botao = page.getByRole('button', { name: 'Compartilhar o resumo da noite no WhatsApp' });
+    await expect(botao).toBeVisible();
+
+    // O navegador do teste não tem o compartilhar do celular: cai no caminho
+    // de baixar, que é o do computador — e entrega um PNG de verdade.
+    const [download] = await Promise.all([page.waitForEvent('download'), botao.click()]);
+    expect(download.suggestedFilename()).toBe('resumo-da-noite.png');
+    await expect(page.getByText(/A imagem foi baixada/)).toBeVisible();
+  });
+
+  test('a listagem de campeonatos também tem o NO ZAP do dia', async ({ page, grupo }) => {
+    await grupo.abrir('campeonatos');
+
+    await expect(
+      page.getByRole('button', { name: 'Compartilhar o resumo da noite no WhatsApp' }),
+    ).toBeVisible();
+  });
+
+  test('a home traz as três faixas: mural, a última noite e os recordes', async ({
+    page,
+    grupo,
+  }) => {
+    await grupo.abrir('inicio');
+
+    await expect(page.getByText('MURAL')).toBeVisible();
+    await expect(page.getByText('mais vitórias').first()).toBeVisible();
+    await expect(page.getByText(/dupla do coração · desde sempre/)).toBeVisible();
+    await expect(page.getByText(/A ÚLTIMA NOITE/)).toBeVisible();
+    await expect(page.getByText('RECORDES DO GRUPO')).toBeVisible();
+    await expect(page.getByText('maior sequência da história')).toBeVisible();
+
+    // O mural é para parabenizar: nada de aproveitamento na home.
+    await expect(page.getByText(/aproveitamento/i)).toHaveCount(0);
   });
 });

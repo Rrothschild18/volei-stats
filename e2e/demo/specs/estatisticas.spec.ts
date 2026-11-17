@@ -30,11 +30,14 @@ test.describe('estatísticas', () => {
       'aria-selected',
       'true',
     );
-    await expect(page.getByText(/Ordem por vitórias/)).toBeVisible();
+    await expect(page.getByText(/Vitórias, e só/)).toBeVisible();
 
-    const vitorias = await coluna(page, 3);
+    const vitorias = await coluna(page, 2);
     expect(vitorias.length).toBeGreaterThan(1);
     expect(vitorias).toEqual([...vitorias].sort((a, b) => b - a));
+
+    // A tabela individual é só vitórias: jogos e aproveitamento ficam com as duplas.
+    await expect(page.getByRole('columnheader')).toHaveText(['Nº', 'Jogador', 'Vitórias']);
   });
 
   test('a aba Duplas ordena as duplas por vitórias', async ({ page, grupo }) => {
@@ -50,6 +53,7 @@ test.describe('estatísticas', () => {
     const vitorias = await coluna(page, 3);
     expect(vitorias.length).toBeGreaterThan(1);
     expect(vitorias).toEqual([...vitorias].sort((a, b) => b - a));
+    await expect(page.getByRole('columnheader')).toHaveText(['Nº', 'Dupla', 'J', 'V', '%']);
   });
 
   test('a janela padrão são as últimas noites, e o botão abre o histórico', async ({

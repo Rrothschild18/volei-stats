@@ -139,10 +139,7 @@ interface MatchGroup {
               <tr class="bg-accent-100 text-[11px] tracking-[0.06em] uppercase">
                 <th class="w-9 py-2 pl-4 text-left font-semibold">Nº</th>
                 <th class="py-2 text-left font-semibold">Jogador</th>
-                <th class="w-8 py-2 text-right font-semibold">J</th>
-                <th class="w-11 py-2 text-right font-semibold text-accent-700">V</th>
-                <th class="w-9 py-2 text-right font-semibold">%</th>
-                <th class="w-10 py-2 pr-4 text-right font-semibold">Esp</th>
+                <th class="w-20 py-2 pr-4 text-right font-semibold text-accent-700">Vitórias</th>
               </tr>
             </thead>
             <tbody>
@@ -150,22 +147,14 @@ interface MatchGroup {
                 <tr class="row-rule h-11" [class.bg-accent-100]="row.isMe">
                   <td class="pr-1 pl-4 text-[13px] tnum muted">{{ index + 1 }}</td>
                   <td class="font-heading text-[17px] font-semibold uppercase">{{ row.name }}</td>
-                  <td class="text-right text-[14px] tnum">{{ row.stats.gamesPlayed }}</td>
-                  <td class="text-right font-heading text-[19px] font-semibold tnum">
+                  <td class="pr-4 text-right font-heading text-[22px] font-semibold tnum">
                     {{ row.stats.wins }}
-                  </td>
-                  <td class="text-right text-[14px] tnum muted">{{ row.stats.winPercentage }}</td>
-                  <td class="pr-4 text-right text-[14px] tnum muted">
-                    {{ row.stats.timesWaited }}
                   </td>
                 </tr>
               }
             </tbody>
           </table>
-          <p class="px-4 py-3 text-[12px] muted">
-            Ordem por vitórias — o % está aí para ler, não para classificar. Esp = vezes que
-            esperou, contando só o sorteio escolhido. Só aparece quem já jogou.
-          </p>
+          <p class="px-4 py-3 text-[12px] muted">Vitórias, e só. Aparece quem já jogou.</p>
         }
 
         @case ('teams') {

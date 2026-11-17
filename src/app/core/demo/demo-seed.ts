@@ -254,6 +254,7 @@ function match(spec: MatchSpec): Match {
           teamBId: spec.teamBId,
         })
       : null,
+    rallyLog: null,
     correctedBy: null,
     correctedAt: null,
     createdAt: spec.playedAt,
@@ -362,7 +363,9 @@ function seedPastSession(draft: Draft, groupId: string, pool: string[], daysAgo:
     phase: 'final',
     teamAId: finalTeamA,
     teamBId: semiB.winnerId!,
-    scoreA: random() > 0.45 ? 12 : 7 + Math.floor(random() * 5),
+    // Nunca 12: a segunda dupla vence esta final, e 12 × 12 é um placar que o
+    // banco de verdade recusa. O número de sorteios de `random()` não muda.
+    scoreA: random() > 0.45 ? 10 : 7 + Math.floor(random() * 4),
     scoreB: 12,
     playedAt: timestamp(daysAgo, 20, 40),
     reportedBy: pick(present),

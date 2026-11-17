@@ -46,6 +46,7 @@ function round1(teamAId: string, teamBId: string): Match {
     coinChoice: null,
     teamASide: null,
     firstServerTeamId: null,
+    rallyLog: null,
     createdAt: '2026-10-26T22:12:00.000Z',
   };
 }

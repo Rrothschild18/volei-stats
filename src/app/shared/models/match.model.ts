@@ -28,6 +28,13 @@ export interface Match {
   /** O lado da PRIMEIRA dupla; o da outra é o oposto. */
   teamASide: CourtSide | null;
   firstServerTeamId: string | null;
+  /**
+   * A ordem dos ralis (ticket 08): 0 = a primeira dupla ganhou o ponto, 1 = a
+   * segunda. Nulo quando o placar foi digitado de uma vez. Depois de uma
+   * correção de placar a contagem pode não bater mais — quem lê confere
+   * (`ralisValidos`) e trata sequência velha como ausente.
+   */
+  rallyLog: number[] | null;
 }
 
 export type CoinChoice = 'saque' | 'lado';

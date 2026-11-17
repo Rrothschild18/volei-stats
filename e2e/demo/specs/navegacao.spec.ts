@@ -33,7 +33,7 @@ test.describe('navegação', () => {
     const titulos: Record<string, RegExp> = {
       Início: /\/inicio$/,
       Campeonatos: /\/campeonatos$/,
-      Números: /\/estatisticas$/,
+      Estatísticas: /\/estatisticas$/,
       Jogadores: /\/jogadores$/,
     };
 

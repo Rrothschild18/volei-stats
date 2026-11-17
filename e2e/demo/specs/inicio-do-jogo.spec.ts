@@ -37,12 +37,12 @@ test.describe('início do jogo', () => {
 
     const duplaA = placar.gaveta.getByRole('button', { name: 'RAFA + MALU' });
     await duplaA.click();
-    await page.getByRole('button', { name: 'Lado' }).click();
+    await page.getByRole('button', { name: 'Lado', exact: true }).click();
 
     // Escolheu lado: quem saca é a OUTRA dupla.
     await expect(page.getByText('Abre sacando: DUDA + CAIO')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Saque' }).click();
+    await page.getByRole('button', { name: 'Saque', exact: true }).click();
     await expect(page.getByText('Abre sacando: RAFA + MALU')).toBeVisible();
   });
 
@@ -52,7 +52,7 @@ test.describe('início do jogo', () => {
     await placar.abrir();
 
     await placar.gaveta.getByRole('button', { name: 'RAFA + MALU' }).click();
-    await page.getByRole('button', { name: 'Saque' }).click();
+    await page.getByRole('button', { name: 'Saque', exact: true }).click();
     await page.getByRole('button', { name: 'Esquerda' }).click();
 
     await placar.marcar('primeira', 12);

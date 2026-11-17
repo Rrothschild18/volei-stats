@@ -166,6 +166,7 @@ function match(id: string, sessionId: string, winner: 'a' | 'b'): Match {
     coinChoice: null,
     teamASide: null,
     firstServerTeamId: null,
+    rallyLog: null,
     createdAt: '2026-10-26T22:30:00.000Z',
   };
 }

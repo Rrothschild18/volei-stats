@@ -13,6 +13,7 @@ import { findFormat } from '../rules/tournament-formats';
 import { phaseLabel, plannedPhases } from '../rules/bracket-phases';
 import { readRound1 } from '../rules/round-1-outcome';
 import { MatchOpening, quemAbreSacando } from '../rules/match-opening';
+import { ralisParaGravar } from '../rules/serve-tracker';
 import { correctionWindowOpen, tournamentTiming } from '../rules/tournament-timing';
 import {
   Match,
@@ -294,6 +295,8 @@ export class LiveTournamentStore {
     scoreB: number,
     reportedBy: string | null,
     opening?: MatchOpening,
+    /** A dupla que ganhou cada rali, na ordem; nulo quando a folha não sabe. */
+    rallies: readonly string[] | null = null,
   ): Promise<{ saved: boolean; existing: Match | null }> {
     const tournament = this.tournament();
     if (!tournament) {
@@ -340,6 +343,7 @@ export class LiveTournamentStore {
         teamAId: bracket.teamAId,
         teamBId: bracket.teamBId,
       }),
+      rallyLog: ralisParaGravar(rallies, { teamAId: bracket.teamAId, scoreA, scoreB }),
     };
 
     await this.facade.saveMatch(match);

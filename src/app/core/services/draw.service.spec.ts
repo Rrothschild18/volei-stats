@@ -121,6 +121,7 @@ function round1(
     coinChoice: null,
     teamASide: null,
     firstServerTeamId: null,
+    rallyLog: null,
     createdAt: '2026-10-31T22:30:00.000Z',
   };
 }

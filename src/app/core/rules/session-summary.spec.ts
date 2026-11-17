@@ -79,6 +79,7 @@ function partida(
     coinChoice: null,
     teamASide: null,
     firstServerTeamId: null,
+    rallyLog: null,
     createdAt: playedAt,
   };
 }

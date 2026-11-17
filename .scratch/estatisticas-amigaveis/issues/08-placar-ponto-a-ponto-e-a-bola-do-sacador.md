@@ -7,7 +7,7 @@ saber.
 
 **Blocked by:** 07
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Por que não dá hoje
 
@@ -78,17 +78,50 @@ log** (o placar vale, o detalhe não) e dizer isso na tela.
 - **Maior virada** — hoje impossível, porque não há parciais
 - Pontos por rali, sequência de pontos, o 12 × 10 que foi 10 × 2 antes
 
-- [ ] Modo ponto a ponto, com os dois modos convivendo
-- [ ] Ícone de bola no sacador, seguindo a regra do grupo
-- [ ] Sacador derivado de (quem abriu, qual jogador, log) — com teste de unidade
+- [x] Modo ponto a ponto, com os dois modos convivendo
+- [x] Ícone de bola no sacador, seguindo a regra do grupo
+- [x] Sacador derivado de (quem abriu, qual jogador, log) — com teste de unidade
       cobrindo virada de posse e troca dentro da dupla
-- [ ] `rally_log` + constraint de consistência com o placar
-- [ ] Correção de placar apaga o log, e a tela avisa
-- [ ] Abandonar no meio salva o que foi marcado
-- [ ] Partida sem log não mostra ícone nenhum
+- [x] `rally_log` + constraint de consistência com o placar
+- [x] Correção de placar apaga o log, e a tela avisa
+- [x] Abandonar no meio salva o que foi marcado
+- [x] Partida sem log não mostra ícone nenhum
 
 ## Pergunta aberta
 
 A regra de alternância dentro da dupla ("quando recupera a posse, saca o
 outro") precisa de um OK do grupo antes de virar código — é a única parte que o
 app vai afirmar sozinho em quadra.
+
+## Comments
+
+### Não virou um modo separado
+
+A folha de placar já era ponto a ponto — o `+` sobe de um em um. Cada toque é um
+rali, e é dele que a bola anda. Não existe "MARCAR PONTO A PONTO" versus "LANÇAR
+PLACAR FINAL": é a mesma folha, e quem pula mais de um ponto de uma vez só perde
+a bola (a ordem se perdeu), nunca o placar.
+
+### A bola
+
+No cartão da dupla que saca, com o nome de quem saca. Tocar nela troca o
+sacador dentro da dupla. Sem ninguém marcado, cada dupla oferece "marcar o
+saque aqui" — dá para começar a acompanhar no meio do jogo, sem ter registrado
+o par-ou-ímpar.
+
+### A contagem sobrevive a fechar a folha
+
+Antes, fechar a folha jogava os pontos fora. Agora o rascunho fica no aparelho
+(`ScoreDraftService`) até salvar. É local de propósito: o placar só vira verdade
+do grupo quando alguém salva, e o primeiro salvo trava — como já era.
+
+### `rally_log` sem constraint com o placar
+
+A migration guarda a sequência (0 = primeira dupla, 1 = segunda), mas **não**
+amarra a contagem ao placar: `correct_match_score` reescreve o placar sem saber
+da sequência, e uma constraint faria toda correção falhar. Quem grava confere
+(`ralisParaGravar` só devolve sequência que fecha com o placar); quem ler no
+futuro precisa conferir de novo, porque uma correção deixa a sequência velha.
+
+Duração real, maior virada e sequência de pontos passam a ser possíveis com
+esse dado — nenhuma foi construída ainda.

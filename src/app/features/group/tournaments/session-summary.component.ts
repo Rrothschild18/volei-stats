@@ -1,6 +1,8 @@
 import { Component, computed, input } from '@angular/core';
 import { Match, Player, Tournament } from '../../../shared/models';
 import { resumoDaSessao } from '../../../core/rules/session-summary';
+import { linhasDoResumo } from '../../../core/rules/session-summary-lines';
+import { SummaryShareButtonComponent } from './summary-share-button.component';
 import { BlueprintComponent, SectionBandComponent, SpecListComponent } from '../../../shared/ui';
 import type { SpecListItem } from '../../../shared/ui';
 
@@ -17,13 +19,32 @@ import type { SpecListItem } from '../../../shared/ui';
  */
 @Component({
   selector: 'app-session-summary',
-  imports: [BlueprintComponent, SectionBandComponent, SpecListComponent],
+  imports: [
+    BlueprintComponent,
+    SectionBandComponent,
+    SpecListComponent,
+    SummaryShareButtonComponent,
+  ],
   template: `
     @if (items().length > 0) {
       <section>
-        <app-section-band [index]="index()" label="RESUMO DA NOITE" />
+        <app-section-band [index]="index()" [label]="label()" />
         <app-blueprint>
-          <app-spec-list [items]="items()" [note]="note()" />
+          <app-spec-list [items]="items()" />
+          <!--
+            Onde ficava a nota da duração agora fica o gesto: o resumo inteiro
+            vira imagem e vai para o grupo. O "≈" na linha da duração continua
+            dizendo que ela é estimativa.
+          -->
+          <div class="border-t border-divider p-3">
+            <app-summary-share-button
+              [tournaments]="tournaments()"
+              [matches]="matches()"
+              [playersById]="playersById()"
+              [titulo]="titulo()"
+              [subtitulo]="subtitulo()"
+            />
+          </div>
         </app-blueprint>
       </section>
     }
@@ -33,120 +54,16 @@ export class SessionSummaryComponent {
   readonly tournaments = input.required<readonly Tournament[]>();
   readonly matches = input.required<readonly Match[]>();
   readonly playersById = input.required<ReadonlyMap<string, Player>>();
+  /** O vôlei e o dia: o cabeçalho da imagem compartilhada. */
+  readonly titulo = input.required<string>();
+  readonly subtitulo = input.required<string>();
   readonly index = input('04');
+  readonly label = input('RESUMO DA NOITE');
 
-  private readonly resumo = computed(() =>
-    resumoDaSessao({ tournaments: this.tournaments(), matches: this.matches() }),
+  protected readonly items = computed<SpecListItem[]>(() =>
+    linhasDoResumo(
+      resumoDaSessao({ tournaments: this.tournaments(), matches: this.matches() }),
+      (playerId) => this.playersById().get(playerId)?.name ?? '?',
+    ),
   );
-
-  protected readonly items = computed<SpecListItem[]>(() => {
-    const resumo = this.resumo();
-    if (resumo.partidas === 0) {
-      return [];
-    }
-
-    const linhas: SpecListItem[] = [
-      { label: 'partidas jogadas', value: this.plural(resumo.partidas, 'jogo', 'jogos') },
-    ];
-
-    if (resumo.maisVitorias) {
-      linhas.push({
-        label: 'mais vitórias',
-        value: this.nomes(resumo.maisVitorias.playerIds),
-        figure: resumo.maisVitorias.valor,
-      });
-    }
-
-    if (resumo.maiorSequencia && resumo.maiorSequencia.valor > 1) {
-      linhas.push({
-        label: 'maior sequência',
-        value: this.nomes(resumo.maiorSequencia.playerIds),
-        figure: `${resumo.maiorSequencia.valor} seguidas`,
-      });
-    }
-
-    if (resumo.maisTitulos) {
-      linhas.push({
-        label: resumo.maisTitulos.valor === 1 ? 'levantou a taça' : 'mais títulos',
-        value: this.nomes(resumo.maisTitulos.playerIds),
-        figure: resumo.maisTitulos.valor,
-      });
-    }
-
-    // Pódio só diz alguma coisa quando alguém subiu mais de uma vez: com um
-    // campeonato na noite, todo mundo que não foi último "tem um pódio".
-    const maisPodios = resumo.podios.filter(
-      (entrada) => entrada.valor > 1 && entrada.valor === resumo.podios[0]?.valor,
-    );
-    if (maisPodios.length > 0) {
-      linhas.push({
-        label: 'mais pódios',
-        value: this.nomes(maisPodios.map((entrada) => entrada.playerId)),
-        figure: maisPodios[0].valor,
-      });
-    }
-
-    for (const campeao of resumo.campeoes) {
-      linhas.push({
-        label: `campeões · ${campeao.nome}`,
-        value: this.dupla(campeao.playerIds),
-        figure: campeao.placar ? `${campeao.placar.vencedor}×${campeao.placar.perdedor}` : '—',
-      });
-    }
-
-    if (resumo.maisApertada) {
-      linhas.push({
-        label: 'partida mais apertada',
-        value: `${this.dupla(resumo.maisApertada.vencedorIds)} × ${this.dupla(
-          resumo.maisApertada.perdedorIds,
-        )}`,
-        figure: `${resumo.maisApertada.placar.vencedor}×${resumo.maisApertada.placar.perdedor}`,
-      });
-    }
-
-    if (resumo.fechouAQuadra.length > 0) {
-      linhas.push({ label: 'fechou a quadra', value: this.nomes(resumo.fechouAQuadra) });
-    }
-
-    if (resumo.duracaoMediaMin !== null) {
-      linhas.push({
-        label: 'duração média da partida',
-        value: `≈ ${resumo.duracaoMediaMin} min`,
-      });
-    }
-
-    return linhas;
-  });
-
-  /**
-   * A duração é estimativa, e a tela diz isso: `playedAt` é quando o placar foi
-   * lançado, não quando a partida começou.
-   */
-  protected readonly note = computed(() =>
-    this.resumo().duracaoMediaMin !== null
-      ? 'Duração estimada pelo intervalo entre os placares do mesmo campeonato.'
-      : '',
-  );
-
-  private nome(playerId: string): string {
-    return this.playersById().get(playerId)?.name ?? '?';
-  }
-
-  /** "Douglas e Wily"; com três ou mais, "Douglas, Wily e Kaio". */
-  private nomes(playerIds: readonly string[]): string {
-    const nomes = playerIds.map((playerId) => this.nome(playerId));
-    if (nomes.length <= 1) {
-      return nomes[0] ?? '?';
-    }
-    return `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`;
-  }
-
-  /** A dupla como ela aparece no resto do app: "Douglas + Wily". */
-  private dupla(playerIds: readonly string[]): string {
-    return playerIds.map((playerId) => this.nome(playerId)).join(' + ');
-  }
-
-  private plural(quanto: number, singular: string, plural: string): string {
-    return `${quanto} ${quanto === 1 ? singular : plural}`;
-  }
 }

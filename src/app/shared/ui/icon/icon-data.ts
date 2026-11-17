@@ -224,6 +224,19 @@ export const ICONS: Readonly<Record<string, readonly IconNode[]>> = {
     { tag: 'path', attrs: { d: 'M12 5v14' } },
   ],
   minus: [{ tag: 'path', attrs: { d: 'M5 12h14' } }],
+  volleyball: [
+    { tag: 'path', attrs: { d: 'M11.1 7.1a16.55 16.55 0 0 1 10.9 4' } },
+    { tag: 'path', attrs: { d: 'M12 12a12.6 12.6 0 0 1-8.7 5' } },
+    { tag: 'path', attrs: { d: 'M16.8 13.6a16.55 16.55 0 0 1-9 7.5' } },
+    { tag: 'path', attrs: { d: 'M20.7 17a12.8 12.8 0 0 0-8.7-5 13.3 13.3 0 0 1 0-10' } },
+    { tag: 'path', attrs: { d: 'M6.3 3.8a16.55 16.55 0 0 0 1.9 11.5' } },
+    { tag: 'circle', attrs: { cx: '12', cy: '12', r: '10' } },
+  ],
+  download: [
+    { tag: 'path', attrs: { d: 'M12 15V3' } },
+    { tag: 'path', attrs: { d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' } },
+    { tag: 'path', attrs: { d: 'm7 10 5 5 5-5' } },
+  ],
 };
 
 export type IconName = keyof typeof ICONS;
