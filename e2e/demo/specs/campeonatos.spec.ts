@@ -27,6 +27,16 @@ test.describe('campeonatos', () => {
     await expect(page.getByText(/8 presentes · 1 campeonato/).first()).toBeVisible();
   });
 
+  test('reordenar as duplas é do dono: quem só joga não vê o gesto', async ({ page, grupo }) => {
+    // A ordem das duplas é o confronto, então remontá-la é mexer na chave
+    // (ticket 44). Caio joga no Vôlei Segunda, não é dono dele.
+    await grupo.abrir('campeonatos');
+    await page.getByRole('button').filter({ hasText: 'TIRA O PAR O ÍMPAR AÍ' }).first().click();
+    await page.getByRole('tab', { name: 'Duplas' }).click();
+
+    await expect(page.getByText('Reordenar as duplas da chave')).toBeHidden();
+  });
+
   test('tocar no campeonato ao vivo abre a chave dele', async ({ page, grupo }) => {
     await grupo.abrir('campeonatos');
     const aoVivo = page.getByRole('button').filter({ hasText: 'TIRA O PAR O ÍMPAR AÍ' }).first();

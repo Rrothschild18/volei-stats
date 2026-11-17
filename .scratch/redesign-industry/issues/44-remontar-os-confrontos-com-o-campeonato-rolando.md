@@ -8,7 +8,7 @@ recomeçar, perdendo os placares já lançados. O organizador precisa poder
 
 **Blocked by:** None (can start immediately)
 
-**Status:** needs-info — falta decidir o que acontece com confronto já jogado
+**Status:** done
 
 ## Como a chave nasce hoje
 
@@ -102,18 +102,55 @@ pares) é outro pedido, e hoje não tem onde morar: a fila não é guardada, é
 derivada. Se aparecer, vira ticket próprio com uma coluna de ordem em `matches`
 ou numa tabela de vagas.
 
-- [ ] Reordenar duplas na chave, com o campeonato em andamento
-- [ ] Dupla cujo confronto da rodada 1 já tem placar não se move, e a tela diz
+- [x] Reordenar duplas na chave, com o campeonato em andamento
+- [x] Dupla cujo confronto da rodada 1 já tem placar não se move, e a tela diz
       por quê
-- [ ] A dupla sintética do encaixe fica fora da reordenação
-- [ ] Prévia dos confrontos novos antes de confirmar
-- [ ] Subir/descer por botão, operável no teclado (sem drag-and-drop)
-- [ ] Só o dono vê o gesto; registrar em comentário que a RLS não trava isto
-- [ ] **Verificar** o `upsert` de posições contra o `unique (tournament_id,
+- [x] A dupla sintética do encaixe fica fora da reordenação
+- [x] Prévia dos confrontos novos antes de confirmar
+- [x] Subir/descer por botão, operável no teclado (sem drag-and-drop)
+- [x] Só o dono vê o gesto; registrar em comentário que a RLS não trava isto
+- [x] **Verificar** o `upsert` de posições contra o `unique (tournament_id,
       position)` num Postgres real antes de confiar
-- [ ] Teste: reordenar antes de qualquer placar muda os confrontos da rodada 1
-- [ ] Teste: com A×B lançado, A e B não aparecem como reordenáveis
-- [ ] Teste: reordenar não altera placar, vencedor nem `reported_by` de nenhuma
+- [x] Teste: reordenar antes de qualquer placar muda os confrontos da rodada 1
+- [x] Teste: com A×B lançado, A e B não aparecem como reordenáveis
+- [x] Teste: reordenar não altera placar, vencedor nem `reported_by` de nenhuma
       partida salva
-- [ ] Teste: reordenar não deixa partida órfã (nenhuma linha de `matches` fora
+- [x] Teste: reordenar não deixa partida órfã (nenhuma linha de `matches` fora
       dos confrontos que a chave gera)
+
+## Comments
+
+Feito, e a verificação do banco que o ticket mandava fazer **achou o defeito**.
+
+### A chave única era mesmo um problema
+
+Reproduzido num Postgres de verdade antes de qualquer código de tela
+(`supabase/tests/07-reordenar-duplas.sql`): o `upsert` do repositório regrava
+todas as duplas numa statement só, e a troca 2 ↔ 3 morre em chave repetida.
+`unique (tournament_id, position)` não-deferrable é conferido **linha a linha**,
+então o caminho entre dois estados válidos é inválido.
+
+Duas saídas: posições temporárias negativas em duas passadas no cliente, ou a
+restrição `deferrable`. Escolhida a segunda
+(`20261117130000_posicao_da_dupla_deferivel.sql`), porque arruma no lugar onde o
+problema mora e deixa o repositório sem nenhuma esperteza. É `initially
+immediate`, não `deferred`: o que muda é o instante da conferência — fim da
+statement em vez de linha a linha —, e duas duplas na mesma posição continuam
+proibidas. A suíte nova guarda as três coisas.
+
+### A forma do seam mudou no meio
+
+O ticket pedia prévia antes de confirmar, e o primeiro desenho (`moveTeam`, que
+gravava a cada toque) não comportava isso. Virou duas peças: `moveInOrder`, pura,
+que a folha usa para o rascunho, e `applyTeamOrder`, que grava uma vez e
+**reconfere a trava** — a mesma ordem pode chegar de uma aba velha, e aí a tela
+não guarda nada (ticket 32).
+
+### O que ficou sem cobertura de ponta a ponta
+
+O gesto é do dono, e no modo demonstração o Caio só é dono do Vôlei Trabalho,
+que não tem campeonato em andamento. O e2e cobre o **portão** (quem só joga não
+vê o gesto); o resto está em teste de componente (`team-order-sheet.component.spec.ts`,
+travadas sem botão, prévia, o que o salvar emite) e no seam do serviço. Atravessar
+o fluxo inteiro de dono pede uma sessão ao vivo no Vôlei Trabalho na semente,
+que mexeria na contagem de outros testes — fica para quando houver motivo.

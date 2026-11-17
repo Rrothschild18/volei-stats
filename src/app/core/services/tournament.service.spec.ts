@@ -817,3 +817,159 @@ describe('TournamentService e o encaixe depois de uma correção', () => {
     expect(service.getOddPlayerPlacementCandidate(entry, corrected)?.sourceTeam.id).toBe('t2');
   });
 });
+
+describe('TournamentService.teamOrder (ticket 44)', () => {
+  const sixTeamsEmOrdem = () => [
+    team('t1', ['rafa', 'bia']),
+    team('t2', ['thiago', 'nina']),
+    team('t3', ['duda', 'malu']),
+    team('t4', ['gui', 'paty']),
+    team('t5', ['leo', 'carol']),
+    team('t6', ['caio', 'vi']),
+  ];
+
+  it('sem placar nenhum, todas as duplas podem trocar de lugar', () => {
+    const { service } = setup([]);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeamsEmOrdem() });
+
+    const order = service.teamOrder(entry, []);
+
+    expect(order.map((slot) => slot.team.id)).toEqual(['t1', 't2', 't3', 't4', 't5', 't6']);
+    expect(order.every((slot) => !slot.locked)).toBe(true);
+    expect(order.map((slot) => slot.opponentId)).toEqual(['t2', 't1', 't4', 't3', 't6', 't5']);
+  });
+
+  it('a dupla que já jogou está travada', () => {
+    const matches = [match('m1', 'round-1', 't1', 't2', 12, 9)];
+    const { service } = setup(matches);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeamsEmOrdem() });
+
+    const travadas = service
+      .teamOrder(entry, matches)
+      .filter((slot) => slot.locked)
+      .map((slot) => slot.team.id);
+
+    expect(travadas).toEqual(['t1', 't2']);
+  });
+
+  it('a dupla sintética do encaixe fica fora da lista', () => {
+    const teams = [...sixTeamsEmOrdem(), team('t7', ['leo', 'caio'], true)];
+    const { service } = setup([]);
+    const entry = tournament({ formatId: 'knockout-6', teams });
+
+    expect(service.teamOrder(entry, []).map((slot) => slot.team.id)).not.toContain('t7');
+  });
+});
+
+describe('TournamentService.moveInOrder e applyTeamOrder (ticket 44)', () => {
+  const sixTeamsEmOrdem = () => [
+    team('t1', ['rafa', 'bia']),
+    team('t2', ['thiago', 'nina']),
+    team('t3', ['duda', 'malu']),
+    team('t4', ['gui', 'paty']),
+    team('t5', ['leo', 'carol']),
+    team('t6', ['caio', 'vi']),
+  ];
+
+  const ids = (teams: readonly TournamentTeam[]) => teams.map((candidate) => candidate.id);
+
+  it('subir uma dupla muda os confrontos da rodada inicial', async () => {
+    const { service, saved } = setup([]);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeamsEmOrdem() });
+
+    const rascunho = service.moveInOrder(service.teamOrder(entry, []), 't3', 'up');
+    expect(ids(rascunho!)).toEqual(['t1', 't3', 't2', 't4', 't5', 't6']);
+
+    const depois = await service.applyTeamOrder(entry, ids(rascunho!), []);
+
+    expect(service.generateInitialMatches(depois)).toEqual([
+      { phase: 'round-1', teamAId: 't1', teamBId: 't3' },
+      { phase: 'round-1', teamAId: 't2', teamBId: 't4' },
+      { phase: 'round-1', teamAId: 't5', teamBId: 't6' },
+    ]);
+    expect(saved).toHaveLength(1);
+  });
+
+  it('a dupla que já jogou não sai do lugar', () => {
+    const matches = [match('m1', 'round-1', 't1', 't2', 12, 9)];
+    const { service } = setup(matches);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeamsEmOrdem() });
+
+    expect(service.moveInOrder(service.teamOrder(entry, matches), 't2', 'down')).toBeNull();
+  });
+
+  it('nem troca de lugar com quem já jogou', () => {
+    const matches = [match('m1', 'round-1', 't1', 't2', 12, 9)];
+    const { service } = setup(matches);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeamsEmOrdem() });
+
+    expect(service.moveInOrder(service.teamOrder(entry, matches), 't3', 'up')).toBeNull();
+  });
+
+  it('a ordem que mexe numa dupla travada é recusada na gravação também', async () => {
+    // A tela não é a guardiã: a mesma ordem, vinda de uma aba velha ou de um
+    // link antigo, tem de ser recusada aqui (a lição do ticket 32).
+    const matches = [match('m1', 'round-1', 't1', 't2', 12, 9)];
+    const { service, saved } = setup(matches);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeamsEmOrdem() });
+
+    const depois = await service.applyTeamOrder(
+      entry,
+      ['t2', 't1', 't3', 't4', 't5', 't6'],
+      matches,
+    );
+
+    expect(ids(depois.teams)).toEqual(['t1', 't2', 't3', 't4', 't5', 't6']);
+    expect(saved).toHaveLength(0);
+  });
+
+  it('ordem com dupla faltando ou repetida é recusada', async () => {
+    const { service, saved } = setup([]);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeamsEmOrdem() });
+
+    await service.applyTeamOrder(entry, ['t1', 't2', 't3'], []);
+    await service.applyTeamOrder(entry, ['t1', 't1', 't3', 't4', 't5', 't6'], []);
+
+    expect(saved).toHaveLength(0);
+  });
+
+  it('reordenar não deixa partida órfã: o que foi jogado continua na chave', async () => {
+    const matches = [match('m1', 'round-1', 't1', 't2', 12, 9)];
+    const { service } = setup(matches);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeamsEmOrdem() });
+
+    const rascunho = service.moveInOrder(service.teamOrder(entry, matches), 't5', 'up');
+    const depois = await service.applyTeamOrder(entry, ids(rascunho!), matches);
+
+    const confrontos = service
+      .generateInitialMatches(depois)
+      .map((bracket) => [bracket.teamAId, bracket.teamBId].sort().join('×'));
+
+    for (const partida of matches) {
+      expect(confrontos).toContain([partida.teamAId, partida.teamBId].sort().join('×'));
+    }
+  });
+
+  it('a dupla sintética continua no fim da lista depois de uma reordenação', async () => {
+    const teams = [...sixTeamsEmOrdem(), team('t7', ['leo', 'caio'], true)];
+    const { service } = setup([]);
+    const entry = tournament({ formatId: 'knockout-6', teams });
+
+    const depois = await service.applyTeamOrder(
+      entry,
+      ['t1', 't3', 't2', 't4', 't5', 't6'],
+      [],
+    );
+
+    expect(ids(depois.teams)).toEqual(['t1', 't3', 't2', 't4', 't5', 't6', 't7']);
+  });
+
+  it('a primeira dupla não sobe, e a última não desce', () => {
+    const { service } = setup([]);
+    const entry = tournament({ formatId: 'knockout-6', teams: sixTeamsEmOrdem() });
+    const order = service.teamOrder(entry, []);
+
+    expect(service.moveInOrder(order, 't1', 'up')).toBeNull();
+    expect(service.moveInOrder(order, 't6', 'down')).toBeNull();
+  });
+});

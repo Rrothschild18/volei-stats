@@ -23,6 +23,7 @@ import {
 import { ScoreSheetComponent } from './score-sheet.component';
 import { PlacementSheetComponent } from './placement-sheet.component';
 import { TiebreakSheetComponent } from './tiebreak-sheet.component';
+import { TeamOrderSheetComponent } from './team-order-sheet.component';
 
 type Tab = 'queue' | 'bracket' | 'teams';
 
@@ -75,6 +76,7 @@ function writeDismissed(tournamentId: string): void {
     ScoreSheetComponent,
     SkeletonComponent,
     TiebreakSheetComponent,
+    TeamOrderSheetComponent,
   ],
   template: `
     <app-inner-header
@@ -274,6 +276,23 @@ function writeDismissed(tournamentId: string): void {
         }
 
         @case ('teams') {
+          @if (canReorder()) {
+            <!--
+              Só o dono, e só enquanto o campeonato está em andamento: depois da
+              final não há confronto para remontar. A ordem das duplas é o
+              confronto, então isto é mexer na chave (ticket 44).
+            -->
+            <div class="px-4 pt-4">
+              <button
+                type="button"
+                class="flex items-center gap-2 text-[14px] text-accent-700"
+                (click)="orderingTeams.set(true)"
+              >
+                <app-icon name="arrow-left-right" [size]="16" />
+                Reordenar as duplas da chave
+              </button>
+            </div>
+          }
           <ul class="list-none p-0 pb-6">
             @for (row of teamRows(); track row.teamId) {
               <li class="row-rule flex items-center gap-3 px-4 py-3">
@@ -319,6 +338,14 @@ function writeDismissed(tournamentId: string): void {
     } @else if (group.canPlay() && store.placementCandidate()) {
       <app-placement-sheet [registering]="registering()" (choose)="applyPlacement($event)" />
     }
+
+    @if (orderingTeams()) {
+      <app-team-order-sheet
+        [saving]="savingOrder()"
+        (apply)="applyTeamOrder($event)"
+        (closed)="orderingTeams.set(false)"
+      />
+    }
   `,
   host: { class: 'block' },
 })
@@ -346,6 +373,20 @@ export class TournamentLiveComponent implements OnInit {
   protected readonly inviteDismissed = signal(false);
   /** Quem está sendo gravado como vencedor do par-ou-ímpar (encaixe ou empate). */
   protected readonly registering = signal<string | null>(null);
+
+  /** A folha da ordem das duplas está aberta? */
+  protected readonly orderingTeams = signal(false);
+  protected readonly savingOrder = signal(false);
+
+  /**
+   * Remontar os confrontos é do dono, e só com o campeonato em andamento.
+   *
+   * A trava de verdade não é esta: quem recusa uma ordem que mexe em dupla já
+   * travada é o serviço, porque a tela é guardiã de um caminho só (ticket 32).
+   */
+  protected readonly canReorder = computed(
+    () => this.group.isOwner() && this.store.tournament()?.status === 'in-progress',
+  );
 
   /**
    * O que a última correção de placar derrubou, em uma frase.
@@ -383,6 +424,20 @@ export class TournamentLiveComponent implements OnInit {
 
     return partes.length > 0 ? `A correção ${partes.join('; ')}.` : null;
   });
+
+  protected async applyTeamOrder(teamIds: string[]): Promise<void> {
+    if (this.savingOrder()) {
+      return;
+    }
+
+    this.savingOrder.set(true);
+    try {
+      await this.store.applyTeamOrder(teamIds);
+      this.orderingTeams.set(false);
+    } finally {
+      this.savingOrder.set(false);
+    }
+  }
 
   protected readonly tabs = [
     { id: 'queue', label: 'Fila' },

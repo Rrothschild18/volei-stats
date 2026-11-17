@@ -1,6 +1,12 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { AppFacade } from '../facade/app.facade';
-import { BracketMatch, BracketSlot, TournamentService } from '../services/tournament.service';
+import {
+  BracketMatch,
+  BracketSlot,
+  TeamMove,
+  TeamOrderSlot,
+  TournamentService,
+} from '../services/tournament.service';
 import { DrawService } from '../services/draw.service';
 import { CurrentGroupStore } from './current-group.store';
 import { findFormat } from '../rules/tournament-formats';
@@ -478,6 +484,40 @@ export class LiveTournamentStore {
     tournament.finalStandings = standings;
     tournament.updatedAt = new Date().toISOString();
     await this.facade.saveTournament(tournament);
+  }
+
+  /**
+   * A ordem das duplas na chave, com o que ainda dá para mexer.
+   *
+   * A ordem É o confronto: a primeira enfrenta a segunda, a terceira a quarta.
+   * Quem já jogou vem travada — mover remontaria um confronto que já aconteceu
+   * (ticket 44).
+   */
+  readonly teamOrder = computed<readonly TeamOrderSlot[]>(() => {
+    const tournament = this.tournament();
+    return tournament ? this.tournaments.teamOrder(tournament, this.matches()) : [];
+  });
+
+  /**
+   * Troca uma dupla de lugar NA TELA, sem gravar.
+   *
+   * Devolve a ordem nova (ids), ou `null` quando o movimento não vale. Quem
+   * grava é `applyTeamOrder`, depois de a pessoa ver os confrontos novos.
+   */
+  moveInOrder(order: readonly TeamOrderSlot[], teamId: string, direction: TeamMove): string[] | null {
+    const movida = this.tournaments.moveInOrder(order, teamId, direction);
+    return movida?.map((team) => team.id) ?? null;
+  }
+
+  /** Grava a ordem nova das duplas, e com ela os confrontos novos. */
+  async applyTeamOrder(teamIds: readonly string[]): Promise<void> {
+    const tournament = this.tournament();
+    if (!tournament) {
+      return;
+    }
+
+    await this.tournaments.applyTeamOrder(tournament, teamIds, this.matches());
+    await this.reload();
   }
 
   /** Registra quem venceu o par-ou-ímpar do encaixe. */

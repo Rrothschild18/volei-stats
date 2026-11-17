@@ -42,6 +42,25 @@ function jogavel(slot: BracketSlot): slot is BracketMatch {
   return slot.teamBId !== null;
 }
 
+/**
+ * Uma dupla na ordem da chave, e se ela ainda pode sair do lugar.
+ *
+ * A ordem das duplas É a chave: `generateInitialMatches` casa a primeira com a
+ * segunda, a terceira com a quarta, e assim por diante. Reordenar é, portanto,
+ * remontar os confrontos — e é por isso que quem já jogou não se move (ticket
+ * 44).
+ */
+export interface TeamOrderSlot {
+  readonly team: TournamentTeam;
+  /** Já tem partida lançada: mover mudaria um confronto que já aconteceu. */
+  readonly locked: boolean;
+  /** Quem esta dupla enfrenta na rodada inicial, na ordem de agora. */
+  readonly opponentId: string | null;
+}
+
+/** Para onde a dupla vai na lista. */
+export type TeamMove = 'up' | 'down';
+
 /** A mesma fase e as mesmas duas duplas, em qualquer ordem. */
 function samePair(match: Match, phase: MatchPhase, teamAId: string, teamBId: string): boolean {
   return (
@@ -375,6 +394,124 @@ export class TournamentService {
       default:
         return [];
     }
+  }
+
+  /**
+   * A ordem das duplas na chave, com o que ainda dá para mexer.
+   *
+   * Existe porque a ordem das duplas não é enfeite: ela é o confronto. Quando
+   * ela sai errada — alguém chegou atrasado, a quadra virou, o sorteio foi
+   * ajustado de boca —, a única saída era excluir o campeonato e recomeçar,
+   * perdendo os placares já lançados.
+   *
+   * A dupla sintética do encaixe não entra: ela nasce depois da rodada 1 e
+   * nunca participou da rodada inicial, então não há confronto dela para
+   * remontar.
+   */
+  teamOrder(tournament: Tournament, matches: readonly Match[]): TeamOrderSlot[] {
+    this.normalizeTournament(tournament);
+    const teams = tournament.teams.filter((team) => !team.synthetic);
+
+    // Travada é a dupla que já tem partida lançada, em qualquer fase. "Em
+    // qualquer fase" e não "na rodada 1" porque num formato de duas duplas a
+    // rodada inicial É a final, e de quatro são as semifinais — a trava não
+    // pode depender de conhecer formato (a mesma lição do ticket 35).
+    const jogou = new Set<string>();
+    for (const match of matches) {
+      jogou.add(match.teamAId);
+      jogou.add(match.teamBId);
+    }
+
+    const confrontos = new Map<string, string>();
+    for (const bracket of this.generateInitialMatches(tournament)) {
+      confrontos.set(bracket.teamAId, bracket.teamBId);
+      confrontos.set(bracket.teamBId, bracket.teamAId);
+    }
+
+    return teams.map((team) => ({
+      team,
+      locked: jogou.has(team.id),
+      opponentId: confrontos.get(team.id) ?? null,
+    }));
+  }
+
+  /**
+   * Troca uma dupla de lugar com a vizinha, e com isso remonta os confrontos.
+   *
+   * Devolve a ordem nova, ou `null` quando o movimento não vale: fora da lista,
+   * ou envolvendo uma dupla travada. É puro de propósito — a folha da tela
+   * precisa mostrar os confrontos novos ANTES de alguém confirmar, e isso não
+   * pode custar uma gravação por toque.
+   */
+  moveInOrder(
+    order: readonly TeamOrderSlot[],
+    teamId: string,
+    direction: TeamMove,
+  ): TournamentTeam[] | null {
+    const from = order.findIndex((slot) => slot.team.id === teamId);
+    const to = direction === 'up' ? from - 1 : from + 1;
+
+    if (from < 0 || to < 0 || to >= order.length) {
+      return null;
+    }
+
+    if (order[from].locked || order[to].locked) {
+      return null;
+    }
+
+    const teams = order.map((slot) => slot.team);
+    [teams[from], teams[to]] = [teams[to], teams[from]];
+    return teams;
+  }
+
+  /**
+   * Grava a ordem nova das duplas, e com ela os confrontos novos.
+   *
+   * A trava é conferida AQUI, e não só na tela: a mesma ordem pode chegar de
+   * uma aba velha ou de outro cliente, e aí a tela não é guardiã de nada (a
+   * lição do ticket 32). Uma dupla travada que mudou de índice derruba a
+   * gravação inteira.
+   *
+   * Por que a trava existe: a chave reconhece partida salva **pelo par de
+   * duplas**. Mover quem já jogou faria a linha antiga deixar de ser um
+   * confronto da chave — e ela continuaria contando no saldo, nas estatísticas
+   * e nos rankings, que é o fantasma do ticket 35 entrando por outra porta.
+   *
+   * Nenhum placar é tocado: a partida aponta para o id da dupla, nunca para a
+   * posição dela.
+   *
+   * Ordem recusada devolve o campeonato como estava, sem gravar.
+   */
+  async applyTeamOrder(
+    tournament: Tournament,
+    teamIds: readonly string[],
+    matches: readonly Match[],
+  ): Promise<Tournament> {
+    const order = this.teamOrder(tournament, matches);
+
+    const mesmasDuplas =
+      teamIds.length === order.length &&
+      new Set(teamIds).size === teamIds.length &&
+      teamIds.every((id) => order.some((slot) => slot.team.id === id));
+
+    if (!mesmasDuplas) {
+      return tournament;
+    }
+
+    const travadaMudou = order.some((slot, index) => slot.locked && teamIds[index] !== slot.team.id);
+    if (travadaMudou) {
+      return tournament;
+    }
+
+    const porId = new Map(order.map((slot) => [slot.team.id, slot.team]));
+    const reordenadas = teamIds.map((id) => porId.get(id)!);
+
+    // As sintéticas voltam para o fim, que é onde o encaixe as põe. A ordem
+    // delas entre si não significa nada — elas não disputam a rodada inicial.
+    tournament.teams = [...reordenadas, ...tournament.teams.filter((team) => team.synthetic)];
+    tournament.updatedAt = new Date().toISOString();
+
+    return this.facade.saveTournament(tournament);
   }
 
   /**
