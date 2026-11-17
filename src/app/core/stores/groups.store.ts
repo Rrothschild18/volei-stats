@@ -147,7 +147,8 @@ export class GroupsStore {
     playerId: string,
   ): Promise<{ gamesPlayed: number; rankingPosition: number | null }> {
     const sessionIds = new Set(sessions.map((session) => session.id));
-    const memberIds = (await this.facade.getPlayersByGroupId(groupId)).map((player) => player.id);
+    const members = await this.facade.getPlayersByGroupId(groupId);
+    const memberIds = members.map((player) => player.id);
     const [allMatches, allTournaments] = await Promise.all([
       this.facade.getMatches(),
       this.facade.getTournaments(),
@@ -187,12 +188,11 @@ export class GroupsStore {
       }
     }
 
-    // Por VITÓRIAS, a mesma régua da tela de estatísticas e do perfil. Era
-    // aproveitamento, e o cartão do vôlei dava uma posição diferente da que a
-    // tela de estatísticas mostrava para a mesma pessoa.
-    const names = new Map(
-      (await this.facade.getPlayersByGroupId(groupId)).map((player) => [player.id, player.name]),
-    );
+    // Por VITÓRIAS, o mesmo critério da tela de estatísticas e do perfil —
+    // era aproveitamento, que dava três posições diferentes para a mesma
+    // pessoa. O recorte aqui é TODO o histórico do vôlei, como no perfil; a
+    // tela de estatísticas abre nas últimas 4 noites e diz isso na tela.
+    const names = new Map(members.map((player) => [player.id, player.name]));
     const ranked = [...tally.entries()]
       .filter(([, entry]) => entry.games > 0)
       .sort(

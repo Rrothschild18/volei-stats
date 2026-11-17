@@ -29,13 +29,23 @@ export class DemoStatsRepository extends StatsRepository {
     return this.statistics.getTeamStats(scope);
   }
 
-  override async playerSessionStats(groupId: string): Promise<readonly PlayerSessionStats[]> {
-    const scope = await this.facade.getGroupScope(groupId);
-    return this.statistics.getPlayerSessionStats(scope);
+  override async playerSessionStats(
+    groupId: string,
+    sessionIds?: readonly string[],
+  ): Promise<readonly PlayerSessionStats[]> {
+    return this.statistics.getPlayerSessionStats(await this.recorte(groupId, sessionIds));
   }
 
-  override async teamSessionStats(groupId: string): Promise<readonly TeamSessionStats[]> {
+  override async teamSessionStats(
+    groupId: string,
+    sessionIds?: readonly string[],
+  ): Promise<readonly TeamSessionStats[]> {
+    return this.statistics.getTeamSessionStats(await this.recorte(groupId, sessionIds));
+  }
+
+  /** O recorte do grupo, apertado nas noites pedidas quando há pedido. */
+  private async recorte(groupId: string, sessionIds?: readonly string[]) {
     const scope = await this.facade.getGroupScope(groupId);
-    return this.statistics.getTeamSessionStats(scope);
+    return sessionIds ? { ...scope, sessionIds: new Set(sessionIds) } : scope;
   }
 }

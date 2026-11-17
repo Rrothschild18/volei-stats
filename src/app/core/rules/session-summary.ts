@@ -180,7 +180,10 @@ export function resumoDaSessao({ tournaments, matches }: EntradaDoResumo): Resum
 
   // Menor diferença; empate fica com a mais antiga, para a escolha não mudar
   // de uma carga para outra.
-  const apertada = jogos.reduce<Match | null>((melhor, match) => {
+  //
+  // Com UMA partida não existe "a mais apertada": seria a única, e anunciá-la
+  // como destaque é elogiar o que não foi comparado com nada.
+  const apertada = (jogos.length > 1 ? jogos : []).reduce<Match | null>((melhor, match) => {
     if (!melhor) {
       return match;
     }

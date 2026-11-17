@@ -352,17 +352,26 @@ function seedPastSession(draft: Draft, groupId: string, pool: string[], daysAgo:
     playedAt: timestamp(daysAgo, 20, 8),
     reportedBy: pick(present),
   });
+  // Só a final registra o início do jogo: no cenário real a maioria das
+  // partidas não vai ter isso, e a tela precisa estar certa nos dois casos.
+  const finalTeamA = semiA.winnerId!;
   const finalMatch = match({
     id: `m-${tournamentId}-3`,
     tournamentId,
     sessionId,
     phase: 'final',
-    teamAId: semiA.winnerId!,
+    teamAId: finalTeamA,
     teamBId: semiB.winnerId!,
     scoreA: random() > 0.45 ? 12 : 7 + Math.floor(random() * 5),
     scoreB: 12,
     playedAt: timestamp(daysAgo, 20, 40),
     reportedBy: pick(present),
+    opening: {
+      coinWinnerTeamId: finalTeamA,
+      coinCallerPlayerId: teams.find((team) => team.id === finalTeamA)?.playerIds[0] ?? null,
+      coinChoice: 'saque',
+      teamASide: 'esquerda',
+    },
   });
   const thirdPlace = match({
     id: `m-${tournamentId}-4`,

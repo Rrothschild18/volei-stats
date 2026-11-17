@@ -7,8 +7,7 @@
  * campo é anulável, e a estatística que se apoiar neles tem de contar sobre
  * quantas partidas ela está falando.
  */
-export type CoinChoice = 'saque' | 'lado';
-export type CourtSide = 'esquerda' | 'direita';
+import { CoinChoice, CourtSide } from '../../shared/models';
 
 export interface MatchOpening {
   /** Dupla que venceu o par-ou-ímpar. */

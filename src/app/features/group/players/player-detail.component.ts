@@ -81,6 +81,16 @@ interface RecentMatch {
             }
           </div>
         </app-blueprint>
+        <!--
+          O perfil é de TODO o histórico: é o que faz sentido num perfil, e os
+          seis números da grade são todos assim. A tela de estatísticas abre nas
+          últimas 4 noites, então a posição daqui e a de lá podem divergir — e a
+          tela precisa dizer de qual período está falando.
+        -->
+        <p class="text-[12px] muted">
+          Números de todo o histórico deste vôlei. As estatísticas do grupo abrem nas últimas 4
+          noites.
+        </p>
 
         <section>
           <app-section-band index="01" label="PARCEIROS FREQUENTES" />
@@ -271,8 +281,9 @@ export class PlayerDetailComponent implements OnInit {
     this.teamStats.set(teamStats);
 
     // A posição é do grupo: a mesma pessoa tem posições diferentes em cada
-    // vôlei. E é por VITÓRIAS, a mesma régua da tela de estatísticas — duas
-    // telas com réguas diferentes dariam duas posições para a mesma pessoa.
+    // vôlei. É por VITÓRIAS, o mesmo critério da tela de estatísticas, mas
+    // sobre TODO o histórico — a tela de lá abre nas últimas 4 noites. Os dois
+    // números podem divergir, e é por isso que a grade diz o período dela.
     const names = new Map(allPlayers.map((entry) => [entry.id, entry.name]));
     const ranked = [...allStats].sort(byPlayerWins((id) => names.get(id) ?? ''));
     const position = ranked.findIndex((entry) => entry.playerId === playerId);

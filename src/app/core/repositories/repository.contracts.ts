@@ -111,7 +111,18 @@ export abstract class StatsRepository {
    * A mesma conta, quebrada por noite — é o que a janela das últimas sessões
    * soma (ticket 04). Vem separado do total porque porcentagem não se soma: o
    * cliente recalcula o aproveitamento depois de somar as noites.
+   *
+   * `sessionIds` recorta a leitura no servidor. Sem ele vem o vôlei inteiro, e
+   * o número de linhas cresce com jogadores × noites — o suficiente, depois de
+   * uns anos de vôlei semanal, para bater no teto de linhas do PostgREST e
+   * devolver uma soma errada sem erro nenhum.
    */
-  abstract playerSessionStats(groupId: string): Promise<readonly PlayerSessionStats[]>;
-  abstract teamSessionStats(groupId: string): Promise<readonly TeamSessionStats[]>;
+  abstract playerSessionStats(
+    groupId: string,
+    sessionIds?: readonly string[],
+  ): Promise<readonly PlayerSessionStats[]>;
+  abstract teamSessionStats(
+    groupId: string,
+    sessionIds?: readonly string[],
+  ): Promise<readonly TeamSessionStats[]>;
 }

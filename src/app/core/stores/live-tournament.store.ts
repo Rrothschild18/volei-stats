@@ -284,11 +284,9 @@ export class LiveTournamentStore {
   /**
    * Salva o placar. O primeiro placar de uma partida trava: uma segunda
    * tentativa devolve o que já está lá, em vez de sobrescrever.
-   */
-  /**
-   * Lança o placar. O `opening` é o início do jogo (par-ou-ímpar, lado e
-   * saque, ticket 07) e é opcional: quem pulou o passo manda nada, e a partida
-   * salva do mesmo jeito.
+   *
+   * O `opening` é o início do jogo (par-ou-ímpar, lado e saque, ticket 07) e é
+   * opcional: quem pulou o passo manda nada, e a partida salva do mesmo jeito.
    */
   async reportScore(
     bracket: BracketMatch,

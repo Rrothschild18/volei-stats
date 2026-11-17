@@ -23,6 +23,18 @@ import {
  */
 export const JANELA_PADRAO = 4;
 
+/**
+ * As noites que podem entrar na janela: as que tiveram campeonato.
+ *
+ * Uma sessão nasce quando alguém marca presença, antes de qualquer jogo. Sem
+ * este corte, a noite de hoje ocupa uma vaga da janela no minuto em que a
+ * presença é salva, e o mural passa a somar três noites de jogo enquanto a
+ * tela promete quatro.
+ */
+export function noitesComCampeonato(sessions: readonly Session[]): Session[] {
+  return sessions.filter((session) => session.tournamentIds.length > 0);
+}
+
 /** As `quantas` sessões mais recentes do vôlei, pela data. */
 export function lastSessionIds(
   sessions: readonly Session[],

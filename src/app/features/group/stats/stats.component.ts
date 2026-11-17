@@ -9,6 +9,7 @@ import { byPlayerWins, byTeamWins } from '../../../core/rules/stats-order';
 import {
   JANELA_PADRAO,
   lastSessionIds,
+  noitesComCampeonato,
   sumPlayerStats,
   sumTeamStats,
 } from '../../../core/rules/stats-window';
@@ -119,10 +120,12 @@ interface MatchGroup {
           <app-segmented
             [options]="janelas"
             [value]="janela()"
-            (valueChange)="janela.set($any($event))"
+            (valueChange)="trocarJanela($any($event))"
             [tabs]="false"
           />
-          <p class="text-[12px] muted" aria-live="polite">{{ recorte() }}</p>
+          <p class="text-[12px] muted" aria-live="polite">
+            {{ relendo() ? 'Somando…' : recorte() }}
+          </p>
         </div>
       }
 
@@ -277,6 +280,8 @@ export class StatsComponent implements OnInit {
   protected readonly tab = signal<Tab>('individual');
   protected readonly period = signal<Period>('today');
   protected readonly janela = signal<Janela>('recente');
+  /** Trocar de recorte relê do banco: a tela diz que está relendo. */
+  protected readonly relendo = signal(false);
   protected readonly playerFilter = signal<string | null>(null);
 
   protected readonly tabs = [
@@ -319,12 +324,14 @@ export class StatsComponent implements OnInit {
    * é o que `sumPlayerStats` entende como histórico inteiro.
    */
   private readonly janelaIds = computed(() =>
-    this.janela() === 'tudo' ? null : lastSessionIds(this.sessions(), JANELA_PADRAO),
+    this.janela() === 'tudo'
+      ? null
+      : lastSessionIds(noitesComCampeonato(this.sessions()), JANELA_PADRAO),
   );
 
   /** Quantas noites a janela de fato pegou: num vôlei novo são menos de 4. */
   protected readonly noitesNaJanela = computed(
-    () => this.janelaIds()?.size ?? this.sessions().length,
+    () => this.janelaIds()?.size ?? noitesComCampeonato(this.sessions()).length,
   );
 
   protected readonly individual = computed(() => {
@@ -494,21 +501,23 @@ export class StatsComponent implements OnInit {
   }
 
   private async somar(groupId: string): Promise<void> {
-    // As estatísticas vêm somadas do banco: as views contam lá, por vôlei. Carregar
-    // todas as partidas aqui para somar no navegador era o que o §7.12 pedia
-    // para parar de fazer.
-    const [groupPlayers, playerStats, teamStats, sessions] = await Promise.all([
+    // As estatísticas vêm somadas do banco: as views contam lá, por vôlei.
+    // Carregar todas as partidas aqui para somar no navegador era o que o
+    // §7.12 pedia para parar de fazer.
+    //
+    // As sessões vêm ANTES dos números porque são elas que dizem quais noites
+    // ler: a janela é o caminho normal, e o vôlei inteiro só é lido quando
+    // alguém pede "desde sempre".
+    const [groupPlayers, sessions] = await Promise.all([
       this.facade.getPlayersByGroupId(groupId),
-      this.stats.playerSessionStats(groupId),
-      this.stats.teamSessionStats(groupId),
       this.facade.getSessionsByGroupId(groupId),
     ]);
 
     this.players.set(groupPlayers);
     this.groupPlayerIds.set(new Set(groupPlayers.map((player) => player.id)));
-    this.playerSessionStats.set(playerStats);
-    this.teamSessionStats.set(teamStats);
     this.sessions.set(sessions);
+
+    await this.somarJanela(groupId);
 
     const sessionIds = new Set(sessions.map((session) => session.id));
     const [tournaments, matches] = await Promise.all([
@@ -518,6 +527,40 @@ export class StatsComponent implements OnInit {
 
     this.tournaments.set(tournaments.filter((tournament) => sessionIds.has(tournament.sessionId)));
     this.matches.set(matches.filter((match) => sessionIds.has(match.sessionId)));
+  }
+
+  /**
+   * Lê os números do recorte atual. Trocar de recorte relê: "desde sempre"
+   * pode ser muito mais linha do que a janela, e carregá-lo sempre seria
+   * pagar por todo o histórico em toda abertura da tela.
+   */
+  private async somarJanela(groupId: string): Promise<void> {
+    const janela = this.janelaIds();
+    const ids = janela ? [...janela] : undefined;
+
+    const [playerStats, teamStats] = await Promise.all([
+      this.stats.playerSessionStats(groupId, ids),
+      this.stats.teamSessionStats(groupId, ids),
+    ]);
+
+    this.playerSessionStats.set(playerStats);
+    this.teamSessionStats.set(teamStats);
+  }
+
+  /** Trocar o recorte: muda o rótulo na hora e relê os números. */
+  protected async trocarJanela(valor: Janela): Promise<void> {
+    const groupId = this.group.groupId();
+    if (!groupId || valor === this.janela()) {
+      return;
+    }
+
+    this.janela.set(valor);
+    this.relendo.set(true);
+    try {
+      await this.somarJanela(groupId);
+    } finally {
+      this.relendo.set(false);
+    }
   }
 
   /** Filtro de jogador simples: percorre quem jogou, começando por "Todos". */

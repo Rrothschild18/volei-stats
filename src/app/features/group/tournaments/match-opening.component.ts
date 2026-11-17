@@ -1,5 +1,4 @@
 import { Component, computed, input, model } from '@angular/core';
-import { CoinChoice, CourtSide } from '../../../shared/models';
 import { MatchOpening, ladoOposto, quemAbreSacando } from '../../../core/rules/match-opening';
 import { SegmentedComponent } from '../../../shared/ui';
 
@@ -178,5 +177,3 @@ export class MatchOpeningComponent {
     return teamId === this.teamAId() ? this.teamALabel() : this.teamBLabel();
   }
 }
-
-export type { CoinChoice, CourtSide };

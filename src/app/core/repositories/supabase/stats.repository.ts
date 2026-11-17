@@ -80,13 +80,21 @@ export class SupabaseStatsRepository extends SupabaseRepositoryBase implements S
    * Vem do banco já agrupada por sessão: somar aqui as 4 noites escolhidas é
    * aritmética de dezenas de linhas, enquanto carregar as partidas para contar
    * no navegador era o que o §7.12 mandou parar de fazer.
+   *
+   * Com `sessionIds` a leitura já chega recortada — é o caminho normal, e o
+   * vôlei inteiro só é lido quando alguém pede "desde sempre".
    */
-  async playerSessionStats(groupId: string): Promise<readonly PlayerSessionStats[]> {
+  async playerSessionStats(
+    groupId: string,
+    sessionIds?: readonly string[],
+  ): Promise<readonly PlayerSessionStats[]> {
     const client = await this.rpc();
-    const { data, error } = await client
+    const query = client
       .from('player_session_stats')
       .select('session_id, player_id, games_played, wins, losses, times_waited')
       .eq('group_id', groupId);
+
+    const { data, error } = await (sessionIds ? query.in('session_id', [...sessionIds]) : query);
 
     if (error) {
       throw new Error(`Não foi possível ler as estatísticas por noite: ${error.message}`);
@@ -102,12 +110,17 @@ export class SupabaseStatsRepository extends SupabaseRepositoryBase implements S
     }));
   }
 
-  async teamSessionStats(groupId: string): Promise<readonly TeamSessionStats[]> {
+  async teamSessionStats(
+    groupId: string,
+    sessionIds?: readonly string[],
+  ): Promise<readonly TeamSessionStats[]> {
     const client = await this.rpc();
-    const { data, error } = await client
+    const query = client
       .from('team_session_stats')
       .select('session_id, player1_id, player2_id, games_played, wins, losses')
       .eq('group_id', groupId);
+
+    const { data, error } = await (sessionIds ? query.in('session_id', [...sessionIds]) : query);
 
     if (error) {
       throw new Error(`Não foi possível ler as duplas por noite: ${error.message}`);

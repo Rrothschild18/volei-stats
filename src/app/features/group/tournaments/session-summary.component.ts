@@ -73,6 +73,19 @@ export class SessionSummaryComponent {
       });
     }
 
+    // Pódio só diz alguma coisa quando alguém subiu mais de uma vez: com um
+    // campeonato na noite, todo mundo que não foi último "tem um pódio".
+    const maisPodios = resumo.podios.filter(
+      (entrada) => entrada.valor > 1 && entrada.valor === resumo.podios[0]?.valor,
+    );
+    if (maisPodios.length > 0) {
+      linhas.push({
+        label: 'mais pódios',
+        value: this.nomes(maisPodios.map((entrada) => entrada.playerId)),
+        figure: maisPodios[0].valor,
+      });
+    }
+
     for (const campeao of resumo.campeoes) {
       linhas.push({
         label: `campeões · ${campeao.nome}`,

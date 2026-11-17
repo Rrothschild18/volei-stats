@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { lastSessionIds, sumPlayerStats, sumTeamStats } from './stats-window';
+import { lastSessionIds, noitesComCampeonato, sumPlayerStats, sumTeamStats } from './stats-window';
 import { PlayerSessionStats, Session, TeamSessionStats } from '../../shared/models';
 
-function session(id: string, date: string): Session {
-  return { id, date } as unknown as Session;
+function session(id: string, date: string, tournamentIds: string[] = ['t1']): Session {
+  return { id, date, tournamentIds } as unknown as Session;
 }
+
+describe('noitesComCampeonato', () => {
+  it('deixa de fora a noite que só tem presença marcada', () => {
+    const sessions = [
+      session('s1', '2026-11-09'),
+      // Hoje: a presença já foi salva, mas ninguém sorteou nada ainda.
+      session('s2', '2026-11-16', []),
+    ];
+
+    expect(noitesComCampeonato(sessions).map((s) => s.id)).toEqual(['s1']);
+  });
+});
 
 describe('lastSessionIds', () => {
   it('pega as N noites mais recentes pela data, não pela ordem da lista', () => {

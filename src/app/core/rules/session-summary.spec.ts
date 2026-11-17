@@ -282,6 +282,15 @@ describe('resumoDaSessao — os momentos da noite', () => {
     expect(resumo.maisApertada?.diferenca).toBe(2);
   });
 
+  it('com uma partida só não existe "a mais apertada"', () => {
+    const resumo = resumoDaSessao({
+      tournaments: [campeonato('t1')],
+      matches: [partida('m1', 't1', DUPLA_A, '2026-11-16T22:10:00.000Z', [12, 10])],
+    });
+
+    expect(resumo.maisApertada).toBeNull();
+  });
+
   it('a duração média é o intervalo entre placares do mesmo campeonato', () => {
     const resumo = resumoDaSessao({
       tournaments: [campeonato('t1')],
