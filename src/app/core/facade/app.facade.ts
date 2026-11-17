@@ -161,18 +161,34 @@ export class AppFacade {
     return this.#tournamentRepo.save(tournament);
   }
 
+  /**
+   * Apaga o campeonato, as partidas dele e o sorteio que o gerou.
+   *
+   * **A ordem é a regra deste método.** `tournaments.draw_id` é `on delete
+   * restrict`: apagar o sorteio enquanto o campeonato aponta para ele é
+   * violação de chave estrangeira, e o excluir inteiro morre ali. Isso passou
+   * despercebido porque, para quem não é dono, a RLS filtra a linha e o delete
+   * volta vazio sem erro — e dono é justamente quem tem o botão (ticket 45).
+   *
+   * O sorteio sai mesmo assim, e não por capricho: sorteio escolhido sem
+   * campeonato É sorteio pendente (`rules/pending-draw.ts`). Deixá-lo faria o
+   * app oferecer "COMEÇAR O PRÓXIMO" com as duplas do campeonato que alguém
+   * acabou de apagar — além de a espera do avulso continuar contando nas
+   * estatísticas (REGRAS.md §7.6).
+   */
   async deleteTournament(id: string): Promise<void> {
     const tournament = await this.#tournamentRepo.getById(id);
 
+    // As partidas também caem por cascata no banco; apagar uma a uma é o que
+    // faz o modo demonstração, que não tem cascata nenhuma.
     const matches = await this.#matchRepo.getByTournamentId(id);
     for (const match of matches) {
       await this.#matchRepo.delete(match.id);
     }
 
+    await this.#tournamentRepo.delete(id);
+
     if (tournament) {
-      // O sorteio que gerou o campeonato some junto: senão a espera do avulso
-      // continuaria contando nas estatísticas de um campeonato que não existe
-      // mais (REGRAS.md §7.6).
       if (tournament.drawId) {
         await this.#drawRepo.delete(tournament.drawId);
       }
@@ -184,8 +200,6 @@ export class AppFacade {
         await this.updateSession(session);
       }
     }
-
-    await this.#tournamentRepo.delete(id);
   }
 
   // Matches

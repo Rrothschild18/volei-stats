@@ -122,6 +122,23 @@ function writeDismissed(tournamentId: string): void {
           <app-skeleton [rows]="4" />
         </div>
       </div>
+    } @else if (!store.tournament()) {
+      <!--
+        O campeonato foi excluído enquanto esta tela estava aberta, ou o link é
+        de um que já não existe. Sem isto a tela fica desenhando uma chave
+        vazia para sempre, que é a pior forma de dizer que algo sumiu
+        (ticket 45).
+      -->
+      <app-blueprint class="mx-4 mt-4 flex flex-col items-start gap-2 p-4">
+        <app-icon name="triangle-alert" [size]="26" class="text-accent-700" />
+        <h2 class="font-heading text-[22px] font-semibold uppercase">
+          Este campeonato não existe mais
+        </h2>
+        <p class="text-[14px]">Ele foi excluído. Os campeonatos do dia estão na lista.</p>
+        <button type="button" class="btn btn-secondary" (click)="toList()">
+          VER OS CAMPEONATOS
+        </button>
+      </app-blueprint>
     } @else {
       @if (store.paused() && !group.canPlay()) {
         <app-blueprint class="mx-4 mt-4 flex flex-col gap-2 p-4">
@@ -424,6 +441,10 @@ export class TournamentLiveComponent implements OnInit {
 
     return partes.length > 0 ? `A correção ${partes.join('; ')}.` : null;
   });
+
+  protected toList(): void {
+    void this.router.navigate(['/g', this.group.groupId(), 'campeonatos']);
+  }
 
   protected async applyTeamOrder(teamIds: string[]): Promise<void> {
     if (this.savingOrder()) {

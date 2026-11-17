@@ -21,6 +21,7 @@ import {
 import {
   ActionBarComponent,
   BlueprintComponent,
+  ConfirmDialogComponent,
   IconComponent,
   NavigatesDirective,
   SkeletonComponent,
@@ -65,6 +66,7 @@ function describeTiming(timing: TournamentTiming): string {
   imports: [
     ActionBarComponent,
     BlueprintComponent,
+    ConfirmDialogComponent,
     IconComponent,
     NavigatesDirective,
     PullToRefreshComponent,
@@ -134,34 +136,51 @@ function describeTiming(timing: TournamentTiming): string {
             @if (tournamentRows().length > 0) {
               <app-blueprint>
                 @for (row of tournamentRows(); track row.id; let last = $last) {
-                  <button
-                    type="button"
-                    class="flex w-full items-center gap-3 px-[14px] py-[13px] text-left"
-                    [class.row-rule]="!last"
-                    (click)="go(row.target)"
-                  >
-                    <span class="min-w-0 flex-1">
-                      <span
-                        class="block font-heading text-[18px] leading-tight font-semibold uppercase"
-                      >
-                        {{ row.title }}
+                  <!--
+                    A linha é um botão que navega, e o excluir é outro botão ao
+                    lado — nunca dentro. Botão dentro de botão não é HTML
+                    válido, e o AXE pega (ticket 45).
+                  -->
+                  <div class="flex items-center" [class.row-rule]="!last">
+                    <button
+                      type="button"
+                      class="flex min-w-0 flex-1 items-center gap-3 px-[14px] py-[13px] text-left"
+                      (click)="go(row.target)"
+                    >
+                      <span class="min-w-0 flex-1">
+                        <span
+                          class="block font-heading text-[18px] leading-tight font-semibold uppercase"
+                        >
+                          {{ row.title }}
+                        </span>
+                        <span
+                          class="flex items-center gap-1 text-[13px]"
+                          [class]="row.live ? 'text-accent-700 font-medium' : 'muted'"
+                        >
+                          @if (row.live) {
+                            <span class="size-[7px] bg-accent-700" aria-hidden="true"></span>
+                          }
+                          @if (row.champions) {
+                            <app-icon name="crown" [size]="14" />
+                          }
+                          {{ row.detail }}
+                        </span>
+                        <span class="block text-[12px] tnum muted">{{ row.timing }}</span>
                       </span>
-                      <span
-                        class="flex items-center gap-1 text-[13px]"
-                        [class]="row.live ? 'text-accent-700 font-medium' : 'muted'"
+                      <app-icon name="chevron-right" [size]="18" class="muted" />
+                    </button>
+
+                    @if (group.isOwner()) {
+                      <button
+                        type="button"
+                        class="btn btn-ghost btn-icon mr-2"
+                        [attr.aria-label]="'Excluir ' + row.title"
+                        (click)="confirmDelete(row.id)"
                       >
-                        @if (row.live) {
-                          <span class="size-[7px] bg-accent-700" aria-hidden="true"></span>
-                        }
-                        @if (row.champions) {
-                          <app-icon name="crown" [size]="14" />
-                        }
-                        {{ row.detail }}
-                      </span>
-                      <span class="block text-[12px] tnum muted">{{ row.timing }}</span>
-                    </span>
-                    <app-icon name="chevron-right" [size]="18" class="muted" />
-                  </button>
+                        <app-icon name="trash-2" [size]="18" class="muted" />
+                      </button>
+                    }
+                  </div>
                 }
               </app-blueprint>
             } @else {
@@ -207,6 +226,16 @@ function describeTiming(timing: TournamentTiming): string {
       }
     </div>
 
+    @if (deleting(); as alvo) {
+      <app-confirm-dialog
+        title="Excluir campeonato?"
+        [message]="deleteMessage()"
+        [busy]="busy()"
+        (confirmed)="remove(alvo)"
+        (canceled)="deleting.set(null)"
+      />
+    }
+
     @if (group.canPlay()) {
       <app-action-bar [withTabBar]="true">
         <button
@@ -245,6 +274,10 @@ export class TournamentListComponent implements OnInit {
   private readonly pastTournaments = signal<readonly Tournament[]>([]);
   private readonly allPlayers = signal<readonly Player[]>([]);
   private readonly liveNextMatch = signal<string | null>(null);
+
+  /** O campeonato que está prestes a ser excluído. Nulo é diálogo fechado. */
+  protected readonly deleting = signal<string | null>(null);
+  protected readonly busy = signal(false);
 
   protected readonly session = this.sessionStore.session;
   protected readonly present = computed(() => this.sessionStore.present().length);
@@ -398,6 +431,65 @@ export class TournamentListComponent implements OnInit {
     if (live) {
       const pending = await this.tournamentService.getPendingMatches(live);
       this.liveNextMatch.set(pending[0] ? phaseLabel(pending[0].phase) : 'chave pausada');
+    }
+  }
+
+  /**
+   * Excluir daqui vale para o campeonato EM ANDAMENTO, que é o que não tinha
+   * saída nenhuma: a lista só levava à classificação — onde mora o excluir —
+   * depois de a final sair. Começou errado, ficava preso "ao vivo" para sempre
+   * (ticket 45).
+   */
+  protected confirmDelete(tournamentId: string): void {
+    this.deleting.set(tournamentId);
+  }
+
+  /**
+   * A confirmação diz quantas partidas vão junto.
+   *
+   * Num campeonato em andamento esse número é o que dói, e é justamente o que a
+   * frase genérica escondia: "não tem como desfazer" se lê sem pensar; "os 3
+   * placares lançados vão junto" não.
+   */
+  protected readonly deleteMessage = computed(() => {
+    const tournamentId = this.deleting();
+    const partidas = this.sessionStore
+      .matches()
+      .filter((match) => match.tournamentId === tournamentId).length;
+
+    const live =
+      this.sessionStore.tournaments().find((tournament) => tournament.id === tournamentId)
+        ?.status === 'in-progress';
+
+    const placares =
+      partidas === 0
+        ? ''
+        : partidas === 1
+          ? 'O placar lançado vai junto. '
+          : `Os ${partidas} placares lançados vão junto. `;
+
+    const andamento = live ? 'Este campeonato ainda está rolando. ' : '';
+
+    return `${andamento}${placares}Ele sai das prioridades do próximo sorteio e das estatísticas de todo mundo. Não tem como desfazer.`;
+  });
+
+  protected async remove(tournamentId: string): Promise<void> {
+    if (this.busy()) {
+      return;
+    }
+
+    // O diálogo fica aberto até o banco responder: fechar antes deixaria a
+    // pessoa olhando uma lista que já está sendo refeita, sem saber se deu.
+    const groupId = this.group.groupId();
+    this.busy.set(true);
+    try {
+      await this.facade.deleteTournament(tournamentId);
+      if (groupId) {
+        await this.carregar(groupId);
+      }
+      this.deleting.set(null);
+    } finally {
+      this.busy.set(false);
     }
   }
 

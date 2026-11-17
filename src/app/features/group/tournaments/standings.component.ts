@@ -16,7 +16,7 @@ import {
 import {
   ActionBarComponent,
   BlueprintComponent,
-  BusyDirective,
+  ConfirmDialogComponent,
   HeroFieldComponent,
   IconComponent,
   InlineNoteComponent,
@@ -47,7 +47,7 @@ interface StandingRow {
   imports: [
     ActionBarComponent,
     BlueprintComponent,
-    BusyDirective,
+    ConfirmDialogComponent,
     HeroFieldComponent,
     IconComponent,
     InlineNoteComponent,
@@ -259,39 +259,13 @@ interface StandingRow {
     }
 
     @if (confirmingDelete()) {
-      <div class="dialog-backdrop items-center">
-        <app-blueprint
-          class="dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Excluir campeonato"
-        >
-          <h3 class="font-heading text-[20px] font-semibold uppercase">Excluir campeonato?</h3>
-          <p class="text-[14px]">
-            Ele sai das prioridades do próximo sorteio e das estatísticas de todo mundo. Não tem
-            como desfazer.
-          </p>
-          <div class="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              [disabled]="busy()"
-              (click)="confirmingDelete.set(false)"
-            >
-              CANCELAR
-            </button>
-            <button
-              type="button"
-              class="btn btn-danger"
-              [appBusy]="busy()"
-              [disabled]="busy()"
-              (click)="remove()"
-            >
-              EXCLUIR
-            </button>
-          </div>
-        </app-blueprint>
-      </div>
+      <app-confirm-dialog
+        title="Excluir campeonato?"
+        [message]="deleteMessage()"
+        [busy]="busy()"
+        (confirmed)="remove()"
+        (canceled)="confirmingDelete.set(false)"
+      />
     }
   `,
   host: { class: 'block' },
@@ -577,6 +551,18 @@ export class StandingsComponent implements OnInit {
         return 'Prioridade';
     }
   }
+
+  /**
+   * A confirmação diz o que vai junto, e em número: num campeonato encerrado
+   * são todas as partidas da noite. "Não tem como desfazer" sem o número é
+   * fácil de aceitar sem ler.
+   */
+  protected readonly deleteMessage = computed(() => {
+    const partidas = this.store.matches().length;
+    const placar =
+      partidas === 1 ? 'O placar lançado vai junto.' : `Os ${partidas} placares lançados vão junto.`;
+    return `${partidas > 0 ? placar + ' ' : ''}Ele sai das prioridades do próximo sorteio e das estatísticas de todo mundo. Não tem como desfazer.`;
+  });
 
   protected async remove(): Promise<void> {
     if (this.busy()) {

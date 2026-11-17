@@ -27,6 +27,14 @@ test.describe('campeonatos', () => {
     await expect(page.getByText(/8 presentes · 1 campeonato/).first()).toBeVisible();
   });
 
+  test('excluir campeonato é do dono: quem só joga não vê o gesto', async ({ page, grupo }) => {
+    // Excluir leva história embora — o placar, as prioridades e as
+    // estatísticas de todo mundo (ticket 45). Caio joga no Vôlei Segunda.
+    await grupo.abrir('campeonatos');
+
+    await expect(page.getByRole('button', { name: /^Excluir / })).toBeHidden();
+  });
+
   test('reordenar as duplas é do dono: quem só joga não vê o gesto', async ({ page, grupo }) => {
     // A ordem das duplas é o confronto, então remontá-la é mexer na chave
     // (ticket 44). Caio joga no Vôlei Segunda, não é dono dele.

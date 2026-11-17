@@ -25,3 +25,4 @@ export * from './floating-invite/floating-invite.component';
 export * from './busy.directive';
 export * from './skeleton/skeleton.component';
 export * from './navigates.directive';
+export * from './confirm-dialog/confirm-dialog.component';

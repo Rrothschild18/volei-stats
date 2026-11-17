@@ -4,6 +4,15 @@ import { AppFacade } from './app.facade';
 import { DemoDbService } from '../demo/demo-db.service';
 import { provideDemoData } from '../demo/demo-data.providers';
 import { buildDemoData, GROUP_TRABALHO } from '../demo/demo-seed';
+import {
+  DrawRepository,
+  GroupRepository,
+  MatchRepository,
+  PlayerRepository,
+  SessionRepository,
+  TournamentRepository,
+} from '../repositories';
+import { Session, Tournament } from '../../shared/models';
 
 /**
  * Um dia tem UMA sessão por vôlei, e isso é índice único no banco.
@@ -42,5 +51,99 @@ describe('AppFacade · a sessão do dia', () => {
     expect([...depois.playerIds].sort()).toEqual(
       [players[0].id, players[1].id, players[2].id].sort(),
     );
+  });
+});
+
+/**
+ * Excluir um campeonato: a ordem não é detalhe (ticket 45).
+ *
+ * `tournaments.draw_id` é `on delete restrict`. Apagar o sorteio enquanto o
+ * campeonato aponta para ele é violação de chave estrangeira — e o excluir
+ * inteiro morre ali, para o dono, que é justamente quem tem permissão de
+ * excluir. Reproduzido contra o Postgres em
+ * `supabase/tests/08-excluir-campeonato.sql`.
+ *
+ * O sorteio precisa sair, e por isso não basta parar de apagá-lo: sorteio
+ * escolhido sem campeonato É sorteio pendente, e o app passaria a oferecer
+ * "COMEÇAR O PRÓXIMO" com as duplas do campeonato recém-apagado.
+ */
+describe('AppFacade.deleteTournament', () => {
+  function setup() {
+    const ordem: string[] = [];
+
+    const tournament = {
+      id: 'tn',
+      sessionId: 's1',
+      drawId: 'd1',
+    } as unknown as Tournament;
+
+    const session = {
+      id: 's1',
+      tournamentIds: ['tn'],
+      drawIds: ['d1'],
+    } as unknown as Session;
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: TournamentRepository,
+          useValue: {
+            getById: async () => tournament,
+            delete: async () => void ordem.push('campeonato'),
+          },
+        },
+        {
+          provide: DrawRepository,
+          useValue: { delete: async () => void ordem.push('sorteio') },
+        },
+        {
+          provide: MatchRepository,
+          useValue: {
+            getByTournamentId: async () => [{ id: 'm1' }],
+            delete: async () => void ordem.push('partida'),
+          },
+        },
+        {
+          provide: SessionRepository,
+          useValue: {
+            getById: async () => session,
+            save: async (entry: Session) => {
+              ordem.push('sessão');
+              return entry;
+            },
+          },
+        },
+        { provide: PlayerRepository, useValue: {} },
+        { provide: GroupRepository, useValue: {} },
+      ],
+    });
+
+    return { facade: TestBed.inject(AppFacade), ordem, session };
+  }
+
+  it('apaga o campeonato antes do sorteio', async () => {
+    const { facade, ordem } = setup();
+
+    await facade.deleteTournament('tn');
+
+    expect(ordem.indexOf('campeonato')).toBeLessThan(ordem.indexOf('sorteio'));
+  });
+
+  it('o sorteio sai junto: senão ele vira o sorteio pendente do dia', async () => {
+    const { facade, ordem } = setup();
+
+    await facade.deleteTournament('tn');
+
+    expect(ordem).toContain('sorteio');
+  });
+
+  it('e a sessão deixa de listar os dois', async () => {
+    const { facade, session } = setup();
+
+    await facade.deleteTournament('tn');
+
+    expect(session.tournamentIds).toEqual([]);
+    expect(session.drawIds).toEqual([]);
   });
 });

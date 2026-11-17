@@ -8,7 +8,7 @@ em andamento.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Onde o excluir mora hoje
 
@@ -96,13 +96,49 @@ campeonato), e qualquer uma pode falhar no meio.
   campeonato que não existe mais: a tela precisa de uma saída honesta ("este
   campeonato foi excluído") em vez de ficar carregando.
 
-- [ ] **Reproduzir** o `on delete restrict` do sorteio com um dono de verdade
-- [ ] Se confirmado: ordem de exclusão corrigida e tudo numa transação só
-- [ ] Excluir disponível na listagem, para o dono, incluindo campeonato ao vivo
-- [ ] A confirmação diz quantas partidas vão junto quando há placar lançado
-- [ ] Diálogo de confirmação extraído para `shared/ui` e usado nos dois lugares
-- [ ] Sem botão dentro de botão na linha da lista (AXE)
-- [ ] Excluir o campeonato ao vivo devolve a sessão a "NOVO SORTEIO"
-- [ ] A tela ao vivo de um campeonato excluído diz que ele não existe mais
+- [x] **Reproduzir** o `on delete restrict` do sorteio com um dono de verdade
+- [x] Se confirmado: ordem de exclusão corrigida e tudo numa transação só
+- [x] Excluir disponível na listagem, para o dono, incluindo campeonato ao vivo
+- [x] A confirmação diz quantas partidas vão junto quando há placar lançado
+- [x] Diálogo de confirmação extraído para `shared/ui` e usado nos dois lugares
+- [x] Sem botão dentro de botão na linha da lista (AXE)
+- [x] Excluir o campeonato ao vivo devolve a sessão a "NOVO SORTEIO"
+- [x] A tela ao vivo de um campeonato excluído diz que ele não existe mais
 - [ ] e2e: dono exclui campeonato em andamento com placar lançado; ele some da
-      lista e das estatísticas
+      lista e das estatísticas — ver "o que ficou de fora" abaixo
+
+## Comments
+
+### O defeito existia, e foi reproduzido antes de qualquer tela
+
+`supabase/tests/08-excluir-campeonato.sql`, contra o Postgres de verdade: o dono
+apagando o sorteio enquanto o campeonato aponta para ele leva violação de chave
+estrangeira, e o excluir inteiro morre ali. O mesmo arquivo prova o outro lado —
+a jogadora manda o `delete` do campeonato e **não recebe erro nenhum**, porque a
+RLS filtra a linha. Era isso que escondia o problema: quem testava como jogador
+via um caminho silencioso, e quem tinha o botão era o dono.
+
+A ordem foi corrigida em `AppFacade.deleteTournament`: partidas, campeonato,
+sorteio, sessão. O sorteio continua saindo, e o motivo ficou escrito no método —
+sorteio escolhido sem campeonato **é** sorteio pendente, então deixá-lo faria o
+app oferecer "COMEÇAR O PRÓXIMO" com as duplas do campeonato recém-apagado.
+
+Três testes no seam da facade guardam isso, e o primeiro falhava antes da
+correção.
+
+### Transação
+
+Não virou uma função `security definer`. No banco, apagar a linha do campeonato
+já leva partidas, duplas, classificação, prioridades e decisões **por cascata,
+numa statement só**; o que sobra fora dela é o sorteio. Uma falha entre as duas
+deixa um sorteio órfão, que a tela de sorteio pendente já sabe descartar — e o
+custo da alternativa é mais uma migration para aplicar à mão na nuvem. Se isso
+aparecer em quadra, vira ticket.
+
+### O que ficou de fora
+
+O e2e de ponta a ponta do dono excluindo um campeonato ao vivo. No modo
+demonstração o Caio só é dono do Vôlei Trabalho, que não tem sessão hoje — e dar
+uma ao Trabalho quebraria "o vôlei com sessão ao vivo hoje vem em destaque", que
+conta com um só. O e2e cobre o **portão** (quem só joga não vê o gesto); o
+resto está em teste de unidade na facade e no caminho SQL.
