@@ -5,6 +5,7 @@ import { MembershipService } from '../../../core/identity';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { StatisticsService } from '../../../core/services/statistics.service';
 import { phaseLabel } from '../../../core/rules/bracket-phases';
+import { byPlayerWins } from '../../../core/rules/stats-order';
 import { Match, Player, PlayerStats, TeamStats, Tournament } from '../../../shared/models';
 import { formatDayMonthFromIso, formatTime } from '../../../shared/utils/date.util';
 import {
@@ -223,7 +224,7 @@ export class PlayerDetailComponent implements OnInit {
       { value: entry?.wins ?? 0, label: 'vitórias' },
       { value: entry?.losses ?? 0, label: 'derrotas' },
       { value: `${entry?.winPercentage ?? 0}%`, label: 'aproveitamento' },
-      { value: position ? `${position}º` : '—', label: 'no ranking' },
+      { value: position ? `${position}º` : '—', label: 'em vitórias' },
       { value: entry?.timesWaited ?? 0, label: entry?.timesWaited === 1 ? 'espera' : 'esperas' },
     ];
   });
@@ -269,8 +270,11 @@ export class PlayerDetailComponent implements OnInit {
     this.playerStats.set(allStats.find((entry) => entry.playerId === playerId) ?? null);
     this.teamStats.set(teamStats);
 
-    // O ranking é do grupo: a mesma pessoa tem posições diferentes em cada vôlei.
-    const ranked = [...allStats].sort((a, b) => b.winPercentage - a.winPercentage);
+    // A posição é do grupo: a mesma pessoa tem posições diferentes em cada
+    // vôlei. E é por VITÓRIAS, a mesma régua da tela de estatísticas — duas
+    // telas com réguas diferentes dariam duas posições para a mesma pessoa.
+    const names = new Map(allPlayers.map((entry) => [entry.id, entry.name]));
+    const ranked = [...allStats].sort(byPlayerWins((id) => names.get(id) ?? ''));
     const position = ranked.findIndex((entry) => entry.playerId === playerId);
     this.ranking.set(position >= 0 ? position + 1 : null);
 

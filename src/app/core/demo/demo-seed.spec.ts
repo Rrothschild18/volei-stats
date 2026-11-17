@@ -137,7 +137,7 @@ describe('cenário de exemplo do redesign', () => {
     ]);
   });
 
-  it('o histórico tem volume para os rankings', async () => {
+  it('o histórico tem volume para as estatísticas', async () => {
     const sessions = await facade.getSessionsByGroupId(GROUP_SEGUNDA);
     const matches = await facade.getMatches();
     const stats = await facade.getAllPlayerStats();

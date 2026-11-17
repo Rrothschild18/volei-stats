@@ -18,7 +18,7 @@ import {
  *
  * É o mesmo cenário das telas do handoff: Vôlei Segunda com 11 presentes, o
  * campeonato 1 finalizado (campeões Rafa + Bia) e o campeonato 2 ao vivo na
- * semifinal do bye. Antes disso, alguns meses de histórico para os rankings e
+ * semifinal do bye. Antes disso, alguns meses de histórico para as estatísticas e
  * os perfis terem números de verdade.
  *
  * As datas são relativas a hoje, então a "sessão de hoje" é sempre hoje.
@@ -695,7 +695,7 @@ export function buildDemoData(): Record<string, unknown[]> {
   const trabalhoPool = TRABALHO_MEMBERS.map(([playerId]) => playerId);
 
   // Histórico: segundas-feiras para trás, mais algumas sessões do Vôlei
-  // Trabalho, para os rankings terem volume.
+  // Trabalho, para as estatísticas terem volume.
   for (let week = 1; week <= 22; week++) {
     seedPastSession(draft, GROUP_SEGUNDA, segundaPool, week * 7);
   }

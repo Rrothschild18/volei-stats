@@ -96,7 +96,7 @@ describe('App', () => {
     expect(esqueleto()).toBe(false);
 
     // Trocar de aba, mesmo que demore: quem está na tela continua na tela.
-    events.next(new NavigationStart(2, '/g/1/rankings'));
+    events.next(new NavigationStart(2, '/g/1/estatisticas'));
     passar(5000);
 
     expect(esqueleto()).toBe(false);

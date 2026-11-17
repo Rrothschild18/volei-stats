@@ -93,7 +93,7 @@ export abstract class MatchRepository {
 }
 
 /**
- * Os rankings do vôlei, somados por quem tem os dados.
+ * As estatísticas do vôlei, somadas por quem tem os dados.
  *
  * Existe separado dos outros repositórios porque não é leitura de tabela: no
  * banco são views, que contam no servidor — uma consulta em vez de carregar

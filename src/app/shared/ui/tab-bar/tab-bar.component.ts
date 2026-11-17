@@ -20,7 +20,7 @@ interface Tab {
 const TABS: readonly Tab[] = [
   { path: 'inicio', label: 'Início', icon: 'house' },
   { path: 'campeonatos', label: 'Campeonatos', icon: 'trophy' },
-  { path: 'rankings', label: 'Rankings', icon: 'list-ordered' },
+  { path: 'estatisticas', label: 'Números', icon: 'list-ordered' },
   { path: 'jogadores', label: 'Jogadores', icon: 'users' },
 ];
 

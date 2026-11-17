@@ -4,7 +4,7 @@ import { StatsRepository } from '../repository.contracts';
 import { SupabaseRepositoryBase } from './supabase-repository.base';
 
 /**
- * Rankings pelas views `player_stats` e `team_stats`.
+ * As estatísticas pelas views `player_stats` e `team_stats`.
  *
  * As views também consertam a contagem de esperas do §7.6: elas contam apenas
  * sorteios escolhidos, e não as três propostas.
@@ -19,7 +19,7 @@ export class SupabaseStatsRepository extends SupabaseRepositoryBase implements S
       .eq('group_id', groupId);
 
     if (error) {
-      throw new Error(`Não foi possível ler o ranking: ${error.message}`);
+      throw new Error(`Não foi possível ler as estatísticas: ${error.message}`);
     }
 
     return (data ?? []).map((row) => ({
@@ -48,7 +48,7 @@ export class SupabaseStatsRepository extends SupabaseRepositoryBase implements S
     ]);
 
     if (teams.error) {
-      throw new Error(`Não foi possível ler o ranking de duplas: ${teams.error.message}`);
+      throw new Error(`Não foi possível ler as estatísticas das duplas: ${teams.error.message}`);
     }
     if (players.error) {
       throw new Error(`Não foi possível ler os nomes: ${players.error.message}`);

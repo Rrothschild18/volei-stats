@@ -33,7 +33,7 @@ test.describe('navegação', () => {
     const titulos: Record<string, RegExp> = {
       Início: /\/inicio$/,
       Campeonatos: /\/campeonatos$/,
-      Rankings: /\/rankings$/,
+      'Números': /\/estatisticas$/,
       Jogadores: /\/jogadores$/,
     };
 
@@ -44,9 +44,9 @@ test.describe('navegação', () => {
   });
 
   test('o link de uma tela interna abre direto nela', async ({ grupo, page }) => {
-    await grupo.abrir('rankings');
+    await grupo.abrir('estatisticas');
 
-    await expect(grupo.titulo).toHaveText('RANKINGS');
-    await expect(page).toHaveURL(new RegExp(`/g/${ID_VOLEI_SEGUNDA}/rankings$`));
+    await expect(grupo.titulo).toHaveText('ESTATÍSTICAS');
+    await expect(page).toHaveURL(new RegExp(`/g/${ID_VOLEI_SEGUNDA}/estatisticas$`));
   });
 });

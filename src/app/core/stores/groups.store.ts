@@ -14,7 +14,7 @@ export interface GroupSummary {
   readonly isOwner: boolean;
   readonly playerCount: number;
   readonly gamesPlayed: number;
-  /** Posição no ranking do grupo por aproveitamento, 1-based. */
+  /** Posição no grupo por vitórias, 1-based. */
   readonly rankingPosition: number | null;
   /** Sessão de hoje com campeonato em andamento. */
   readonly liveSession: Session | null;
@@ -138,8 +138,8 @@ export class GroupsStore {
   }
 
   /**
-   * Jogos e posição no ranking do grupo, contando só as sessões dele — a mesma
-   * pessoa tem números diferentes em cada vôlei.
+   * Jogos e posição no grupo, contando só as sessões dele — a mesma pessoa
+   * tem números diferentes em cada vôlei.
    */
   private async playerStandingInGroup(
     sessions: readonly Session[],
@@ -187,9 +187,19 @@ export class GroupsStore {
       }
     }
 
+    // Por VITÓRIAS, a mesma régua da tela de estatísticas e do perfil. Era
+    // aproveitamento, e o cartão do vôlei dava uma posição diferente da que a
+    // tela de estatísticas mostrava para a mesma pessoa.
+    const names = new Map(
+      (await this.facade.getPlayersByGroupId(groupId)).map((player) => [player.id, player.name]),
+    );
     const ranked = [...tally.entries()]
       .filter(([, entry]) => entry.games > 0)
-      .sort(([, a], [, b]) => b.wins / b.games - a.wins / a.games);
+      .sort(([idA, a], [idB, b]) =>
+        b.wins - a.wins ||
+        b.games - a.games ||
+        (names.get(idA) ?? '').localeCompare(names.get(idB) ?? ''),
+      );
 
     const index = ranked.findIndex(([id]) => id === playerId);
 

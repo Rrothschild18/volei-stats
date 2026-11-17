@@ -84,8 +84,8 @@ test('um campeonato do zero até o fim', async ({ page }) => {
   await page.getByRole('button', { name: /CORRIGIR 12 × 14/ }).click();
   await expect(page.getByText('Corrigido por Raul')).toBeVisible();
 
-  // ===== o ranking somou =====
-  await page.goto(`/g/${groupId}/rankings`);
-  await expect(page.getByText('Ranking individual do grupo')).toBeVisible();
+  // ===== as estatísticas somaram =====
+  await page.goto(`/g/${groupId}/estatisticas`);
+  await expect(page.getByText('Estatísticas individuais do grupo')).toBeVisible();
   await expect(page.locator('tbody tr')).toHaveCount(4);
 });

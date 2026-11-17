@@ -26,7 +26,7 @@ export class DemoPlayerRepository extends PlayerRepository {
 
     // E entra na lista de membros, que é o que responde "quem joga aqui" neste
     // modo (ver `getByGroupId`). Sem esta linha, cadastrar parecia funcionar e a
-    // pessoa não aparecia em lugar nenhum — nem na presença, nem no ranking.
+    // pessoa não aparecia em lugar nenhum — nem na presença, nem nas estatísticas.
     await this.db.put<GroupMember>(STORES.GROUP_MEMBERS, {
       id: `${groupId}:${player.id}`,
       groupId,

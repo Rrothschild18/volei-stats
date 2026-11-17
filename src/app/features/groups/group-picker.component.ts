@@ -190,7 +190,7 @@ export class GroupPickerComponent implements OnInit {
   protected groupStats(summary: GroupSummary) {
     return [
       { value: summary.gamesPlayed, label: 'jogos' },
-      { value: summary.rankingPosition ? `${summary.rankingPosition}º` : '—', label: 'no ranking' },
+      { value: summary.rankingPosition ? `${summary.rankingPosition}º` : '—', label: 'em vitórias' },
       { value: summary.playerCount, label: 'jogadores' },
     ];
   }

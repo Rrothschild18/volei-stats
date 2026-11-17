@@ -475,7 +475,7 @@ export class TournamentService {
    * Por que a trava existe: a chave reconhece partida salva **pelo par de
    * duplas**. Mover quem já jogou faria a linha antiga deixar de ser um
    * confronto da chave — e ela continuaria contando no saldo, nas estatísticas
-   * e nos rankings, que é o fantasma do ticket 35 entrando por outra porta.
+   * e nas estatísticas, que é o fantasma do ticket 35 entrando por outra porta.
    *
    * Nenhum placar é tocado: a partida aponta para o id da dupla, nunca para a
    * posição dela.
@@ -687,7 +687,7 @@ export class TournamentService {
    * rodada 1. Mudando a rodada 1, as partidas seguintes podem ter sido jogadas
    * entre duplas que o resultado corrigido não manda mais para lá. E elas não
    * são reconhecidas por ninguém — `findSavedMatch` casa por fase **e** par —
-   * então ficavam no banco contando nas estatísticas, nos rankings e no saldo
+   * então ficavam no banco contando nas estatísticas e no saldo
    * da classificação (ticket 35).
    *
    * Em vez de adivinhar quais caíram, refaz o caminho: parte da rodada 1 e vai

@@ -5,6 +5,7 @@ import { AppFacade } from '../../../core/facade/app.facade';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { StatsRepository } from '../../../core/repositories';
 import { phaseLabel } from '../../../core/rules/bracket-phases';
+import { byPlayerWins, byTeamWins } from '../../../core/rules/stats-order';
 import { Match, Player, PlayerStats, Session, TeamStats, Tournament } from '../../../shared/models';
 import {
   daysBetween,
@@ -45,11 +46,18 @@ interface MatchGroup {
 }
 
 /**
- * Rankings do grupo (1v) e o histórico de partidas (1w), que antes era uma tela
- * solta. As tabelas cabem na largura do celular: nada de rolagem lateral.
+ * As estatísticas do grupo (1v) e o histórico de partidas (1w), que antes era
+ * uma tela solta. As tabelas cabem na largura do celular: nada de rolagem
+ * lateral.
+ *
+ * Não é um pódio, e por isso não se chama ranking: a ordem é por VITÓRIAS, um
+ * contador que só sobe e premia quem aparece. Ordenar por aproveitamento
+ * colocava quem jogou 7 partidas numa noite na frente de quem jogou 17 em
+ * duas, e num vôlei onde parte do grupo não é competitiva isso é um ranking
+ * que ninguém pediu. O `%` continua na tabela — só não manda mais na ordem.
  */
 @Component({
-  selector: 'app-rankings',
+  selector: 'app-stats',
   imports: [
     IconComponent,
     PullToRefreshComponent,
@@ -60,7 +68,7 @@ interface MatchGroup {
     SkeletonComponent,
   ],
   template: `
-    <app-root-header [context]="context()" title="RANKINGS" (switchGroup)="toGroups()">
+    <app-root-header [context]="context()" title="ESTATÍSTICAS" (switchGroup)="toGroups()">
       <app-role-tag
         slot="role"
         [isOwner]="group.isOwner()"
@@ -83,35 +91,35 @@ interface MatchGroup {
     -->
     @if (carregando()) {
       <div class="px-4 pt-4">
-        <app-skeleton [rows]="8" label="Somando os rankings do vôlei…" />
+        <app-skeleton [rows]="8" label="Somando as estatísticas do vôlei…" />
       </div>
     } @else {
       @switch (tab()) {
         @case ('individual') {
           <table class="w-full border-collapse">
             <caption class="sr-only">
-              Ranking individual do grupo
+              Estatísticas individuais do grupo
             </caption>
             <thead>
               <tr class="bg-accent-100 text-[11px] tracking-[0.06em] uppercase">
-                <th class="w-7 py-2 pl-4 text-left font-semibold">Nº</th>
+                <th class="w-9 py-2 pl-4 text-left font-semibold">Nº</th>
                 <th class="py-2 text-left font-semibold">Jogador</th>
                 <th class="w-8 py-2 text-right font-semibold">J</th>
-                <th class="w-8 py-2 text-right font-semibold">V</th>
-                <th class="w-11 py-2 text-right font-semibold text-accent-700">%</th>
-                <th class="w-9 py-2 pr-4 text-right font-semibold">Esp</th>
+                <th class="w-11 py-2 text-right font-semibold text-accent-700">V</th>
+                <th class="w-9 py-2 text-right font-semibold">%</th>
+                <th class="w-10 py-2 pr-4 text-right font-semibold">Esp</th>
               </tr>
             </thead>
             <tbody>
               @for (row of individual(); track row.stats.playerId; let index = $index) {
                 <tr class="row-rule h-11" [class.bg-accent-100]="row.isMe">
-                  <td class="pl-4 text-[13px] tnum muted">{{ index + 1 }}</td>
+                  <td class="pr-1 pl-4 text-[13px] tnum muted">{{ index + 1 }}</td>
                   <td class="font-heading text-[17px] font-semibold uppercase">{{ row.name }}</td>
                   <td class="text-right text-[14px] tnum">{{ row.stats.gamesPlayed }}</td>
-                  <td class="text-right text-[14px] tnum">{{ row.stats.wins }}</td>
                   <td class="text-right font-heading text-[19px] font-semibold tnum">
-                    {{ row.stats.winPercentage }}
+                    {{ row.stats.wins }}
                   </td>
+                  <td class="text-right text-[14px] tnum muted">{{ row.stats.winPercentage }}</td>
                   <td class="pr-4 text-right text-[14px] tnum muted">
                     {{ row.stats.timesWaited }}
                   </td>
@@ -120,47 +128,50 @@ interface MatchGroup {
             </tbody>
           </table>
           <p class="px-4 py-3 text-[12px] muted">
-            Ordem por aproveitamento. Esp = vezes que esperou, contando só o sorteio escolhido. Só
-            aparece quem já jogou.
+            Ordem por vitórias — o % está aí para ler, não para classificar. Esp = vezes que
+            esperou, contando só o sorteio escolhido. Só aparece quem já jogou.
           </p>
         }
 
         @case ('teams') {
           <table class="w-full border-collapse">
             <caption class="sr-only">
-              Ranking de duplas do grupo
+              Estatísticas das duplas do grupo
             </caption>
             <thead>
               <tr class="bg-accent-100 text-[11px] tracking-[0.06em] uppercase">
                 <th class="w-7 py-2 pl-4 text-left font-semibold">Nº</th>
                 <th class="py-2 text-left font-semibold">Dupla</th>
                 <th class="w-8 py-2 text-right font-semibold">J</th>
-                <th class="w-8 py-2 text-right font-semibold">V</th>
-                <th class="w-11 py-2 pr-4 text-right font-semibold text-accent-700">%</th>
+                <th class="w-11 py-2 text-right font-semibold text-accent-700">V</th>
+                <th class="w-10 py-2 pr-4 text-right font-semibold">%</th>
               </tr>
             </thead>
             <tbody>
               @for (row of teams(); track row.key; let index = $index) {
                 <tr class="row-rule h-11" [class.bg-accent-100]="row.isMine">
-                  <td class="pl-4 text-[13px] tnum muted">{{ index + 1 }}</td>
+                  <td class="pr-1 pl-4 text-[13px] tnum muted">{{ index + 1 }}</td>
                   <td class="font-heading text-[17px] font-semibold uppercase">{{ row.label }}</td>
                   <td class="text-right text-[14px] tnum">{{ row.stats.gamesPlayed }}</td>
-                  <td class="text-right text-[14px] tnum">{{ row.stats.wins }}</td>
-                  <td class="pr-4 text-right font-heading text-[19px] font-semibold tnum">
+                  <td class="text-right font-heading text-[19px] font-semibold tnum">
+                    {{ row.stats.wins }}
+                  </td>
+                  <td class="pr-4 text-right text-[14px] tnum muted">
                     {{ row.stats.winPercentage }}
                   </td>
                 </tr>
               } @empty {
                 <tr>
                   <td colspan="5" class="px-4 py-6 text-[14px] muted">
-                    Nenhuma dupla com 3 jogos juntos ainda.
+                    Nenhuma dupla jogou junta ainda.
                   </td>
                 </tr>
               }
             </tbody>
           </table>
           <p class="px-4 py-3 text-[12px] muted">
-            Só duplas com 3 jogos juntos ou mais — abaixo disso, o aproveitamento é sorte.
+            Ordem por vitórias da dupla. A mesma dupla sorteada em dias diferentes conta no mesmo
+            lugar.
           </p>
         }
 
@@ -222,7 +233,7 @@ interface MatchGroup {
   `,
   host: { class: 'block pb-8' },
 })
-export class RankingsComponent implements OnInit {
+export class StatsComponent implements OnInit {
   private readonly facade = inject(AppFacade);
   private readonly refresh = inject(RefreshService);
   private readonly stats = inject(StatsRepository);
@@ -272,7 +283,7 @@ export class RankingsComponent implements OnInit {
 
     return this.playerStats()
       .filter((stats) => inGroup.has(stats.playerId))
-      .sort((a, b) => b.winPercentage - a.winPercentage || b.wins - a.wins)
+      .sort(byPlayerWins((playerId) => names.get(playerId) ?? ''))
       .map((stats) => ({
         stats,
         name: names.get(stats.playerId) ?? '?',
@@ -284,15 +295,20 @@ export class RankingsComponent implements OnInit {
     const inGroup = this.groupPlayerIds();
     const me = this.group.playerId();
 
-    return this.teamStats()
-      .filter((stats) => stats.gamesPlayed >= 3 && stats.playerIds.every((id) => inGroup.has(id)))
-      .sort((a, b) => b.winPercentage - a.winPercentage || b.gamesPlayed - a.gamesPlayed)
-      .map((stats) => ({
-        key: [...stats.playerIds].sort().join('|'),
-        label: stats.playerNames.join(' + '),
-        stats,
-        isMine: me !== null && stats.playerIds.includes(me),
-      }));
+    return (
+      this.teamStats()
+        .filter((stats) => stats.playerIds.every((id) => inGroup.has(id)))
+        // Sem o corte de 3 jogos: ordenada por vitórias, a dupla que jogou uma
+        // vez e venceu não lidera nada, e esconder quem jogou pouco era o jeito
+        // de impedir que o aproveitamento mentisse.
+        .sort(byTeamWins())
+        .map((stats) => ({
+          key: [...stats.playerIds].sort().join('|'),
+          label: stats.playerNames.join(' + '),
+          stats,
+          isMine: me !== null && stats.playerIds.includes(me),
+        }))
+    );
   });
 
   protected readonly playerFilterLabel = computed(() => {
@@ -411,7 +427,7 @@ export class RankingsComponent implements OnInit {
   }
 
   private async somar(groupId: string): Promise<void> {
-    // Os rankings vêm somados do banco: as views contam lá, por vôlei. Carregar
+    // As estatísticas vêm somadas do banco: as views contam lá, por vôlei. Carregar
     // todas as partidas aqui para somar no navegador era o que o §7.12 pedia
     // para parar de fazer.
     const [groupPlayers, playerStats, teamStats, sessions] = await Promise.all([

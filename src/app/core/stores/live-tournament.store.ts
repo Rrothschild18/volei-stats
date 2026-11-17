@@ -481,7 +481,7 @@ export class LiveTournamentStore {
    * `finishIfComplete` só sabe **encerrar**: ele era gravado uma vez e nunca
    * mais revisitado, então uma correção que reabre a chave deixava o campeonato
    * marcado como encerrado e a classificação final do resultado antigo no banco,
-   * contando nos rankings (ticket 35).
+   * contando nas estatísticas (ticket 35).
    */
   private async rederiveOutcome(tournament: Tournament, matches: Match[]): Promise<void> {
     const complete = await this.tournaments.isTournamentComplete(tournament, matches);

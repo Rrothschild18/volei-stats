@@ -44,7 +44,7 @@ const MOTIVOS: Record<BirthDateFailure, string> = {
       <section>
         <p class="kicker">SEU NOME NESTE VÔLEI</p>
         <p class="mt-1 text-[13px] muted">
-          É como você aparece na presença, no sorteio e nos rankings. Vale só neste vôlei.
+          É como você aparece na presença, no sorteio e nas estatísticas. Vale só neste vôlei.
         </p>
 
         <div class="field mt-3">

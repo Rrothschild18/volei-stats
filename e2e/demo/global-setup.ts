@@ -18,7 +18,7 @@ const TELAS = [
   '/g/g-segunda/campeonatos',
   '/g/g-segunda/campeonatos/sessoes/nova',
   '/g/g-segunda/campeonatos/sessoes/s-hoje',
-  '/g/g-segunda/rankings',
+  '/g/g-segunda/estatisticas',
   '/g/g-segunda/jogadores',
   '/g/g-segunda/jogadores/p-bia',
 ];

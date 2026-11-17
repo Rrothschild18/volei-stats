@@ -77,11 +77,14 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'rankings',
-        title: 'Rankings',
+        path: 'estatisticas',
+        title: 'Estatísticas',
         loadComponent: () =>
-          import('./features/group/rankings/rankings.component').then((m) => m.RankingsComponent),
+          import('./features/group/stats/stats.component').then((m) => m.StatsComponent),
       },
+      // `/rankings` já foi mandado em grupo de WhatsApp: o link antigo continua
+      // abrindo a tela, que agora se chama estatísticas.
+      { path: 'rankings', redirectTo: 'estatisticas' },
       {
         path: 'jogadores',
         title: 'Jogadores',
