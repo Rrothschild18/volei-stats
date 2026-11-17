@@ -31,6 +31,11 @@ function match(phase: MatchPhase, vencedora: string, perdedora: string): Match {
     reportedBy: null,
     correctedBy: null,
     correctedAt: null,
+    coinWinnerTeamId: null,
+    coinCallerPlayerId: null,
+    coinChoice: null,
+    teamASide: null,
+    firstServerTeamId: null,
     createdAt: '2026-10-31T22:00:00.000Z',
   };
 }

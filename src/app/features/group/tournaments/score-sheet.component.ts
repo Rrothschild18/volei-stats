@@ -6,6 +6,8 @@ import { phaseLabel } from '../../../core/rules/bracket-phases';
 import { expectedStop, readFinalScore, scoreCeiling } from '../../../core/rules/final-score';
 import { CORRECTION_WINDOW_LABEL } from '../../../core/rules/tournament-timing';
 import { Match } from '../../../shared/models';
+import { MatchOpening } from '../../../core/rules/match-opening';
+import { INICIO_VAZIO, MatchOpeningComponent } from './match-opening.component';
 import { formatTime } from '../../../shared/utils/date.util';
 import {
   ActionBarComponent,
@@ -33,6 +35,7 @@ import {
     FocusTrapDirective,
     IconComponent,
     InlineNoteComponent,
+    MatchOpeningComponent,
     StepperComponent,
   ],
   template: `
@@ -83,6 +86,11 @@ import {
             <p class="text-[14px] muted">Corrigido por {{ corrector }}.</p>
           }
 
+          <!-- O que foi registrado no início do jogo. Some quando ninguém registrou. -->
+          @if (openingLabel(); as inicio) {
+            <p class="text-[14px] muted">{{ inicio }}</p>
+          }
+
           <p class="text-[14px]">
             Errou algum número?
             <strong class="font-semibold">Qualquer jogador do vôlei corrige</strong> — e fica
@@ -94,6 +102,17 @@ import {
               <strong class="font-semibold">O primeiro placar salvo trava.</strong> Depois dele,
               qualquer jogador corrige — e quem corrigir fica registrado na partida.
             </app-inline-note>
+          }
+
+          @if (!correcting()) {
+            <app-match-opening
+              [teamAId]="bracket().teamAId"
+              [teamBId]="bracket().teamBId"
+              [teamALabel]="store.teamLabel(bracket().teamAId)"
+              [teamBLabel]="store.teamLabel(bracket().teamBId)"
+              [playersOfTeam]="playersOfTeam"
+              [(opening)]="opening"
+            />
           }
 
           @for (side of sides(); track side.teamId) {
@@ -208,7 +227,7 @@ import {
   `,
 })
 export class ScoreSheetComponent {
-  private readonly store = inject(LiveTournamentStore);
+  protected readonly store = inject(LiveTournamentStore);
   private readonly group = inject(CurrentGroupStore);
 
   readonly bracket = input.required<BracketMatch>();
@@ -220,6 +239,15 @@ export class ScoreSheetComponent {
   protected readonly scoreB = signal(0);
   protected readonly busy = signal(false);
   protected readonly refusal = signal<CorrectionRefusal | null>(null);
+  /** O início do jogo (ticket 07). Vazio é o normal: o registro é opcional. */
+  protected readonly opening = signal<MatchOpening>(INICIO_VAZIO);
+
+  /** Os dois jogadores de uma dupla, para a pergunta de quem chamou. */
+  protected readonly playersOfTeam = (teamId: string) =>
+    (this.store.team(teamId)?.playerIds ?? []).map((playerId) => ({
+      id: playerId,
+      name: this.store.playerName(playerId) ?? '?',
+    }));
 
   protected readonly refusalMessage = computed(() => {
     switch (this.refusal()) {
@@ -234,6 +262,34 @@ export class ScoreSheetComponent {
   protected readonly confirming = signal(false);
   /** Preenchido depois de salvar: a tela vira "placar travado". */
   protected readonly saved = signal<Match | null>(null);
+
+  /** O início do jogo da partida salva, em uma frase. */
+  protected readonly openingLabel = computed(() => {
+    const match = this.saved();
+    if (!match) {
+      return null;
+    }
+
+    const partes: string[] = [];
+
+    if (match.coinWinnerTeamId && match.coinChoice) {
+      const chamou = this.store.playerName(match.coinCallerPlayerId);
+      const quem = chamou
+        ? `${this.store.teamLabel(match.coinWinnerTeamId)} (${chamou})`
+        : this.store.teamLabel(match.coinWinnerTeamId);
+      partes.push(`Par-ou-ímpar: ${quem} escolheu ${match.coinChoice}`);
+    }
+
+    if (match.firstServerTeamId) {
+      partes.push(`abriu sacando ${this.store.teamLabel(match.firstServerTeamId)}`);
+    }
+
+    if (match.teamASide) {
+      partes.push(`${this.store.teamLabel(match.teamAId)} à ${match.teamASide}`);
+    }
+
+    return partes.length > 0 ? `${partes.join(' · ')}.` : null;
+  });
 
   protected readonly pointLimit = computed(() => this.store.tournament()?.pointLimit ?? 12);
 
@@ -426,6 +482,7 @@ export class ScoreSheetComponent {
         this.scoreA(),
         this.scoreB(),
         this.group.playerId(),
+        this.opening(),
       );
 
       // Outro aparelho chegou primeiro: mostra o placar que já está salvo.

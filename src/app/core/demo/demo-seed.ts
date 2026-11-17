@@ -1,6 +1,9 @@
 import { STORES } from './demo-db.service';
 import { Gender } from '../../shared/enums';
+import { quemAbreSacando } from '../rules/match-opening';
 import {
+  CoinChoice,
+  CourtSide,
   DrawProposal,
   Group,
   GroupMember,
@@ -214,6 +217,13 @@ interface MatchSpec {
   readonly scoreB: number;
   readonly playedAt: string;
   readonly reportedBy: string | null;
+  /** O início do jogo é opcional: o cenário tem partidas com e sem ele. */
+  readonly opening?: {
+    readonly coinWinnerTeamId: string;
+    readonly coinCallerPlayerId: string | null;
+    readonly coinChoice: CoinChoice;
+    readonly teamASide: CourtSide;
+  };
 }
 
 function match(spec: MatchSpec): Match {
@@ -232,6 +242,18 @@ function match(spec: MatchSpec): Match {
     pointDifference: Math.abs(scoreA - scoreB),
     playedAt: spec.playedAt,
     reportedBy: spec.reportedBy,
+    coinWinnerTeamId: spec.opening?.coinWinnerTeamId ?? null,
+    coinCallerPlayerId: spec.opening?.coinCallerPlayerId ?? null,
+    coinChoice: spec.opening?.coinChoice ?? null,
+    teamASide: spec.opening?.teamASide ?? null,
+    firstServerTeamId: spec.opening
+      ? quemAbreSacando({
+          coinWinnerTeamId: spec.opening.coinWinnerTeamId,
+          coinChoice: spec.opening.coinChoice,
+          teamAId: spec.teamAId,
+          teamBId: spec.teamBId,
+        })
+      : null,
     correctedBy: null,
     correctedAt: null,
     createdAt: spec.playedAt,

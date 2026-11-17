@@ -19,6 +19,11 @@ function match(phase: MatchPhase, playedAt: string): Match {
     reportedBy: null,
     correctedBy: null,
     correctedAt: null,
+    coinWinnerTeamId: null,
+    coinCallerPlayerId: null,
+    coinChoice: null,
+    teamASide: null,
+    firstServerTeamId: null,
     createdAt: playedAt,
   };
 }

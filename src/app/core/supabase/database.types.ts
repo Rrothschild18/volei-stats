@@ -330,9 +330,13 @@ export type Database = {
       };
       matches: {
         Row: {
+          coin_caller_player_id: string | null;
+          coin_choice: string | null;
+          coin_winner_team_id: string | null;
           corrected_at: string | null;
           corrected_by: string | null;
           created_at: string;
+          first_server_team_id: string | null;
           group_id: string;
           id: string;
           loser_id: string | null;
@@ -344,15 +348,20 @@ export type Database = {
           score_b: number;
           session_id: string;
           team_a_id: string;
+          team_a_side: string | null;
           team_b_id: string;
           tournament_id: string;
           winner_id: string | null;
         };
         ComputedFields: never;
         Insert: {
+          coin_caller_player_id?: string | null;
+          coin_choice?: string | null;
+          coin_winner_team_id?: string | null;
           corrected_at?: string | null;
           corrected_by?: string | null;
           created_at?: string;
+          first_server_team_id?: string | null;
           group_id: string;
           id?: string;
           loser_id?: never;
@@ -364,14 +373,19 @@ export type Database = {
           score_b: number;
           session_id: string;
           team_a_id: string;
+          team_a_side?: string | null;
           team_b_id: string;
           tournament_id: string;
           winner_id?: never;
         };
         Update: {
+          coin_caller_player_id?: string | null;
+          coin_choice?: string | null;
+          coin_winner_team_id?: string | null;
           corrected_at?: string | null;
           corrected_by?: string | null;
           created_at?: string;
+          first_server_team_id?: string | null;
           group_id?: string;
           id?: string;
           loser_id?: never;
@@ -383,11 +397,33 @@ export type Database = {
           score_b?: number;
           session_id?: string;
           team_a_id?: string;
+          team_a_side?: string | null;
           team_b_id?: string;
           tournament_id?: string;
           winner_id?: never;
         };
         Relationships: [
+          {
+            foreignKeyName: 'matches_coin_caller_fkey';
+            columns: ['coin_caller_player_id', 'group_id'];
+            isOneToOne: false;
+            referencedRelation: 'player_stats';
+            referencedColumns: ['player_id', 'group_id'];
+          },
+          {
+            foreignKeyName: 'matches_coin_caller_fkey';
+            columns: ['coin_caller_player_id', 'group_id'];
+            isOneToOne: false;
+            referencedRelation: 'players';
+            referencedColumns: ['id', 'group_id'];
+          },
+          {
+            foreignKeyName: 'matches_coin_winner_fkey';
+            columns: ['coin_winner_team_id', 'group_id'];
+            isOneToOne: false;
+            referencedRelation: 'tournament_teams';
+            referencedColumns: ['id', 'group_id'];
+          },
           {
             foreignKeyName: 'matches_corrected_by_group_id_fkey';
             columns: ['corrected_by', 'group_id'];
@@ -400,6 +436,13 @@ export type Database = {
             columns: ['corrected_by', 'group_id'];
             isOneToOne: false;
             referencedRelation: 'players';
+            referencedColumns: ['id', 'group_id'];
+          },
+          {
+            foreignKeyName: 'matches_first_server_fkey';
+            columns: ['first_server_team_id', 'group_id'];
+            isOneToOne: false;
+            referencedRelation: 'tournament_teams';
             referencedColumns: ['id', 'group_id'];
           },
           {

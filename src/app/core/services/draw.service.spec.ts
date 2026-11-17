@@ -116,6 +116,11 @@ function round1(
     reportedBy: null,
     correctedBy: null,
     correctedAt: null,
+    coinWinnerTeamId: null,
+    coinCallerPlayerId: null,
+    coinChoice: null,
+    teamASide: null,
+    firstServerTeamId: null,
     createdAt: '2026-10-31T22:30:00.000Z',
   };
 }

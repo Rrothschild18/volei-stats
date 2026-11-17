@@ -39,6 +39,11 @@ function match(
     reportedBy: null,
     correctedBy: null,
     correctedAt: null,
+    coinWinnerTeamId: null,
+    coinCallerPlayerId: null,
+    coinChoice: null,
+    teamASide: null,
+    firstServerTeamId: null,
     createdAt: '2026-10-26T22:12:00.000Z',
   };
 }

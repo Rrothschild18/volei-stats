@@ -12,6 +12,7 @@ import { CurrentGroupStore } from './current-group.store';
 import { findFormat } from '../rules/tournament-formats';
 import { phaseLabel, plannedPhases } from '../rules/bracket-phases';
 import { readRound1 } from '../rules/round-1-outcome';
+import { MatchOpening, quemAbreSacando } from '../rules/match-opening';
 import { correctionWindowOpen, tournamentTiming } from '../rules/tournament-timing';
 import {
   Match,
@@ -284,11 +285,17 @@ export class LiveTournamentStore {
    * Salva o placar. O primeiro placar de uma partida trava: uma segunda
    * tentativa devolve o que já está lá, em vez de sobrescrever.
    */
+  /**
+   * Lança o placar. O `opening` é o início do jogo (par-ou-ímpar, lado e
+   * saque, ticket 07) e é opcional: quem pulou o passo manda nada, e a partida
+   * salva do mesmo jeito.
+   */
   async reportScore(
     bracket: BracketMatch,
     scoreA: number,
     scoreB: number,
     reportedBy: string | null,
+    opening?: MatchOpening,
   ): Promise<{ saved: boolean; existing: Match | null }> {
     const tournament = this.tournament();
     if (!tournament) {
@@ -323,6 +330,18 @@ export class LiveTournamentStore {
       correctedBy: null,
       correctedAt: null,
       createdAt: now,
+      coinWinnerTeamId: opening?.coinWinnerTeamId ?? null,
+      coinCallerPlayerId: opening?.coinCallerPlayerId ?? null,
+      coinChoice: opening?.coinChoice ?? null,
+      teamASide: opening?.teamASide ?? null,
+      // Derivado, nunca perguntado de novo: perguntar deixaria o app aceitar
+      // uma resposta que contradiz a escolha do par-ou-ímpar.
+      firstServerTeamId: quemAbreSacando({
+        coinWinnerTeamId: opening?.coinWinnerTeamId ?? null,
+        coinChoice: opening?.coinChoice ?? null,
+        teamAId: bracket.teamAId,
+        teamBId: bracket.teamBId,
+      }),
     };
 
     await this.facade.saveMatch(match);

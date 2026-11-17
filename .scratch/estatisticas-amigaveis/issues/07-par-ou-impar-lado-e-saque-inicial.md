@@ -7,7 +7,7 @@ lançando.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (migration ainda não aplicada na nuvem)
 
 ## Por que juntas
 
@@ -70,9 +70,50 @@ foi lado, é a outra dupla que saca, e o app já sabe.
 - O par-ou-ímpar de **desempate de campeonato** (`tiebreak_decisions`) é outra
   coisa, de outro momento. Não misturar as duas contagens.
 
-- [ ] Migration aplicada com `supabase db push --linked` (`--dry-run` antes)
-- [ ] `grant`/RLS conferidos para as colunas novas
-- [ ] Passo de início de jogo, pulável, antes dos steppers
-- [ ] Saque inicial derivado da escolha quando possível
-- [ ] Estatísticas novas contam só partidas com registro, e dizem quantas
-- [ ] Teste SQL das constraints e do caminho do jogador que corrige
+- [ ] Migration aplicada na nuvem — **falta `supabase db push --linked`**
+- [x] `grant`/RLS conferidos: as políticas de `matches` são de tabela, não de
+      coluna, então as colunas novas já entram no insert/update do jogador
+- [x] Início do jogo no alto da folha de placar, sem travar nada
+- [x] Saque inicial derivado da escolha (`quemAbreSacando`), com teste
+- [ ] Estatísticas novas (mão quente, lado que mais venceu, abrir sacando
+      ajuda?) — **ficam para quando houver dado**: nenhuma partida tem registro
+      ainda, e um gráfico de zero partidas não diz nada
+- [x] Teste SQL das constraints (`supabase/tests/10-inicio-do-jogo.sql`)
+- [x] e2e: o placar salva sem registro; saque/lado derivam certo; o registrado
+      aparece no placar travado
+
+## Comments
+
+### Virou bloco opcional, não passo com PULAR
+
+O ticket pedia "um passo antes dos steppers, com PULAR bem visível". Ficou um
+**bloco no alto da própria folha**, marcado como `opcional`, com os steppers
+logo abaixo. O motivo é o cuidado que o próprio ticket escreveu: *o passo não
+pode atrasar o placar*. Não responder já é pular — e um passo que precisa ser
+dispensado custa um toque a mais para quem só quer lançar o resultado no meio
+do jogo. O `aria-live` do bloco diz "Ninguém precisa registrar isso para lançar
+o placar".
+
+### O sacador é derivado, e o banco guarda isso
+
+`quemAbreSacando()` deriva o sacador da escolha do par-ou-ímpar (saque → quem
+ganhou; lado → a outra dupla). A coluna existe, mas uma constraint impede
+gravar sacador que contradiz a escolha: sem ela o app teria duas verdades sobre
+o mesmo momento, e a que estivesse errada só apareceria meses depois, numa
+estatística.
+
+### Quem chamou é por pessoa, não por dupla
+
+A pergunta "quem chamou?" aparece depois de escolher a dupla vencedora, com os
+dois jogadores dela. Sem isso, "mão quente do par-ou-ímpar" seria uma
+estatística de duplas sorteadas — ou seja, de ninguém.
+
+### O lado é UMA coluna
+
+`team_a_side` guarda o lado da primeira dupla; o da outra é o oposto. Duas
+colunas poderiam discordar entre si, e nada no banco impediria.
+
+### Correção de placar não mexe no início
+
+`correct_match_score` só reescreve placar. O par-ou-ímpar e o lado continuam os
+que foram registrados — corrigir número não desfaz o que aconteceu em quadra.

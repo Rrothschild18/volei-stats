@@ -74,6 +74,11 @@ function partida(
     reportedBy: null,
     correctedBy: null,
     correctedAt: null,
+    coinWinnerTeamId: null,
+    coinCallerPlayerId: null,
+    coinChoice: null,
+    teamASide: null,
+    firstServerTeamId: null,
     createdAt: playedAt,
   };
 }
