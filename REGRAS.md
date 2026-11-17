@@ -370,10 +370,11 @@ ordenam apenas por `pointDifference`. Com empate — comum em jogos curtos — q
 é eliminado diretamente e quem vai direto à final passa a depender da ordem em
 que as partidas foram salvas. Não há critério de desempate definido.
 
-> ✅ **REGRA DEFINIDA (§9.3).** Empate de diferença se resolve **no par ou
-> ímpar**, como na quadra. O app não deve decidir sozinho: ele **detecta o
-> empate, para, e pergunta** ao organizador quem venceu o par-ou-ímpar —
-> exatamente o mesmo fluxo que já existe para o encaixe do avulso.
+> ✅ **REGRA DEFINIDA (§9.3).** A ordem é **diferença → pontos a favor → par ou
+> ímpar**. Empatou a diferença, decide quem fez mais pontos: 12 × 10 e 14 × 12
+> não foram o mesmo jogo. Só quando os dois critérios empatam o app **para e
+> pergunta** quem venceu o par-ou-ímpar — o mesmo fluxo que já existe para o
+> encaixe do avulso.
 
 ### 7.8. Formatos não suportados criam campeonato travado 🔴
 
@@ -465,12 +466,21 @@ seria escolhido para esperar toda vez que viesse.
 A prioridade é **escopada à sessão**, como já é hoje. Nada atravessa de um dia
 para o outro. (Confirma o comportamento atual descrito em §8.2.)
 
-### 9.3. Empate de diferença: par ou ímpar
+### 9.3. Empate de diferença: pontos a favor, e só então par ou ímpar
 
 Quando duas duplas perdem (ou vencem) pela mesma diferença de pontos, o
-desempate é **no par ou ímpar**, decidido na quadra. O app detecta o empate,
-**interrompe o chaveamento e pergunta** quem venceu — mesmo fluxo que já existe
-para o encaixe do avulso.
+critério seguinte são os **pontos a favor** — os que aquela dupla fez na
+partida. Jogo A 12 × 10 e jogo B 14 × 12 têm a mesma diferença e não foram o
+mesmo jogo: entre os vencedores, quem fez 14 vai direto à final; entre os
+perdedores, quem fez 12 fica acima de quem fez 10 e é o outro que está fora.
+
+Empatando **os dois** — 12 × 10 e 12 × 10 —, aí sim o desempate é **no par ou
+ímpar**, decidido na quadra. O app detecta o empate, **interrompe o chaveamento
+e pergunta** quem venceu — mesmo fluxo que já existe para o encaixe do avulso.
+
+Por que não parar logo no empate de diferença, como era antes (ticket 42):
+pedir par-ou-ímpar para uma pergunta que o placar já responde é sorteio onde
+havia resultado. Quem fez mais pontos jogou mais, e isso está na súmula.
 
 ### 9.4. Encaixe do avulso: confirmado como está
 

@@ -98,9 +98,10 @@ test.describe('a condição deixa de valer', () => {
     await sortearOProximo(page);
     await expect(page.getByRole('button', { name: /O PRÓXIMO JÁ ESTÁ SORTEADO/ })).toBeVisible();
 
-    // A rodada 1 tinha 12 × 7 e 10 × 12: diferenças de 5 e 2. Com 12 × 10 as
-    // duas passam a 2, e aí nenhum critério diz quem está fora — a chave
-    // pausa e espera um par-ou-ímpar na quadra.
+    // A rodada 1 tinha 12 × 7 e 10 × 12: diferenças de 5 e 2. Com 12 × 10 os
+    // dois jogos ficam com o MESMO placar — mesma diferença e mesmos pontos —,
+    // e aí nenhum critério diz quem está fora: a chave pausa e espera um
+    // par-ou-ímpar na quadra (ticket 42).
     await page.getByRole('button', { name: 'Corrigir' }).first().click();
     const placar = new PlacarPage(page);
     await expect(placar.gaveta).toContainText('CORRIGIR PLACAR');
@@ -108,7 +109,7 @@ test.describe('a condição deixa de valer', () => {
     await page.getByRole('button', { name: /^CORRIGIR 12 × 10/ }).click();
 
     // A chave pausa na hora: o desempate reaberto pede par-ou-ímpar na quadra.
-    await expect(page.getByRole('dialog')).toContainText('EMPATE NA DIFERENÇA');
+    await expect(page.getByRole('dialog')).toContainText('MESMO PLACAR');
 
     // A condição do ticket 36 caiu: nada de convite, e o sorteio que já havia
     // saído dela não vale mais.

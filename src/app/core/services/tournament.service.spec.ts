@@ -132,10 +132,11 @@ describe('TournamentService.getNextMatches', () => {
       team('t4', ['gui', 'paty']),
       team('t5', ['leo', 'carol']),
     ];
-    // As duas partidas terminam com a mesma diferença: não há critério.
+    // As duas partidas terminam com a mesma diferença E os mesmos pontos: não
+    // há critério nenhum (ticket 42).
     const matches = [
       match('m1', 'round-1', 't1', 't2', 12, 9),
-      match('m2', 'round-1', 't3', 't4', 11, 8),
+      match('m2', 'round-1', 't3', 't4', 12, 9),
     ];
     const { service } = setup(matches);
     const entry = tournament({ teams });
@@ -157,7 +158,7 @@ describe('TournamentService.getNextMatches', () => {
     ];
     const matches = [
       match('m1', 'round-1', 't1', 't2', 12, 9),
-      match('m2', 'round-1', 't3', 't4', 11, 8),
+      match('m2', 'round-1', 't3', 't4', 12, 9),
     ];
     const { service } = setup(matches);
     let entry = tournament({ teams });
@@ -579,8 +580,9 @@ describe('TournamentService.dropStaleTiebreaks', () => {
   });
 
   it('correção que não muda o par não derruba nada, e não grava', async () => {
-    // t2 continua perdendo por 3: o empate é o mesmo, com outros números.
-    const corrected = [match('m1', 'round-1', 't1', 't2', 11, 8), original[1], original[2]];
+    // A correção foi no jogo t5 × t6, que não entra em empate nenhum: os dois
+    // empates da fronteira continuam de pé, e as decisões com eles.
+    const corrected = [original[0], original[1], match('m3', 'round-1', 't5', 't6', 13, 11)];
     const { service, saved } = setup(corrected);
     const entry = tournament({
       formatId: 'knockout-6',

@@ -3,10 +3,11 @@ import { LiveTournamentStore } from '../../../core/stores/live-tournament.store'
 import { BottomSheetComponent, BusyDirective, InlineNoteComponent } from '../../../shared/ui';
 
 /**
- * Empate na diferença de pontos (1r), REGRAS.md §9.3.
+ * Empate de placar na fronteira que decide (1r), REGRAS.md §9.3.
  *
- * Quando duas duplas empatam exatamente na posição que decide, não existe
- * critério no app. Elas fazem par-ou-ímpar na quadra e quem está lá registra. Entre
+ * Chega aqui o que nem a diferença nem os pontos a favor separam: depois do
+ * ticket 42, 12 × 10 e 14 × 12 já se resolvem sozinhos, e esta folha só aparece
+ * quando os dois jogos tiveram o mesmo placar. Aí não existe critério no app. Elas fazem par-ou-ímpar na quadra e quem está lá registra. Entre
  * perdedoras, quem perde o par-ou-ímpar é eliminada direto; entre vencedoras,
  * quem vence vai direto à final.
  */
@@ -14,7 +15,7 @@ import { BottomSheetComponent, BusyDirective, InlineNoteComponent } from '../../
   selector: 'app-tiebreak-sheet',
   imports: [BottomSheetComponent, BusyDirective, InlineNoteComponent],
   template: `
-    <app-bottom-sheet kicker="DESEMPATE" title="EMPATE NA DIFERENÇA" [dismissible]="false">
+    <app-bottom-sheet kicker="DESEMPATE" title="MESMO PLACAR" [dismissible]="false">
       <!--
         A folha é três coisas, e a distância entre elas é que diz isso: POR QUE
         a chave parou, COMO ficou a rodada, e A ESCOLHA. Com tudo no mesmo
@@ -120,13 +121,15 @@ export class TiebreakSheetComponent {
   protected readonly explanation = computed(() => {
     const waiting = this.store.playerName(this.store.tournament()?.waitingPlayerId ?? null);
 
+    const mesmoJogo = 'Os dois jogos terminaram no mesmo placar: nem a diferença nem os pontos separam.';
+
     if (this.tiebreak()?.kind === 'losers') {
       return waiting
-        ? `O app não decide sozinho. Façam um par-ou-ímpar entre as duplas: quem perder é eliminada direto; a outra disputa o encaixe com ${waiting}.`
-        : 'O app não decide sozinho. Façam um par-ou-ímpar entre as duplas: quem perder é eliminada direto.';
+        ? `${mesmoJogo} Façam um par-ou-ímpar entre as duplas: quem perder é eliminada direto; a outra disputa o encaixe com ${waiting}.`
+        : `${mesmoJogo} Façam um par-ou-ímpar entre as duplas: quem perder é eliminada direto.`;
     }
 
-    return 'O app não decide sozinho. Façam um par-ou-ímpar entre as duplas: quem vencer vai direto à final.';
+    return `${mesmoJogo} Façam um par-ou-ímpar entre as duplas: quem vencer vai direto à final.`;
   });
 
   protected readonly footer = computed(() =>

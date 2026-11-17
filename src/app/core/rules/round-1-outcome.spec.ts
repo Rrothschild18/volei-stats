@@ -48,11 +48,12 @@ describe('readRound1', () => {
   });
 
   it('pede uma decisão por vez: a diferença de uma partida vale para os dois lados', () => {
-    // 12×9 e 11×8 são a mesma diferença, então empatam tanto a fronteira dos
-    // perdedores (quem está fora) quanto a dos vencedores (quem vai à final).
-    // A dos perdedores vem primeiro, porque é ela que elimina alguém.
+    // Dois 12×9: mesma diferença e mesmos pontos, então empatam tanto a
+    // fronteira dos perdedores (quem está fora) quanto a dos vencedores (quem
+    // vai à final). A dos perdedores vem primeiro, porque é ela que elimina
+    // alguém.
     const outcome = readRound1(
-      [round1Match('rafa-bia', 'carol-gui', 12, 9), round1Match('leo-duda', 'rafa-paty', 11, 8)],
+      [round1Match('rafa-bia', 'carol-gui', 12, 9), round1Match('leo-duda', 'rafa-paty', 12, 9)],
       { expectedMatches: 2 },
     );
 
@@ -62,7 +63,7 @@ describe('readRound1', () => {
     });
 
     const afterLosers = readRound1(
-      [round1Match('rafa-bia', 'carol-gui', 12, 9), round1Match('leo-duda', 'rafa-paty', 11, 8)],
+      [round1Match('rafa-bia', 'carol-gui', 12, 9), round1Match('leo-duda', 'rafa-paty', 12, 9)],
       {
         expectedMatches: 2,
         decisions: [
@@ -127,7 +128,7 @@ describe('readRound1', () => {
 describe('readRound1 com a rodada 1 pela metade', () => {
   it('não pausa a chave por um empate entre duas de três partidas', () => {
     // knockout-6: a terceira partida ainda pode desfazer o empate.
-    const outcome = readRound1([round1Match('a1', 'a2', 12, 9), round1Match('b1', 'b2', 11, 8)], {
+    const outcome = readRound1([round1Match('a1', 'a2', 12, 9), round1Match('b1', 'b2', 12, 9)], {
       expectedMatches: 3,
     });
 
@@ -138,7 +139,7 @@ describe('readRound1 com a rodada 1 pela metade', () => {
     const outcome = readRound1(
       [
         round1Match('a1', 'a2', 12, 9),
-        round1Match('b1', 'b2', 11, 8),
+        round1Match('b1', 'b2', 12, 9),
         round1Match('c1', 'c2', 12, 5),
       ],
       { expectedMatches: 3 },
@@ -152,7 +153,7 @@ describe('readRound1 com a rodada 1 pela metade', () => {
     const matches = [
       round1Match('a1', 'a2', 12, 2),
       round1Match('b1', 'b2', 12, 9),
-      round1Match('c1', 'c2', 11, 8),
+      round1Match('c1', 'c2', 12, 9),
     ];
 
     // Sem 3º lugar, o empate de a2/b2 em -3 não decide nada.
@@ -237,11 +238,12 @@ describe('a decisão vale para o empate que a gerou', () => {
   });
 
   it('correção que não muda o par deixa as decisões valendo', () => {
-    // t1 × t2 continua com t2 perdendo por 3: mesmos empates, outros números.
+    // A correção foi no jogo t5 × t6, que não participa de empate nenhum: os
+    // dois empates continuam de pé, e as duas decisões com eles.
     const mesmoPar = [
-      round1Match('t1', 't2', 11, 8),
+      round1Match('t1', 't2', 12, 9),
       round1Match('t3', 't4', 12, 9),
-      round1Match('t5', 't6', 12, 10),
+      round1Match('t5', 't6', 13, 11),
     ];
 
     const outcome = readRound1(mesmoPar, { expectedMatches: 3, decisions });
@@ -258,5 +260,77 @@ describe('a decisão vale para o empate que a gerou', () => {
 
     expect(outcome.staleDecisions).toEqual([]);
     expect(outcome.needsTiebreak).toBeNull();
+  });
+});
+
+describe('empate de diferença olha os pontos a favor (ticket 42)', () => {
+  it('não pausa a chave quando os jogos têm a mesma diferença e placares diferentes', () => {
+    // Jogo A 12×10 e jogo B 14×12: a diferença é 2 nos dois, mas o jogo B foi
+    // maior. Quem fez 14 vai à final; quem fez 10 está fora. Sem par-ou-ímpar.
+    const outcome = readRound1(
+      [round1Match('a1', 'a2', 12, 10), round1Match('b1', 'b2', 14, 12)],
+      { expectedMatches: 2 },
+    );
+
+    expect(outcome.needsTiebreak).toBeNull();
+    expect(outcome.winners.map((entry) => entry.id)).toEqual(['b1', 'a1']);
+    expect(outcome.losers.map((entry) => entry.id)).toEqual(['a2', 'b2']);
+  });
+
+  it('pausa só quando a diferença e os pontos empatam', () => {
+    const outcome = readRound1(
+      [round1Match('a1', 'a2', 12, 10), round1Match('b1', 'b2', 12, 10)],
+      { expectedMatches: 2 },
+    );
+
+    expect(outcome.needsTiebreak).toEqual({ kind: 'losers', teamIds: ['a2', 'b2'] });
+  });
+
+  it('jogo interrompido fica atrás do jogo inteiro de mesma diferença', () => {
+    // 8×6 é o jogo que parou antes do limite (acabou o horário, começou a
+    // chover). Ele vale, mas não passa na frente de um 12×10.
+    const outcome = readRound1([round1Match('a1', 'a2', 8, 6), round1Match('b1', 'b2', 12, 10)], {
+      expectedMatches: 2,
+    });
+
+    expect(outcome.needsTiebreak).toBeNull();
+    expect(outcome.winners.map((entry) => entry.id)).toEqual(['b1', 'a1']);
+    expect(outcome.losers.map((entry) => entry.id)).toEqual(['a2', 'b2']);
+  });
+
+  it('com três partidas, só o par realmente empatado pausa a chave', () => {
+    // a e b são idênticos (12×10); c tem a mesma diferença com outro placar.
+    const outcome = readRound1(
+      [
+        round1Match('a1', 'a2', 12, 10),
+        round1Match('b1', 'b2', 12, 10),
+        round1Match('c1', 'c2', 14, 12),
+      ],
+      { expectedMatches: 3 },
+    );
+
+    expect(outcome.needsTiebreak).toEqual({ kind: 'losers', teamIds: ['a2', 'b2'] });
+    // c1 fez mais pontos e está na frente dos vencedores, sem disputar nada.
+    expect(outcome.winners[0].id).toBe('c1');
+  });
+
+  it('correção que desfaz o empate por pontos derruba a decisão guardada', () => {
+    const decisao: TiebreakDecision = {
+      kind: 'losers',
+      teamIds: ['a2', 'b2'],
+      winnerTeamId: 'b2',
+      decidedBy: 'p-rafa',
+      decidedAt: '2026-10-26T23:28:00.000Z',
+    };
+
+    // O par-ou-ímpar foi feito com 12×10 nos dois. A correção leva o jogo B a
+    // 14×12: mesma diferença, mas o empate acabou.
+    const outcome = readRound1(
+      [round1Match('a1', 'a2', 12, 10), round1Match('b1', 'b2', 14, 12)],
+      { expectedMatches: 2, decisions: [decisao] },
+    );
+
+    expect(outcome.needsTiebreak).toBeNull();
+    expect(outcome.staleDecisions).toEqual([decisao]);
   });
 });

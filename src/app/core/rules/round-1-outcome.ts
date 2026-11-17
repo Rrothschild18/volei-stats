@@ -4,16 +4,29 @@ import { Match, PendingTiebreak, TiebreakDecision, TiebreakKind } from '../../sh
  * Leitura da rodada 1: quem sobe, quem cai e quando o app não pode decidir
  * (REGRAS.md §9.3).
  *
- * A diferença de pontos é o critério: o vencedor por mais diferença vai direto
- * à final, o perdedor por mais diferença está fora, e o perdedor por menos
- * disputa o par-ou-ímpar do encaixe. Quando duas duplas empatam **na fronteira
- * que decide**, não existe critério: a chave pausa e as duplas resolvem com um
- * par-ou-ímpar, que quem está na quadra registra.
+ * A diferença de pontos é o primeiro critério: o vencedor por mais diferença
+ * vai direto à final, o perdedor por mais diferença está fora, e o perdedor por
+ * menos disputa o par-ou-ímpar do encaixe.
+ *
+ * Empatou a diferença, o segundo critério são os **pontos a favor**: 12 × 10 e
+ * 14 × 12 têm a mesma diferença e não foram o mesmo jogo — quem fez 14 passa na
+ * frente, e quem fez 12 fica acima de quem fez 10. Parar a chave aí seria pedir
+ * sorteio para uma pergunta que o placar já responde (ticket 42).
+ *
+ * Quando a diferença **e** os pontos empatam na fronteira que decide, não
+ * existe critério: a chave pausa e as duplas resolvem com um par-ou-ímpar, que
+ * quem está na quadra registra.
  */
 
 export interface RankedTeam {
   readonly id: string;
   readonly diff: number;
+  /**
+   * Os pontos que ESTA dupla fez na partida. O desempate da diferença olha
+   * para eles antes de parar a chave: 12 × 10 e 14 × 12 têm a mesma diferença,
+   * mas não foram o mesmo jogo (ticket 42).
+   */
+  readonly points: number;
 }
 
 export interface Round1Options {
@@ -80,6 +93,18 @@ function rank(
       return entryB.diff - entryA.diff;
     }
 
+    // Mesma diferença, placares diferentes: decide quem fez mais pontos.
+    //
+    // O sinal é invertido entre as duas listas porque o que "primeiro" quer
+    // dizer também é. Entre vencedores, o primeiro vai direto à final, então
+    // mais pontos vem antes. Entre perdedores, o primeiro é a eliminação
+    // direta — lá, quem fez MENOS pontos é que vem antes.
+    if (entryB.points !== entryA.points) {
+      return kind === 'winners'
+        ? entryB.points - entryA.points
+        : entryA.points - entryB.points;
+    }
+
     // Empate já resolvido na quadra. Entre vencedores, quem ganhou o
     // par-ou-ímpar vai direto à final, então vem primeiro. Entre perdedores é o
     // contrário: quem ganhou disputa o encaixe (a última posição da lista) e
@@ -102,6 +127,11 @@ function rank(
   });
 }
 
+/** A mesma diferença E os mesmos pontos: o placar não separa estas duas. */
+function empatadas(a: RankedTeam, b: RankedTeam): boolean {
+  return a.diff === b.diff && a.points === b.points;
+}
+
 /**
  * Procura empate nas posições que decidem alguma coisa.
  *
@@ -118,12 +148,12 @@ function tiesAt(ranked: readonly RankedTeam[], boundaries: readonly number[]): r
       continue;
     }
 
-    if (ranked[index].diff !== ranked[index + 1].diff) {
+    if (!empatadas(ranked[index], ranked[index + 1])) {
       continue;
     }
 
-    const { diff } = ranked[index];
-    const group = ranked.filter((entry) => entry.diff === diff).map((entry) => entry.id);
+    const aqui = ranked[index];
+    const group = ranked.filter((entry) => empatadas(entry, aqui)).map((entry) => entry.id);
     if (!groups.some((known) => sameSet(known, group))) {
       groups.push(group);
     }
@@ -147,10 +177,18 @@ export function readRound1(round1: readonly Match[], options: Round1Options = {}
 
   const winnerEntries = round1
     .filter((match) => match.winnerId)
-    .map((match) => ({ id: match.winnerId!, diff: match.pointDifference }));
+    .map((match) => ({
+      id: match.winnerId!,
+      diff: match.pointDifference,
+      points: Math.max(match.scoreA, match.scoreB),
+    }));
   const loserEntries = round1
     .filter((match) => match.loserId)
-    .map((match) => ({ id: match.loserId!, diff: match.pointDifference }));
+    .map((match) => ({
+      id: match.loserId!,
+      diff: match.pointDifference,
+      points: Math.min(match.scoreA, match.scoreB),
+    }));
 
   const winners = rank(winnerEntries, decisions, 'winners');
   const losers = rank(loserEntries, decisions, 'losers');
