@@ -5,7 +5,7 @@ campeonato concluído** e serve de base para a imagem de parabéns do ticket 03.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## O conteúdo, nesta ordem
 
@@ -48,11 +48,48 @@ com função de janela; no cliente, varrendo `player_match_results` já ordenado
 - Com uma partida só na sessão, os itens 6 e 7 não têm graça: esconda o cartão
   em vez de mostrar "média de 1 partida".
 
-- [ ] Os 8 itens, calculados por sessão
-- [ ] Recalcula quando um campeonato é concluído
-- [ ] Duração rotulada como estimativa
-- [ ] Cartões sem dado suficiente não aparecem
-- [ ] Teste de unidade da sequência da sessão (empate, uma partida, zero)
+- [x] Os 8 itens, calculados por sessão
+- [x] Recalcula quando um campeonato é concluído
+- [x] Duração rotulada como estimativa
+- [x] Cartões sem dado suficiente não aparecem
+- [x] Teste de unidade da sequência da sessão (empate, uma partida, zero)
+- [x] e2e: os destaques aparecem na sessão de hoje do demo
+
+## Comments
+
+### Onde mora
+
+`core/rules/session-summary.ts` (regra pura, com teste) +
+`features/group/tournaments/session-summary.component.ts`, que vira a seção
+**04 · RESUMO DA NOITE** na tela da sessão, depois dos campeonatos do dia. A
+tela não precisou carregar nada novo: o `SessionStore` já tinha campeonatos,
+partidas e jogadores.
+
+### Empate não é desfeito
+
+Quem empata aparece junto ("BIA E RAFA"). Desempatar por um critério inventado
+seria escolher um vencedor que a quadra não escolheu — e numa tela cuja função
+é parabenizar, isso é o contrário do objetivo. (A pergunta aberta do spec
+continua aberta: se o dono quiser desempate, é trocar `lideres()`.)
+
+### A duração é estimativa, e a tela diz isso
+
+`played_at` é quando o placar foi **lançado**, não quando a partida começou, e o
+intervalo entre dois lançamentos inclui conversa, água e troca de quadra. Só
+conta intervalo dentro do mesmo campeonato — entre campeonatos o buraco é o
+sorteio seguinte. No cenário do demo dá ≈ 9 min por partida. O número exato só
+vem com o ticket 08.
+
+### Campeonato em andamento não entra
+
+`finalStandings` só existe em campeonato concluído: o que está rolando não tem
+campeão, e anunciar um seria anunciar o que ainda pode mudar. O resumo inteiro
+some quando a noite ainda não tem partida lançada.
+
+### Os três extras que eu havia sugerido ficaram fora
+
+Pontos marcados na noite, dupla invicta e "primeira vitória de X" — o dono
+cortou. A regra não os calcula.
 
 ## Perguntas abertas
 

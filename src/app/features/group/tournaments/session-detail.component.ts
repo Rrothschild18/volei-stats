@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { CurrentGroupStore } from '../../../core/stores/current-group.store';
 import { SessionStore } from '../../../core/stores/session.store';
 import { formatShortDate, todayDateString } from '../../../shared/utils/date.util';
+import { SessionSummaryComponent } from './session-summary.component';
 import {
   ActionBarComponent,
   BlueprintComponent,
@@ -28,6 +29,7 @@ import {
     InnerHeaderComponent,
     NavigatesDirective,
     SectionBandComponent,
+    SessionSummaryComponent,
     SkeletonComponent,
   ],
   template: `
@@ -134,6 +136,17 @@ import {
             }
           </app-blueprint>
         </section>
+
+        <!--
+          O resumo é o último: ele fala da noite inteira, e só tem o que dizer
+          depois que os campeonatos do dia já estão na tela. Sem partida
+          lançada ele some sozinho.
+        -->
+        <app-session-summary
+          [tournaments]="store.tournaments()"
+          [matches]="store.matches()"
+          [playersById]="store.playersById()"
+        />
       }
     </div>
 
